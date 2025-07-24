@@ -1,0 +1,145 @@
+{
+  "symbol": "ANZ.AX",
+  "analysis_period_days": 14,
+  "data_points": 110,
+  "correlations": {
+    "sentiment_vs_price": {
+      "pearson": -0.10558819435098546,
+      "pearson_p_value": 0.2722743935221949,
+      "spearman": -0.08587451409593885,
+      "spearman_p_value": 0.37238216343714525,
+      "significance": "not_significant"
+    },
+    "sentiment_vs_volatility": {
+      "pearson": 0.13317698971489836,
+      "interpretation": "very_weak_positive"
+    },
+    "sentiment_vs_volume": {
+      "pearson": -0.4551586465941214,
+      "interpretation": "moderate_negative"
+    },
+    "lagged_correlations": {
+      "1_day": -0.07319152731888337,
+      "2_day": 0.022045276159218207,
+      "3_day": 0.12383474702600869
+    },
+    "data_quality": {
+      "total_points": 110,
+      "valid_points": 110,
+      "data_completeness": 1.0
+    }
+  },
+  "event_impact": {
+    "event_type_impacts": {
+      "regulatory_news": {
+        "avg_price_change_event_days": 0.2483012438325335,
+        "avg_price_change_non_event_days": -0.06904665965240145,
+        "difference": 0.3173479034849349,
+        "event_count": 102,
+        "volatility_event_days": 0.7528363562427305,
+        "volatility_non_event_days": 0.4319183441275615
+      },
+      "product_launch": {
+        "avg_price_change_event_days": 0.05723211369617213,
+        "avg_price_change_non_event_days": 0.41956193893382454,
+        "difference": -0.3623298252376524,
+        "event_count": 59,
+        "volatility_event_days": 0.676428439655467,
+        "volatility_non_event_days": 0.7600611278031711
+      },
+      "partnership_deal": {
+        "avg_price_change_event_days": -0.10101297347907294,
+        "avg_price_change_non_event_days": 0.43459569333282605,
+        "difference": -0.535608666811899,
+        "event_count": 43,
+        "volatility_event_days": 0.6452852925361283,
+        "volatility_non_event_days": 0.7189423176618056
+      },
+      "earnings_report": {
+        "avg_price_change_event_days": 0.22292658855808192,
+        "avg_price_change_non_event_days": 0.2734123590201215,
+        "difference": -0.050485770462039586,
+        "event_count": 105,
+        "volatility_event_days": 0.7429399104027948,
+        "volatility_non_event_days": 0.6451913128487332
+      },
+      "management_change": {
+        "avg_price_change_event_days": 0.2248517224092303,
+        "avg_price_change_non_event_days": 0.2655158510931045,
+        "difference": -0.0406641286838742,
+        "event_count": 109,
+        "volatility_event_days": 0.7422236303415163,
+        "volatility_non_event_days": 0.0
+      },
+      "scandal_investigation": {
+        "avg_price_change_event_days": 0.15982028561474257,
+        "avg_price_change_non_event_days": 0.23887657326394618,
+        "difference": -0.07905628764920361,
+        "event_count": 19,
+        "volatility_event_days": 0.49480079934012905,
+        "volatility_non_event_days": 0.7795414807469675
+      },
+      "rating_change": {
+        "avg_price_change_event_days": 0.1943883306775439,
+        "avg_price_change_non_event_days": 0.2266896375267761,
+        "difference": -0.032301306849232186,
+        "event_count": 5,
+        "volatility_event_days": 0.6169692292788093,
+        "volatility_non_event_days": 0.7441265806850363
+      }
+    },
+    "summary": {
+      "highest_impact_positive": [
+        "regulatory_news",
+        0.3173479034849349
+      ],
+      "highest_impact_negative": [
+        "partnership_deal",
+        -0.535608666811899
+      ],
+      "most_frequent_event": [
+        "management_change",
+        109
+      ],
+      "average_impact": -0.11187115460128087
+    }
+  },
+  "predictive_metrics": {
+    "prediction_accuracy": 0.7454545454545455,
+    "confusion_matrix": {
+      "positive_sentiment": {
+        "up": 0,
+        "down": 0,
+        "flat": 0
+      },
+      "negative_sentiment": {
+        "up": 0,
+        "down": 0,
+        "flat": 0
+      },
+      "neutral_sentiment": {
+        "up": 28,
+        "down": 0,
+        "flat": 82
+      }
+    },
+    "total_predictions": 110,
+    "correct_predictions": 82,
+    "sentiment_distribution": {
+      "positive": 0,
+      "negative": 0,
+      "neutral": 110
+    },
+    "price_distribution": {
+      "up": 28,
+      "down": 0,
+      "flat": 82
+    }
+  },
+  "summary": "Sentiment-price correlation: -0.106 (not_significant). Weak correlation suggests other factors dominate price movements. ",
+  "recommendations": [
+    "No significant sentiment-price correlation. Focus on technical/fundamental analysis."
+  ],
+  "analysis_timestamp": "2025-07-18T07:49:59.417910",
+  "analysis_version": "1.0"
+}

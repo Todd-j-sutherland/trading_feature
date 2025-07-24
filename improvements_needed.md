@@ -1,0 +1,4 @@
+- display the ML Trading Score for each bank
+- how to run the machine learning score before making a trade
+- setup alpaca for trading simulation using machine learning
+- 

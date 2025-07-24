@@ -1,0 +1,180 @@
+{
+  "symbol": "ANZ.AX",
+  "timestamp": "2025-07-18T07:49:58.786678",
+  "news_count": 25,
+  "sentiment_scores": {
+    "average_sentiment": -0.021687946127946126,
+    "positive_count": 1,
+    "negative_count": 2,
+    "neutral_count": 12,
+    "sentiment_distribution": {
+      "very_positive": 0,
+      "positive": 1,
+      "neutral": 12,
+      "negative": 2,
+      "very_negative": 0
+    },
+    "strongest_sentiment": -0.28595
+  },
+  "reddit_sentiment": {
+    "posts_analyzed": 21,
+    "average_sentiment": 0.14180502685139276,
+    "bullish_count": 11,
+    "bearish_count": 0,
+    "neutral_count": 10,
+    "top_posts": [
+      {
+        "title": "Trump to open 401k accounts to private market",
+        "score": 2389,
+        "sentiment": 0.08755411255411255,
+        "category": "neutral",
+        "subreddit": "investing",
+        "url": "https://reddit.com/r/investing/comments/1m1vt52/trump_to_open_401k_accounts_to_private_market/"
+      },
+      {
+        "title": "Trump to open 401k accounts to private market",
+        "score": 2387,
+        "sentiment": 0.08755411255411255,
+        "category": "neutral",
+        "subreddit": "investing",
+        "url": "https://reddit.com/r/investing/comments/1m1vt52/trump_to_open_401k_accounts_to_private_market/"
+      },
+      {
+        "title": "Profit guidance and m&a activity yesterday ORI, IKE, AUE, SND, HZR, ORN, PTX, CC9, IVX, X2M, MIO, RBR, RIE",
+        "score": 20,
+        "sentiment": 0.087995472995473,
+        "category": "neutral",
+        "subreddit": "ASX_Bets",
+        "url": "https://reddit.com/r/ASX_Bets/comments/1m0z023/profit_guidance_and_ma_activity_yesterday_ori_ike/"
+      },
+      {
+        "title": "Are there any downsides to using CMC as a brokerage?",
+        "score": 13,
+        "sentiment": 0.1,
+        "category": "neutral",
+        "subreddit": "fiaustralia",
+        "url": "https://reddit.com/r/fiaustralia/comments/1m21ohx/are_there_any_downsides_to_using_cmc_as_a/"
+      },
+      {
+        "title": "ANZ plus bonus interest question",
+        "score": 2,
+        "sentiment": 0.0035714285714285687,
+        "category": "neutral",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1lyj36q/anz_plus_bonus_interest_question/"
+      }
+    ],
+    "sentiment_distribution": {
+      "bullish": 52.38095238095239,
+      "bearish": 0.0,
+      "neutral": 47.61904761904761
+    },
+    "subreddit_breakdown": {
+      "ASX_Bets": {
+        "count": 1,
+        "avg_sentiment": 0.087995472995473
+      },
+      "AusFinance": {
+        "count": 12,
+        "avg_sentiment": 0.12214462081128748
+      },
+      "fiaustralia": {
+        "count": 5,
+        "avg_sentiment": 0.2
+      },
+      "investing": {
+        "count": 3,
+        "avg_sentiment": 0.1413915470494418
+      }
+    }
+  },
+  "significant_events": {
+    "dividend_announcement": false,
+    "earnings_report": true,
+    "management_change": true,
+    "regulatory_news": true,
+    "merger_acquisition": false,
+    "scandal_investigation": false,
+    "rating_change": false,
+    "capital_raising": false,
+    "branch_closure": false,
+    "product_launch": true,
+    "partnership_deal": false,
+    "legal_action": false,
+    "events_detected": [
+      {
+        "type": "earnings_report",
+        "headline": "ANZ 2025 Half Year Results \u2013 Chief Executive Officer Shayne Elliott Speaking Notes",
+        "date": "2025-07-18T07:49:10.938164",
+        "source": "Google News",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "management_change",
+        "headline": "ANZ 2025 Half Year Results \u2013 Chief Executive Officer Shayne Elliott Speaking Notes",
+        "date": "2025-07-18T07:49:10.938164",
+        "source": "Google News",
+        "relevance": "medium",
+        "sentiment_impact": -0.05
+      },
+      {
+        "type": "product_launch",
+        "headline": "ANZ To Introduce Password-less Web Banking For ANZ Plus",
+        "date": "2025-07-18T07:49:10.938439",
+        "source": "Google News",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "regulatory_news",
+        "headline": "BRIEF-Australia and New Zealand Banking says Kevin Corbally appointed group general manager internal audit",
+        "date": "2025-07-18T07:49:20.223482",
+        "source": "Investing.com Australia",
+        "relevance": "high",
+        "sentiment_impact": 0.0
+      },
+      {
+        "type": "management_change",
+        "headline": "BRIEF-ANZ says Ian Macfarlane to retire as non-executive director",
+        "date": "2025-07-18T07:49:20.223602",
+        "source": "Investing.com Australia",
+        "relevance": "high",
+        "sentiment_impact": -0.05
+      },
+      {
+        "type": "regulatory_news",
+        "headline": "BRIEF-Australia and New Zealand Banking says Kevin Corbally appointed group general manager internal audit",
+        "date": "2025-07-18T07:49:32.020361",
+        "source": "Investing.com Australia",
+        "relevance": "high",
+        "sentiment_impact": 0.0
+      },
+      {
+        "type": "management_change",
+        "headline": "BRIEF-ANZ says Ian Macfarlane to retire as non-executive director",
+        "date": "2025-07-18T07:49:32.020540",
+        "source": "Investing.com Australia",
+        "relevance": "high",
+        "sentiment_impact": -0.05
+      }
+    ]
+  },
+  "overall_sentiment": 0.03255556378081723,
+  "sentiment_components": {
+    "news": -0.003900284589766878,
+    "reddit": 0.028283727426490327,
+    "events": 0.010697983651226158,
+    "volume": -0.0,
+    "momentum": 0.0,
+    "ml_trading": 0.0
+  },
+  "confidence": 0.76,
+  "recent_headlines": [
+    "",
+    "",
+    "",
+    "",
+    ""
+  ]
+}

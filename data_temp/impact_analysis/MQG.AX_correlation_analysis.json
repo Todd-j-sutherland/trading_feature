@@ -1,0 +1,127 @@
+{
+  "symbol": "MQG.AX",
+  "analysis_period_days": 14,
+  "data_points": 87,
+  "correlations": {
+    "sentiment_vs_price": {
+      "pearson": -0.38152426862130057,
+      "pearson_p_value": 0.0002662640032143801,
+      "spearman": -0.5851465362858285,
+      "spearman_p_value": 2.6487759632979077e-09,
+      "significance": "significant"
+    },
+    "sentiment_vs_volatility": {
+      "pearson": 0.09168996571819535,
+      "interpretation": "very_weak_positive"
+    },
+    "sentiment_vs_volume": {
+      "pearson": -0.1499817124484077,
+      "interpretation": "very_weak_negative"
+    },
+    "lagged_correlations": {
+      "1_day": -0.3291013412581078,
+      "2_day": -0.2640069613705482,
+      "3_day": -0.22833873761479134
+    },
+    "data_quality": {
+      "total_points": 87,
+      "valid_points": 87,
+      "data_completeness": 1.0
+    }
+  },
+  "event_impact": {
+    "event_type_impacts": {
+      "product_launch": {
+        "avg_price_change_event_days": 1.405459430363363,
+        "avg_price_change_non_event_days": 0.30911429686803754,
+        "difference": 1.0963451334953254,
+        "event_count": 9,
+        "volatility_event_days": 0.0,
+        "volatility_non_event_days": 0.934640874986038
+      },
+      "dividend_announcement": {
+        "avg_price_change_event_days": 0.40688785347876244,
+        "avg_price_change_non_event_days": 0.4299523751113873,
+        "difference": -0.023064521632624846,
+        "event_count": 28,
+        "volatility_event_days": 0.5091032752879477,
+        "volatility_non_event_days": 1.093653033868529
+      },
+      "partnership_deal": {
+        "avg_price_change_event_days": 0.5250659386802908,
+        "avg_price_change_non_event_days": 0.10027133695609566,
+        "difference": 0.42479460172419514,
+        "event_count": 66,
+        "volatility_event_days": 0.8771499006856569,
+        "volatility_non_event_days": 1.0730735336080643
+      },
+      "scandal_investigation": {
+        "avg_price_change_event_days": 0.0019397608135627632,
+        "avg_price_change_non_event_days": 0.44817501493791945,
+        "difference": -0.44623525412435666,
+        "event_count": 5,
+        "volatility_event_days": 0.1797803508864125,
+        "volatility_non_event_days": 0.9673690726850592
+      },
+      "rating_change": {
+        "avg_price_change_event_days": 0.3935076731176281,
+        "avg_price_change_non_event_days": 0.43358517260562096,
+        "difference": -0.040077499487992885,
+        "event_count": 24,
+        "volatility_event_days": 1.0731709616534972,
+        "volatility_non_event_days": 0.8923594309497639
+      }
+    },
+    "summary": {
+      "highest_impact_positive": [
+        "product_launch",
+        1.0963451334953254
+      ],
+      "highest_impact_negative": [
+        "scandal_investigation",
+        -0.44623525412435666
+      ],
+      "most_frequent_event": [
+        "partnership_deal",
+        66
+      ],
+      "average_impact": 0.20235249199490926
+    }
+  },
+  "predictive_metrics": {
+    "prediction_accuracy": 0.632183908045977,
+    "confusion_matrix": {
+      "positive_sentiment": {
+        "up": 0,
+        "down": 0,
+        "flat": 0
+      },
+      "negative_sentiment": {
+        "up": 0,
+        "down": 0,
+        "flat": 0
+      },
+      "neutral_sentiment": {
+        "up": 29,
+        "down": 3,
+        "flat": 55
+      }
+    },
+    "total_predictions": 87,
+    "correct_predictions": 55,
+    "sentiment_distribution": {
+      "positive": 0,
+      "negative": 0,
+      "neutral": 87
+    },
+    "price_distribution": {
+      "up": 29,
+      "down": 3,
+      "flat": 55
+    }
+  },
+  "summary": "Sentiment-price correlation: -0.382 (significant). Strong correlation suggests news sentiment is a good predictor. High-impact events: product_launch. ",
+  "recommendations": [],
+  "analysis_timestamp": "2025-07-18T07:52:10.351865",
+  "analysis_version": "1.0"
+}

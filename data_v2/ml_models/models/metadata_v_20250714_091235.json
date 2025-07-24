@@ -1,0 +1,22 @@
+{
+  "version": "v_20250714_091235",
+  "model_type": "logistic_regression",
+  "training_date": "20250714_091235",
+  "performance": {
+    "avg_cv_score": 0.6060606060606061,
+    "std_cv_score": 0.3847410969237304
+  },
+  "feature_columns": [
+    "sentiment_score",
+    "confidence",
+    "news_count",
+    "reddit_sentiment",
+    "event_score",
+    "sentiment_confidence_interaction",
+    "news_volume_category",
+    "hour",
+    "day_of_week",
+    "is_market_hours"
+  ],
+  "model_path": "data/ml_models/models/logistic_regression_v_20250714_091235.pkl"
+}

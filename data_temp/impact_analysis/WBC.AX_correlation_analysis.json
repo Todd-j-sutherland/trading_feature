@@ -1,0 +1,127 @@
+{
+  "symbol": "WBC.AX",
+  "analysis_period_days": 14,
+  "data_points": 111,
+  "correlations": {
+    "sentiment_vs_price": {
+      "pearson": -0.20740719712147834,
+      "pearson_p_value": 0.028944305491082845,
+      "spearman": -0.3514093942408137,
+      "spearman_p_value": 0.0001557179732695389,
+      "significance": "significant"
+    },
+    "sentiment_vs_volatility": {
+      "pearson": -0.3012329098331987,
+      "interpretation": "weak_negative"
+    },
+    "sentiment_vs_volume": {
+      "pearson": -0.006436578586632345,
+      "interpretation": "very_weak_negative"
+    },
+    "lagged_correlations": {
+      "1_day": -0.19642636840211763,
+      "2_day": -0.23304868039172597,
+      "3_day": -0.2769400176707267
+    },
+    "data_quality": {
+      "total_points": 111,
+      "valid_points": 111,
+      "data_completeness": 1.0
+    }
+  },
+  "event_impact": {
+    "event_type_impacts": {
+      "regulatory_news": {
+        "avg_price_change_event_days": -0.027983814168629828,
+        "avg_price_change_non_event_days": 0.1493065575370582,
+        "difference": -0.17729037170568804,
+        "event_count": 3,
+        "volatility_event_days": 0.5816591792318858,
+        "volatility_non_event_days": 1.024197284742712
+      },
+      "dividend_announcement": {
+        "avg_price_change_event_days": -0.08891569191915993,
+        "avg_price_change_non_event_days": 0.16511174508596896,
+        "difference": -0.25402743700512886,
+        "event_count": 9,
+        "volatility_event_days": 0.33372716333355534,
+        "volatility_non_event_days": 1.051891542355613
+      },
+      "earnings_report": {
+        "avg_price_change_event_days": -0.11746446715970217,
+        "avg_price_change_non_event_days": 0.18232638465703324,
+        "difference": -0.2997908518167354,
+        "event_count": 14,
+        "volatility_event_days": 0.6811342719933021,
+        "volatility_non_event_days": 1.049309133665021
+      },
+      "management_change": {
+        "avg_price_change_event_days": 0.1682568806946071,
+        "avg_price_change_non_event_days": -0.20822268867753482,
+        "difference": 0.3764795693721419,
+        "event_count": 104,
+        "volatility_event_days": 1.043155698657696,
+        "volatility_non_event_days": 0.2059513757631353
+      },
+      "rating_change": {
+        "avg_price_change_event_days": -0.2727957340521144,
+        "avg_price_change_non_event_days": 0.176927404309838,
+        "difference": -0.4497231383619524,
+        "event_count": 8,
+        "volatility_event_days": 0.8378818500839492,
+        "volatility_non_event_days": 1.020559601379959
+      }
+    },
+    "summary": {
+      "highest_impact_positive": [
+        "management_change",
+        0.3764795693721419
+      ],
+      "highest_impact_negative": [
+        "rating_change",
+        -0.4497231383619524
+      ],
+      "most_frequent_event": [
+        "management_change",
+        104
+      ],
+      "average_impact": -0.16087044590347258
+    }
+  },
+  "predictive_metrics": {
+    "prediction_accuracy": 0.6036036036036037,
+    "confusion_matrix": {
+      "positive_sentiment": {
+        "up": 0,
+        "down": 0,
+        "flat": 0
+      },
+      "negative_sentiment": {
+        "up": 0,
+        "down": 0,
+        "flat": 0
+      },
+      "neutral_sentiment": {
+        "up": 28,
+        "down": 16,
+        "flat": 67
+      }
+    },
+    "total_predictions": 111,
+    "correct_predictions": 67,
+    "sentiment_distribution": {
+      "positive": 0,
+      "negative": 0,
+      "neutral": 111
+    },
+    "price_distribution": {
+      "up": 28,
+      "down": 16,
+      "flat": 67
+    }
+  },
+  "summary": "Sentiment-price correlation: -0.207 (significant). Weak correlation suggests other factors dominate price movements. ",
+  "recommendations": [],
+  "analysis_timestamp": "2025-07-18T07:48:54.310794",
+  "analysis_version": "1.0"
+}

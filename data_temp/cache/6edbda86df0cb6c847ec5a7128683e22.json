@@ -1,0 +1,102 @@
+{
+  "symbol": "QBE.AX",
+  "timestamp": "2025-07-18T07:54:24.856229",
+  "news_count": 22,
+  "sentiment_scores": {
+    "average_sentiment": -0.07760138888888889,
+    "positive_count": 1,
+    "negative_count": 6,
+    "neutral_count": 5,
+    "sentiment_distribution": {
+      "very_positive": 0,
+      "positive": 1,
+      "neutral": 5,
+      "negative": 6,
+      "very_negative": 0
+    },
+    "strongest_sentiment": -0.2997
+  },
+  "reddit_sentiment": {
+    "posts_analyzed": 0,
+    "average_sentiment": 0,
+    "bullish_count": 0,
+    "bearish_count": 0,
+    "neutral_count": 0,
+    "top_posts": [],
+    "sentiment_distribution": {},
+    "subreddit_breakdown": {}
+  },
+  "significant_events": {
+    "dividend_announcement": false,
+    "earnings_report": false,
+    "management_change": true,
+    "regulatory_news": false,
+    "merger_acquisition": true,
+    "scandal_investigation": false,
+    "rating_change": true,
+    "capital_raising": false,
+    "branch_closure": false,
+    "product_launch": false,
+    "partnership_deal": false,
+    "legal_action": false,
+    "events_detected": [
+      {
+        "type": "management_change",
+        "headline": "QBE chairman wants states to cut insurance taxes for premium relief",
+        "date": "2025-07-18T07:53:35.649890",
+        "source": "Google News",
+        "relevance": "medium",
+        "sentiment_impact": -0.05
+      },
+      {
+        "type": "rating_change",
+        "headline": "Fitch Ratings Assigns 'BBB' Rating to QBE's $500 Million Tier 2 Subordinated Notes",
+        "date": "2025-07-18T07:53:35.650068",
+        "source": "Google News",
+        "relevance": "medium",
+        "sentiment_impact": 0.0
+      },
+      {
+        "type": "merger_acquisition",
+        "headline": "QBE denies Allianz takeover bid",
+        "date": "2025-07-18T07:53:35.650279",
+        "source": "Google News",
+        "relevance": "medium",
+        "sentiment_impact": 0.0
+      },
+      {
+        "type": "management_change",
+        "headline": "BRIEF-QBE Insurance Group Says Sue Houghton Appointed CEO, Australia & Pacific",
+        "date": "2025-07-18T07:53:45.260525",
+        "source": "Investing.com Australia",
+        "relevance": "high",
+        "sentiment_impact": 0.05
+      },
+      {
+        "type": "management_change",
+        "headline": "BRIEF-QBE Insurance Group Says Sue Houghton Appointed CEO, Australia & Pacific",
+        "date": "2025-07-18T07:53:57.826370",
+        "source": "Investing.com Australia",
+        "relevance": "high",
+        "sentiment_impact": 0.05
+      }
+    ]
+  },
+  "overall_sentiment": -0.017900195100040667,
+  "sentiment_components": {
+    "news": -0.017525766965037104,
+    "reddit": 0.0,
+    "events": -0.0027462546658130298,
+    "volume": -0.0,
+    "momentum": 0.0,
+    "ml_trading": 0.0
+  },
+  "confidence": 0.6100000000000001,
+  "recent_headlines": [
+    "",
+    "",
+    "",
+    "",
+    ""
+  ]
+}

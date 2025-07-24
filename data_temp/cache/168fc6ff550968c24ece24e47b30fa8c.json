@@ -1,0 +1,268 @@
+{
+  "symbol": "NAB.AX",
+  "timestamp": "2025-07-18T07:51:05.093020",
+  "news_count": 22,
+  "sentiment_scores": {
+    "average_sentiment": 0.19645301846900928,
+    "positive_count": 6,
+    "negative_count": 4,
+    "neutral_count": 2,
+    "sentiment_distribution": {
+      "very_positive": 5,
+      "positive": 1,
+      "neutral": 2,
+      "negative": 4,
+      "very_negative": 0
+    },
+    "strongest_sentiment": 0.5731311608144941
+  },
+  "reddit_sentiment": {
+    "posts_analyzed": 29,
+    "average_sentiment": 0.13066589663090677,
+    "bullish_count": 15,
+    "bearish_count": 2,
+    "neutral_count": 12,
+    "top_posts": [
+      {
+        "title": "Pensioner robbed of $1,338 is taking NAB to court for millions",
+        "score": 487,
+        "sentiment": 0.0,
+        "category": "neutral",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1lz7k5b/pensioner_robbed_of_1338_is_taking_nab_to_court/"
+      },
+      {
+        "title": "Ubank dropping the top ongoing bonus rate on its Save account to 4.60% p.a.",
+        "score": 261,
+        "sentiment": 0.5,
+        "category": "bullish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m01gy3/ubank_dropping_the_top_ongoing_bonus_rate_on_its/"
+      },
+      {
+        "title": "Cutting income taxes, lifting the GST, wealth taxes: CBA\u2019s pitch to Chalmers on reform",
+        "score": 251,
+        "sentiment": -0.021333333333333333,
+        "category": "neutral",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1lzi0wy/cutting_income_taxes_lifting_the_gst_wealth_taxes/"
+      },
+      {
+        "title": "Is it just me, or are Australian home loans intentionally designed to confuse the hell out of us?",
+        "score": 248,
+        "sentiment": 0.24285714285714285,
+        "category": "bullish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m0g0j7/is_it_just_me_or_are_australian_home_loans/"
+      },
+      {
+        "title": "UBank changing their interest structure",
+        "score": 196,
+        "sentiment": 0.08019480519480522,
+        "category": "neutral",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m05w33/ubank_changing_their_interest_structure/"
+      }
+    ],
+    "sentiment_distribution": {
+      "bullish": 51.724137931034484,
+      "bearish": 6.896551724137931,
+      "neutral": 41.37931034482759
+    },
+    "subreddit_breakdown": {
+      "ASX_Bets": {
+        "count": 2,
+        "avg_sentiment": 0.087995472995473
+      },
+      "AusFinance": {
+        "count": 21,
+        "avg_sentiment": 0.14275283278294482
+      },
+      "fiaustralia": {
+        "count": 5,
+        "avg_sentiment": 0.1231021135727018
+      },
+      "ASX": {
+        "count": 1,
+        "avg_sentiment": 0.0
+      }
+    }
+  },
+  "significant_events": {
+    "dividend_announcement": true,
+    "earnings_report": true,
+    "management_change": false,
+    "regulatory_news": true,
+    "merger_acquisition": true,
+    "scandal_investigation": false,
+    "rating_change": true,
+    "capital_raising": true,
+    "branch_closure": false,
+    "product_launch": true,
+    "partnership_deal": true,
+    "legal_action": false,
+    "events_detected": [
+      {
+        "type": "dividend_announcement",
+        "headline": "4 Stocks Outperforming the Market in the ASX 300 This Week",
+        "date": "2025-07-11T08:51:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "merger_acquisition",
+        "headline": "4 Stocks Outperforming the Market in the ASX 300 This Week",
+        "date": "2025-07-11T08:51:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.0
+      },
+      {
+        "type": "rating_change",
+        "headline": "4 Stocks Outperforming the Market in the ASX 300 This Week",
+        "date": "2025-07-11T08:51:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.15
+      },
+      {
+        "type": "product_launch",
+        "headline": "4 Stocks Outperforming the Market in the ASX 300 This Week",
+        "date": "2025-07-11T08:51:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "capital_raising",
+        "headline": "Deep Yellow (ASX:DYL) Expands Capital Base with New Share Quotation in ASX 300 Milestone",
+        "date": "2025-07-11T08:45:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.0
+      },
+      {
+        "type": "earnings_report",
+        "headline": "Rio Tinto (ASX:RIO): Key Financial Metrics Behind This Top ASX 100 Mining Giant",
+        "date": "2025-07-11T08:34:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "capital_raising",
+        "headline": "Rio Tinto (ASX:RIO): Key Financial Metrics Behind This Top ASX 100 Mining Giant",
+        "date": "2025-07-11T08:34:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.0
+      },
+      {
+        "type": "earnings_report",
+        "headline": "HUB24 (ASX:HUB): Profitable Growth Story from the ASX 100 Worth Watching",
+        "date": "2025-07-11T08:12:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "regulatory_news",
+        "headline": "HUB24 (ASX:HUB): Profitable Growth Story from the ASX 100 Worth Watching",
+        "date": "2025-07-11T08:12:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.0
+      },
+      {
+        "type": "rating_change",
+        "headline": "HUB24 (ASX:HUB): Profitable Growth Story from the ASX 100 Worth Watching",
+        "date": "2025-07-11T08:12:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.0
+      },
+      {
+        "type": "capital_raising",
+        "headline": "HUB24 (ASX:HUB): Profitable Growth Story from the ASX 100 Worth Watching",
+        "date": "2025-07-11T08:12:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.0
+      },
+      {
+        "type": "earnings_report",
+        "headline": "Why McMillan Shakespeare (ASX:MMS) Is Standing Out in the ASX 300 Today",
+        "date": "2025-07-11T07:52:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "rating_change",
+        "headline": "Why McMillan Shakespeare (ASX:MMS) Is Standing Out in the ASX 300 Today",
+        "date": "2025-07-11T07:52:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.0
+      },
+      {
+        "type": "product_launch",
+        "headline": "Why McMillan Shakespeare (ASX:MMS) Is Standing Out in the ASX 300 Today",
+        "date": "2025-07-11T07:52:00",
+        "source": "kalkine_media",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "product_launch",
+        "headline": "BRIEF-NAB Launches First No Interest Credit Card",
+        "date": "2025-07-18T07:50:23.532911",
+        "source": "Investing.com Australia",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "partnership_deal",
+        "headline": "BRIEF-NAB To No Longer Deal With Unlicensed, Fee-Charging Debt Management Providers",
+        "date": "2025-07-18T07:50:23.532996",
+        "source": "Investing.com Australia",
+        "relevance": "low",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "product_launch",
+        "headline": "BRIEF-NAB Launches First No Interest Credit Card",
+        "date": "2025-07-18T07:50:36.594763",
+        "source": "Investing.com Australia",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "partnership_deal",
+        "headline": "BRIEF-NAB To No Longer Deal With Unlicensed, Fee-Charging Debt Management Providers",
+        "date": "2025-07-18T07:50:36.594870",
+        "source": "Investing.com Australia",
+        "relevance": "low",
+        "sentiment_impact": 0.1
+      }
+    ]
+  },
+  "overall_sentiment": 0.045150798698760826,
+  "sentiment_components": {
+    "news": 0.035329425664726466,
+    "reddit": 0.026061971753085493,
+    "events": -0.012737519509664513,
+    "volume": 0.0,
+    "momentum": 0.0,
+    "ml_trading": 0.0
+  },
+  "confidence": 0.76,
+  "recent_headlines": [
+    "4 Stocks Outperforming the Market in the ASX 300 This Week",
+    "Deep Yellow (ASX:DYL) Expands Capital Base with New Share Quotation in ASX 300 Milestone",
+    "Rio Tinto (ASX:RIO): Key Financial Metrics Behind This Top ASX 100 Mining Giant",
+    "HUB24 (ASX:HUB): Profitable Growth Story from the ASX 100 Worth Watching",
+    "Institutional Focus on Sims Limited (ASX:SGM) Boosts Visibility in ASX 300 Today"
+  ]
+}

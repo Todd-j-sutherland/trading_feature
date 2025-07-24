@@ -1,0 +1,86 @@
+[
+  {
+    "timestamp": "2025-07-19T03:16:31.990363",
+    "symbol": "CBA.AX",
+    "sentiment_score": 0.017404977388459395,
+    "confidence": 0.71
+  },
+  {
+    "timestamp": "2025-07-19T03:17:29.274773",
+    "symbol": "WBC.AX",
+    "sentiment_score": 0.005831610986897166,
+    "confidence": 0.76
+  },
+  {
+    "timestamp": "2025-07-19T03:18:27.570892",
+    "symbol": "ANZ.AX",
+    "sentiment_score": 0.030513678715889492,
+    "confidence": 0.76
+  },
+  {
+    "timestamp": "2025-07-19T03:19:27.201382",
+    "symbol": "NAB.AX",
+    "sentiment_score": 0.014647412858340135,
+    "confidence": 0.76
+  },
+  {
+    "timestamp": "2025-07-19T03:20:30.462835",
+    "symbol": "MQG.AX",
+    "sentiment_score": 0.0736196720911528,
+    "confidence": 0.76
+  },
+  {
+    "timestamp": "2025-07-19T03:21:28.397678",
+    "symbol": "SUN.AX",
+    "sentiment_score": 0.03415453969284122,
+    "confidence": 0.6400000000000001
+  },
+  {
+    "timestamp": "2025-07-19T03:22:29.540132",
+    "symbol": "QBE.AX",
+    "sentiment_score": -0.017900195100040667,
+    "confidence": 0.6100000000000001
+  },
+  {
+    "timestamp": "2025-07-19T07:11:26.500167",
+    "symbol": "CBA.AX",
+    "sentiment_score": 0.020403700652305103,
+    "confidence": 0.71
+  },
+  {
+    "timestamp": "2025-07-19T07:12:25.975810",
+    "symbol": "WBC.AX",
+    "sentiment_score": 0.015189155037760015,
+    "confidence": 0.76
+  },
+  {
+    "timestamp": "2025-07-19T07:13:26.666339",
+    "symbol": "ANZ.AX",
+    "sentiment_score": 0.038700699632198916,
+    "confidence": 0.76
+  },
+  {
+    "timestamp": "2025-07-19T07:14:27.210921",
+    "symbol": "NAB.AX",
+    "sentiment_score": 0.0174379865732347,
+    "confidence": 0.76
+  },
+  {
+    "timestamp": "2025-07-19T07:15:35.238547",
+    "symbol": "MQG.AX",
+    "sentiment_score": 0.07823425723045367,
+    "confidence": 0.76
+  },
+  {
+    "timestamp": "2025-07-19T07:16:34.423617",
+    "symbol": "SUN.AX",
+    "sentiment_score": 0.03415453969284122,
+    "confidence": 0.6400000000000001
+  },
+  {
+    "timestamp": "2025-07-19T07:17:33.154681",
+    "symbol": "QBE.AX",
+    "sentiment_score": -0.0015424126035724524,
+    "confidence": 0.6100000000000001
+  }
+]
