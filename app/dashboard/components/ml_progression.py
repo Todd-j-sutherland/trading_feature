@@ -321,15 +321,34 @@ def render_ml_progression_dashboard():
             # Create table data
             table_data = []
             for pred in recent_predictions[-20:]:  # Show last 20 predictions
+                # Safely get sentiment score from either top level or prediction dict
+                sentiment_score = 0
+                if 'sentiment_score' in pred and isinstance(pred['sentiment_score'], (int, float)):
+                    sentiment_score = pred['sentiment_score']
+                elif isinstance(pred.get('prediction'), dict) and 'sentiment_score' in pred['prediction']:
+                    sentiment_score = pred['prediction'].get('sentiment_score', 0)
+                
+                # Safely get outcome value
+                outcome_text = 'Pending'
+                if 'actual_outcome' in pred:
+                    outcome = pred['actual_outcome']
+                    if isinstance(outcome, dict):
+                        # If it's a dictionary, try to get price_change_percent
+                        price_change = outcome.get('price_change_percent', 0)
+                        outcome_text = f"{price_change:.2f}%"
+                    elif isinstance(outcome, (int, float)):
+                        # If it's a number, use it directly (convert to percentage)
+                        outcome_text = f"{outcome * 100:.2f}%"
+                
                 table_data.append({
                     'Date': pred['timestamp'][:10],
                     'Time': pred['timestamp'][11:16],
                     'Symbol': pred['symbol'],
-                    'Signal': pred['prediction'].get('signal', 'N/A'),
-                    'Confidence': f"{pred['prediction'].get('confidence', 0):.1%}",
-                    'Sentiment': f"{pred['prediction'].get('sentiment_score', 0):.3f}",
+                    'Signal': pred['prediction'].get('signal', 'N/A') if isinstance(pred.get('prediction'), dict) else 'N/A',
+                    'Confidence': f"{pred['prediction'].get('confidence', 0):.1%}" if isinstance(pred.get('prediction'), dict) else "N/A",
+                    'Sentiment': f"{sentiment_score:.3f}",
                     'Status': pred['status'],
-                    'Outcome': f"{pred['actual_outcome'].get('price_change_percent', 0):.2f}%" if pred.get('actual_outcome') else 'Pending',
+                    'Outcome': outcome_text,
                     'Success': '✅' if pred['status'] == 'completed' and tracker._is_successful_prediction(pred) else '❌' if pred['status'] == 'completed' else '⏳'
                 })
             

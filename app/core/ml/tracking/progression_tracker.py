@@ -383,16 +383,33 @@ class MLProgressionTracker:
         if prediction['status'] != 'completed' or not prediction.get('actual_outcome'):
             return False
         
-        predicted_signal = prediction['prediction'].get('signal', 'HOLD')
+        # Safely get predicted signal from prediction dict or top level
+        predicted_signal = 'HOLD'
+        if isinstance(prediction.get('prediction'), dict):
+            predicted_signal = prediction['prediction'].get('signal', 'HOLD')
+        elif 'signal' in prediction:
+            predicted_signal = prediction.get('signal', 'HOLD')
+        
         actual_outcome = prediction['actual_outcome']
+        
+        # Handle both dict and float formats for actual_outcome
+        if isinstance(actual_outcome, dict):
+            # New format: nested dictionary
+            price_change_percent = actual_outcome.get('price_change_percent', 0)
+        elif isinstance(actual_outcome, (int, float)):
+            # Old format: direct float value (convert to percentage)
+            price_change_percent = actual_outcome * 100
+        else:
+            # No valid outcome data
+            return False
         
         # Simple success criteria - can be made more sophisticated
         if predicted_signal == 'BUY':
-            return actual_outcome.get('price_change_percent', 0) > 0
+            return price_change_percent > 0
         elif predicted_signal == 'SELL':
-            return actual_outcome.get('price_change_percent', 0) < 0
+            return price_change_percent < 0
         else:  # HOLD
-            return abs(actual_outcome.get('price_change_percent', 0)) < 2  # Less than 2% movement
+            return abs(price_change_percent) < 2  # Less than 2% movement
     
     def _calculate_accuracy_progression(self, predictions: List[Dict]) -> List[float]:
         """Calculate accuracy progression over time"""

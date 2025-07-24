@@ -115,9 +115,17 @@ class EnhancedMLPipeline:
         """
         features = {}
         
-        # Sentiment features
-        features['sentiment_score'] = sentiment_data.get('overall_sentiment', 0.0)
-        features['confidence'] = sentiment_data.get('confidence', 0.0)
+        # Sentiment features - validate sentiment data quality
+        overall_sentiment = sentiment_data.get('overall_sentiment')
+        confidence = sentiment_data.get('confidence', 0.0)
+        
+        # Only proceed if we have valid sentiment data
+        if overall_sentiment is None or overall_sentiment == 0.0:
+            logger.warning("Missing or invalid sentiment data - skipping prediction")
+            return None
+            
+        features['sentiment_score'] = overall_sentiment
+        features['confidence'] = confidence
         features['news_count'] = sentiment_data.get('news_count', 0)
         
         # News volume features

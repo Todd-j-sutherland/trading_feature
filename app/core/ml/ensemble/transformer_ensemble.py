@@ -159,15 +159,20 @@ class TemporalAnalysisEnhancement:
             sentiment_evolution = []
             
             for news in sorted_news[-self.sequence_length:]:
+                # Skip news items without valid sentiment scores
+                sentiment_score = news.get('sentiment_score')
+                if sentiment_score is None or sentiment_score == 0:
+                    continue
+                    
                 features = {
-                    'sentiment': news.get('sentiment_score', 0),
+                    'sentiment': sentiment_score,
                     'confidence': news.get('confidence', 0),
                     'relevance': news.get('relevance_score', 0.5),
                     'hour': datetime.fromisoformat(news.get('timestamp', datetime.now().isoformat())).hour,
                     'volume_impact': news.get('volume_impact', 0)
                 }
                 sequence_features.append(features)
-                sentiment_evolution.append(news.get('sentiment_score', 0))
+                sentiment_evolution.append(sentiment_score)
             
             # Calculate temporal patterns
             sentiment_trend = self._calculate_trend(sentiment_evolution)

@@ -58,8 +58,20 @@ class MLTradingScorer:
         # Component scores (0-100 scale)
         component_scores = {}
         
-        # 1. Sentiment Strength Score
-        sentiment = bank_analysis.get('overall_sentiment', 0)
+        # 1. Sentiment Strength Score - validate sentiment data
+        sentiment = bank_analysis.get('overall_sentiment')
+        if sentiment is None or sentiment == 0:
+            logger.warning(f"Invalid sentiment data for bank analysis - skipping ML scoring")
+            return {
+                'overall_score': 50,  # Neutral score when sentiment unavailable
+                'recommendation': 'HOLD',
+                'risk_level': 'MEDIUM',
+                'component_scores': {'sentiment_strength': 0, 'error': 'Missing sentiment data'},
+                'confidence_factors': ['Technical analysis only'],
+                'risk_factors': ['No sentiment data available'],
+                'explanation': 'Sentiment analysis unavailable - using technical signals only'
+            }
+            
         component_scores['sentiment_strength'] = self._score_sentiment_strength(sentiment)
         
         # 2. Sentiment Confidence Score

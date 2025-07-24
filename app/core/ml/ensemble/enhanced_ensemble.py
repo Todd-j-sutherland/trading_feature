@@ -650,9 +650,14 @@ class EnhancedTransformerEnsemble:
                 features.append(pred_data.get('prediction', 0))
                 features.append(pred_data.get('confidence', 0.5))
             
-            # Additional features
+            # Additional features - validate sentiment data
+            sentiment_score = sample.get('sentiment_score')
+            if sentiment_score is None or sentiment_score == 0:
+                logger.warning("Invalid sentiment data in meta-features - skipping sample")
+                return None
+                
             features.extend([
-                sample.get('sentiment_score', 0),
+                sentiment_score,
                 sample.get('confidence', 0.5),
                 sample.get('news_count', 0),
                 len(sample.get('text', '')),

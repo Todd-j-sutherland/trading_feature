@@ -39,24 +39,53 @@ def display_trading_performance_log(ml_tracker=None, days_back: int = 30):
             
             if pred['status'] == 'completed':
                 if ml_tracker._is_successful_prediction(pred):
-                    success_indicator = '✅'
+                    success_indicator = "✅"
                 else:
-                    success_indicator = '❌'
+                    success_indicator = "❌"
                 
-                # Handle both JSON format and direct database format
-                outcome = pred.get('actual_outcome', {})
+                # Get outcome percentage - handle both dict and float formats
+                outcome = pred.get('actual_outcome')
                 if isinstance(outcome, dict):
                     price_change = outcome.get('price_change_percent', 0)
+                    outcome_text = f"{price_change:+.2f}%"
+                elif isinstance(outcome, (int, float)):
+                    price_change = outcome * 100  # Convert decimal to percentage
+                    outcome_text = f"{price_change:+.2f}%"
+                elif outcome is None:
+                    outcome_text = "No Data"
                 else:
-                    price_change = outcome or 0
-                outcome_text = f'{price_change:+.3f}%'
+                    outcome_text = "Error"
+            
+            # Safely get sentiment score from either top level or prediction dict
+            sentiment_score = 0
+            if 'sentiment_score' in pred and isinstance(pred['sentiment_score'], (int, float)):
+                sentiment_score = pred['sentiment_score']
+            elif isinstance(pred.get('prediction'), dict) and 'sentiment_score' in pred['prediction']:
+                sentiment_score = pred['prediction'].get('sentiment_score', 0)
+            
+            # Safely get signal from prediction dict or top level
+            signal = 'N/A'
+            if isinstance(pred.get('prediction'), dict):
+                signal = pred['prediction'].get('signal', 'N/A')
+            elif 'signal' in pred:
+                signal = pred.get('signal', 'N/A')
+            
+            # Safely get confidence from prediction dict or top level
+            confidence_text = "N/A"
+            if isinstance(pred.get('prediction'), dict):
+                confidence = pred['prediction'].get('confidence', 0)
+                confidence_text = f"{confidence:.1%}"
+            elif 'confidence' in pred:
+                confidence = pred.get('confidence', 0)
+                confidence_text = f"{confidence:.1%}"
+            
             table_data.append({
                 'Date': pred['timestamp'][:10],
                 'Time': pred['timestamp'][11:16],
                 'Symbol': pred['symbol'],
-                'Signal': pred['prediction'].get('signal', 'N/A'),
-                'Confidence': f"{pred['prediction'].get('confidence', 0):.1%}",
-                'Sentiment': f"{pred['prediction'].get('sentiment_score', 0):+.3f}",
+                'Signal': signal,
+                'Confidence': confidence_text,
+                'Sentiment': f"{sentiment_score:+.3f}",
                 'Outcome': outcome_text,
                 'Success': success_indicator,
                 'Status': pred['status']
@@ -122,15 +151,37 @@ def display_trading_performance_log(ml_tracker=None, days_back: int = 30):
                 st.metric("Success Rate", f"{success_rate:.1f}%", f"{successful}/{total}")
             
             with col2:
-                avg_confidence = sum(p['prediction'].get('confidence', 0) for p in completed_predictions) / len(completed_predictions)
+                # Calculate average confidence safely
+                confidence_values = []
+                for p in completed_predictions:
+                    if isinstance(p.get('prediction'), dict):
+                        confidence_values.append(p['prediction'].get('confidence', 0))
+                    elif 'confidence' in p:
+                        confidence_values.append(p.get('confidence', 0))
+                
+                avg_confidence = sum(confidence_values) / len(confidence_values) if confidence_values else 0
                 st.metric("Avg Confidence", f"{avg_confidence:.1%}")
             
             with col3:
-                buy_signals = sum(1 for p in completed_predictions if p['prediction'].get('signal') == 'BUY')
+                # Count BUY signals safely
+                buy_signals = 0
+                for p in completed_predictions:
+                    if isinstance(p.get('prediction'), dict):
+                        if p['prediction'].get('signal') == 'BUY':
+                            buy_signals += 1
+                    elif p.get('signal') == 'BUY':
+                        buy_signals += 1
                 st.metric("Buy Signals", buy_signals)
             
             with col4:
-                sell_signals = sum(1 for p in completed_predictions if p['prediction'].get('signal') == 'SELL')
+                # Count SELL signals safely
+                sell_signals = 0
+                for p in completed_predictions:
+                    if isinstance(p.get('prediction'), dict):
+                        if p['prediction'].get('signal') == 'SELL':
+                            sell_signals += 1
+                    elif p.get('signal') == 'SELL':
+                        sell_signals += 1
                 st.metric("Sell Signals", sell_signals)
             
             # Performance by symbol chart
