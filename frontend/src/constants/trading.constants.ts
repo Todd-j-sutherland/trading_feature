@@ -11,10 +11,10 @@ export const ASX_BANKS: BankSymbol[] = [
 ];
 
 export const TIMEFRAMES = [
+  { label: '1H', value: '1H' },
   { label: '1D', value: '1D' },
   { label: '1W', value: '1W' },
   { label: '1M', value: '1M' },
-  { label: '3M', value: '3M' },
 ];
 
 export const CHART_COLORS = {

@@ -8,11 +8,38 @@ from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
 import json
+from datetime import datetime, timezone
+import pytz
+import yfinance as yf
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import asyncio
 import yfinance as yf
 import pandas as pd
+
+# Australian Eastern Time zone
+AUSTRALIA_TZ = pytz.timezone('Australia/Sydney')
+
+def convert_to_aest_timestamp(timestamp_str):
+    """Convert timestamp to Australian Eastern Time and return Unix timestamp"""
+    try:
+        # Parse the timestamp (assuming it's in UTC or local time)
+        if timestamp_str.endswith('Z'):
+            dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+        else:
+            dt = datetime.fromisoformat(timestamp_str)
+            # If no timezone info, assume UTC
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+        
+        # Convert to Australian Eastern Time
+        dt_aest = dt.astimezone(AUSTRALIA_TZ)
+        return int(dt_aest.timestamp())
+    except Exception as e:
+        print(f"Error converting timestamp {timestamp_str}: {e}")
+        # Fallback to original parsing
+        dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+        return int(dt.timestamp())
 
 app = FastAPI(title="ASX Trading API", version="1.0.0")
 
@@ -41,24 +68,37 @@ async def get_ohlcv(symbol: str, period: str = "1D", limit: int = 500):
         # Use yfinance to get real price data
         ticker = yf.Ticker(symbol)
         
-        # Map period to yfinance format
+        # Enhanced period mapping to support hourly data
         period_map = {
-            "1D": "1d",
-            "1W": "5d", 
-            "1M": "1mo",
-            "3M": "3mo"
+            "1H": "7d",   # 7 days for hourly data
+            "1D": "1mo",  # 1 month for daily data
+            "1W": "6mo",  # 6 months for weekly data
+            "1M": "2y"    # 2 years for monthly data
         }
         
-        hist = ticker.history(period=period_map.get(period, "1mo"))
+        interval_map = {
+            "1H": "1h",   # Hourly intervals
+            "1D": "1d",   # Daily intervals
+            "1W": "1wk",  # Weekly intervals
+            "1M": "1mo"   # Monthly intervals
+        }
+        
+        period_str = period_map.get(period, "1mo")
+        interval = interval_map.get(period, "1d")
+        
+        hist = ticker.history(period=period_str, interval=interval)
         
         if hist.empty:
             return {"success": False, "error": "No data found", "data": []}
         
-        # Convert to the format expected by TradingView charts
+        # Convert to the format expected by TradingView charts (Australian time)
         ohlcv_data = []
         for index, row in hist.iterrows():
+            # Convert pandas timestamp to Australian Eastern Time
+            aest_dt = index.tz_convert(AUSTRALIA_TZ) if index.tz is not None else index.tz_localize(timezone.utc).tz_convert(AUSTRALIA_TZ)
+            
             ohlcv_data.append({
-                "time": int(index.timestamp()),
+                "timestamp": int(aest_dt.timestamp()),  # Australian Eastern Time timestamp
                 "open": float(row['Open']),
                 "high": float(row['High']),
                 "low": float(row['Low']),
@@ -69,6 +109,9 @@ async def get_ohlcv(symbol: str, period: str = "1D", limit: int = 500):
         return {
             "success": True,
             "data": ohlcv_data[-limit:],  # Limit results
+            "period": period,
+            "interval": interval,
+            "total_points": len(ohlcv_data),
             "timestamp": datetime.now().isoformat()
         }
         
@@ -125,8 +168,8 @@ async def get_ml_indicators(symbol: str, period: str = "1D"):
         confidence_sum = 0
         
         for row in results:
-            # Convert timestamp to Unix timestamp for charts
-            dt = datetime.fromisoformat(row['timestamp'].replace('Z', '+00:00'))
+            # Convert timestamp to Australian Eastern Time
+            aest_timestamp = convert_to_aest_timestamp(row['timestamp'])
             
             # Track data quality stats
             if row['technical_score'] and row['technical_score'] > 0:
@@ -136,7 +179,7 @@ async def get_ml_indicators(symbol: str, period: str = "1D"):
             confidence_sum += float(row['confidence'] or 0)
             
             ml_data.append({
-                "time": int(dt.timestamp()),
+                "time": aest_timestamp,
                 "sentimentScore": float(row['sentiment_score'] or 0),
                 "confidence": float(row['confidence'] or 0),
                 "technicalScore": float(row['technical_score'] or 0),
