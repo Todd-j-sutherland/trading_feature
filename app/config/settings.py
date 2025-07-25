@@ -20,9 +20,9 @@ class Settings:
     VERSION = "2.0.0"
     DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
     
-    # Paths - Updated to use /root/test/data as primary data location
+    # Paths - Use local data directory instead of /root/test/data
     BASE_DIR = Path(__file__).parent.parent.parent
-    DATA_DIR = Path('/root/test/data')  # Changed to consolidated data location
+    DATA_DIR = BASE_DIR / 'data'  # Use local data directory
     LOGS_DIR = BASE_DIR / 'logs'
     REPORTS_DIR = BASE_DIR / 'reports'
     CACHE_DIR = DATA_DIR / 'cache'

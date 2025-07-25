@@ -1,0 +1,140 @@
+{
+  "export_metadata": {
+    "timestamp": "20250725_123510",
+    "export_time": "2025-07-25T12:35:10.915961",
+    "dashboard_version": "1.0.0",
+    "python_version": "3.13.5 (main, Jul  5 2025, 03:18:37) [Clang 14.0.0 (clang-1400.0.29.202)]",
+    "database_path": "data/ml_models/training_data.db"
+  },
+  "ml_performance": {
+    "total_predictions": 46,
+    "avg_confidence": 0.6074782608695652,
+    "buy_signals": 11,
+    "sell_signals": 25,
+    "hold_signals": 10,
+    "completed_trades": 10,
+    "success_rate": 0.6,
+    "avg_return": 0.4302838789910532,
+    "best_trade": 1.0182143631929177,
+    "worst_trade": 0.0
+  },
+  "sentiment_scores": [
+    {
+      "Symbol": "ANZ.AX",
+      "Timestamp": "2025-07-25T12:35:08.831290",
+      "Sentiment Score": -0.111715,
+      "Confidence": 0.641,
+      "Signal": "SELL",
+      "News Count": 9,
+      "Reddit Sentiment": -0.1744,
+      "Event Score": -0.0286,
+      "Technical Score": 35.4
+    },
+    {
+      "Symbol": "CBA.AX",
+      "Timestamp": "2025-07-25T12:35:08.668853",
+      "Sentiment Score": -0.083675,
+      "Confidence": 0.576,
+      "Signal": "SELL",
+      "News Count": 15,
+      "Reddit Sentiment": -0.0817,
+      "Event Score": 0.0241,
+      "Technical Score": 32.6
+    },
+    {
+      "Symbol": "MQG.AX",
+      "Timestamp": "2025-07-25T12:35:09.373868",
+      "Sentiment Score": -0.020044,
+      "Confidence": 0.56,
+      "Signal": "HOLD",
+      "News Count": 13,
+      "Reddit Sentiment": 0.01,
+      "Event Score": -0.0245,
+      "Technical Score": 22.4
+    },
+    {
+      "Symbol": "NAB.AX",
+      "Timestamp": "2025-07-25T12:35:09.198831",
+      "Sentiment Score": -0.142716,
+      "Confidence": 0.647,
+      "Signal": "SELL",
+      "News Count": 16,
+      "Reddit Sentiment": -0.1929,
+      "Event Score": 0.0143,
+      "Technical Score": 40.0
+    },
+    {
+      "Symbol": "QBE.AX",
+      "Timestamp": "2025-07-25T12:35:09.871100",
+      "Sentiment Score": -0.042025,
+      "Confidence": 0.531,
+      "Signal": "HOLD",
+      "News Count": 17,
+      "Reddit Sentiment": -0.0169,
+      "Event Score": -0.0017,
+      "Technical Score": 37.6
+    },
+    {
+      "Symbol": "SUN.AX",
+      "Timestamp": "2025-07-25T12:35:09.585002",
+      "Sentiment Score": -0.134079,
+      "Confidence": 0.609,
+      "Signal": "SELL",
+      "News Count": 8,
+      "Reddit Sentiment": -0.134,
+      "Event Score": 0.0035,
+      "Technical Score": 29.0
+    },
+    {
+      "Symbol": "WBC.AX",
+      "Timestamp": "2025-07-25T12:35:09.012288",
+      "Sentiment Score": -0.141868,
+      "Confidence": 0.593,
+      "Signal": "SELL",
+      "News Count": 10,
+      "Reddit Sentiment": -0.2,
+      "Event Score": 0.0017,
+      "Technical Score": 35.8
+    }
+  ],
+  "feature_analysis": {
+    "total_records": 18,
+    "feature_usage": {
+      "news_analysis": 100.0,
+      "reddit_sentiment": 0.0,
+      "event_scoring": 100.0,
+      "technical_indicators": 100.0
+    },
+    "feature_strength": {
+      "avg_news_count": 12.722222222222221,
+      "avg_reddit_strength": 0.0,
+      "avg_event_strength": 0.017328412575662214,
+      "avg_technical_strength": 0.0
+    },
+    "ml_features": {}
+  },
+  "database_statistics": {
+    "sentiment_features_count": 46,
+    "trading_outcomes_count": 10,
+    "model_performance_count": 1,
+    "sentiment_date_range": {
+      "earliest": "2025-07-21T22:11:57.250983",
+      "latest": "2025-07-25T12:35:09.871100",
+      "unique_symbols": 9
+    },
+    "trading_date_range": {
+      "earliest_trade": "2025-07-23 10:02:36",
+      "latest_trade": "2025-07-23 10:19:52",
+      "completed_trades": 10,
+      "pending_trades": 0
+    },
+    "recent_activity": {
+      "predictions_last_7_days": 46
+    }
+  },
+  "validation_metadata": {
+    "total_records_exported": 7,
+    "export_success": true,
+    "export_duration_seconds": 0.004854
+  }
+}

@@ -11,7 +11,6 @@ def load_ml_performance_data():
     """Load ML performance data from JSON files on remote server"""
     # Try different possible data directories
     possible_dirs = [
-        Path("data_v2/data/ml_performance"),
         Path("data_temp/ml_performance"),
         Path("data/ml_performance")
     ]

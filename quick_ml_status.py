@@ -11,8 +11,8 @@ def check_ml_status():
     print("="*50)
     
     # Check for ML performance data
-    performance_file = "data_v2/data/ml_performance/ml_performance_history.json"
-    metrics_file = "data_v2/data/ml_performance/model_metrics_history.json"
+    performance_file = "data/data/ml_performance/ml_performance_history.json"
+    metrics_file = "data/data/ml_performance/model_metrics_history.json"
     
     if os.path.exists(performance_file):
         try:

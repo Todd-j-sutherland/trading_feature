@@ -88,7 +88,7 @@ def validate_production_data():
     json_files = []
     
     # Look for JSON data files
-    data_dirs = ['data', 'data_temp', 'data_v2']
+    data_dirs = ['data', 'data_temp', 'data']
     for data_dir in data_dirs:
         data_path = os.path.join(project_root, data_dir)
         if os.path.exists(data_path):
