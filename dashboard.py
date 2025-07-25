@@ -195,11 +195,10 @@ def fetch_ml_feature_analysis() -> Dict:
                 AVG(news_count) as avg_news_count,
                 AVG(ABS(reddit_sentiment)) as avg_reddit_strength,
                 AVG(ABS(event_score)) as avg_event_strength,
-                AVG(ABS(technical_score)) as avg_technical_strength,
+                AVG(technical_score) as avg_technical_strength,
                 ml_features
             FROM sentiment_features 
-            WHERE timestamp >= date('now', '-7 days')
-            AND ml_features IS NOT NULL
+            WHERE timestamp >= date('now', '-30 days')
             LIMIT 1
         """)
         
@@ -242,26 +241,45 @@ def fetch_ml_feature_analysis() -> Dict:
 
 def fetch_prediction_timeline() -> pd.DataFrame:
     """
-    Fetch prediction timeline for performance visualization
-    Returns DataFrame with predictions over time
+    Fetch prediction timeline with actual outcomes for performance visualization
+    Returns DataFrame with predictions and their actual outcomes
     """
     conn = get_database_connection()
     
     try:
         cursor = conn.execute("""
             SELECT 
-                timestamp,
-                symbol,
-                sentiment_score,
-                confidence,
+                tp.created_at as timestamp,
+                tp.symbol,
+                tp.predicted_signal as signal,
+                tp.confidence,
+                COALESCE(latest_sf.technical_score, 0) as technical_score,
+                tp.sentiment_score,
+                tp.actual_outcome,
+                tp.status,
                 CASE 
-                    WHEN sentiment_score > 0.05 THEN 'BUY'
-                    WHEN sentiment_score < -0.05 THEN 'SELL'
-                    ELSE 'HOLD'
-                END as signal
-            FROM sentiment_features 
-            WHERE timestamp >= date('now', '-7 days')
-            ORDER BY timestamp DESC
+                    WHEN tp.actual_outcome IS NOT NULL THEN
+                        CASE WHEN (tp.predicted_signal = 'BUY' AND tp.actual_outcome > 0) OR 
+                                  (tp.predicted_signal = 'SELL' AND tp.actual_outcome < 0) OR
+                                  (tp.predicted_signal = 'HOLD' AND ABS(tp.actual_outcome) < 0.5) 
+                        THEN 'CORRECT' ELSE 'WRONG' END
+                    ELSE 'PENDING'
+                END as accuracy
+            FROM trading_predictions tp
+            LEFT JOIN (
+                SELECT DISTINCT 
+                    sf1.symbol,
+                    sf1.technical_score
+                FROM sentiment_features sf1
+                INNER JOIN (
+                    SELECT symbol, MAX(timestamp) as max_timestamp
+                    FROM sentiment_features
+                    GROUP BY symbol
+                ) sf2 ON sf1.symbol = sf2.symbol AND sf1.timestamp = sf2.max_timestamp
+            ) latest_sf ON tp.symbol = latest_sf.symbol
+            WHERE tp.created_at >= date('now', '-7 days')
+            ORDER BY tp.created_at DESC
+            LIMIT 50
         """)
         
         results = cursor.fetchall()
@@ -274,9 +292,13 @@ def fetch_prediction_timeline() -> pd.DataFrame:
             data.append({
                 'Timestamp': pd.to_datetime(row['timestamp']),
                 'Symbol': row['symbol'],
-                'Sentiment Score': float(row['sentiment_score'] or 0),
+                'Signal': row['signal'],
                 'Confidence': float(row['confidence'] or 0),
-                'Signal': row['signal']
+                'Technical Score': float(row['technical_score'] or 0),
+                'Sentiment Score': float(row['sentiment_score'] or 0),
+                'Actual Outcome': float(row['actual_outcome'] or 0) if row['actual_outcome'] is not None else None,
+                'Status': row['status'],
+                'Accuracy': row['accuracy']
             })
         
         return pd.DataFrame(data)
@@ -533,14 +555,36 @@ def render_prediction_timeline(timeline_df: pd.DataFrame):
     fig.update_layout(height=500, title_text="Prediction Performance Over Time")
     st.plotly_chart(fig, use_container_width=True)
     
-    # Recent predictions table
+    # Recent predictions table with outcomes
     st.write("**Most Recent Predictions:**")
-    recent_df = timeline_df.head(20).copy()
+    recent_df = timeline_df.head(15).copy()
     recent_df['Time'] = recent_df['Timestamp'].dt.strftime('%m-%d %H:%M')
     recent_df['Confidence'] = recent_df['Confidence'].apply(lambda x: f"{x:.1%}")
-    recent_df['Sentiment Score'] = recent_df['Sentiment Score'].apply(lambda x: f"{x:+.4f}")
+    recent_df['Tech Score'] = recent_df['Technical Score'].apply(lambda x: f"{x:.1f}")
+    recent_df['Sentiment'] = recent_df['Sentiment Score'].apply(lambda x: f"{x:+.3f}")
     
-    display_recent = recent_df[['Time', 'Symbol', 'Signal', 'Sentiment Score', 'Confidence']]
+    # Format actual outcome with color coding
+    def format_outcome(row):
+        if row['Actual Outcome'] is None or pd.isna(row['Actual Outcome']):
+            return "Pending"
+        outcome = row['Actual Outcome']
+        if outcome > 0:
+            return f"+{outcome:.2f}%"
+        else:
+            return f"{outcome:.2f}%"
+    
+    def format_accuracy(accuracy):
+        if accuracy == 'CORRECT':
+            return "✅ CORRECT"
+        elif accuracy == 'WRONG':
+            return "❌ WRONG"
+        else:
+            return "⏳ PENDING"
+    
+    recent_df['Outcome'] = recent_df.apply(format_outcome, axis=1)
+    recent_df['Result'] = recent_df['Accuracy'].apply(format_accuracy)
+    
+    display_recent = recent_df[['Time', 'Symbol', 'Signal', 'Confidence', 'Tech Score', 'Sentiment', 'Outcome', 'Result']]
     st.dataframe(display_recent, use_container_width=True, hide_index=True)
 
 def main():
