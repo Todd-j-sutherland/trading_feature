@@ -26,6 +26,8 @@ export const CHART_COLORS = {
   holdSignal: '#ffa500',
   sentiment: '#00ff88',
   confidence: '#4a9eff',
+  upCandle: '#00C851',
+  downCandle: '#FF4444',
 };
 
 export const API_BASE_URL = 'http://localhost:8000/api';

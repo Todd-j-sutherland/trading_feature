@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { requestCache } from '../utils/requestCache';
+import { useAPIError } from '../contexts/ErrorContext';
 
 interface ChartDataPoint {
   timestamp: number;
@@ -13,35 +15,67 @@ export const useChartData = (symbol: string, timeframe: string) => {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const requestVersionRef = useRef(0);
+  const { handleAPIError } = useAPIError();
 
   useEffect(() => {
     const fetchChartData = async () => {
-      setLoading(true);
-      setError(null);
+      // Increment request version to handle race conditions
+      const currentVersion = ++requestVersionRef.current;
       
       try {
-        const response = await fetch(`http://localhost:8000/api/banks/${symbol}/ohlcv?period=${timeframe}`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch chart data: ${response.statusText}`);
-        }
+        // Use request cache to prevent duplicate concurrent requests
+        const cacheKey = `chart_${symbol}_${timeframe}`;
+        const data = await requestCache.getOrFetch(cacheKey, async () => {
+          const response = await fetch(`/api/banks/${symbol}/ohlcv?period=${timeframe}`, {
+            signal: abortControllerRef.current?.signal,
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch chart data: ${response.statusText}`);
+          }
+          
+          return response.json();
+        });
         
-        const data = await response.json();
-        if (data.success && data.data) {
-          setChartData(data.data);
-        } else {
+        // Only update state if this is still the current request
+        if (currentVersion === requestVersionRef.current) {
+          // Extract the data array from the API response
+          setChartData(data.data || []);
+        }
+      } catch (error: any) {
+        // Only handle error if this is still the current request and not cancelled
+        if (currentVersion === requestVersionRef.current && error.name !== 'AbortError') {
+          console.error('Error fetching chart data:', error);
+          
+          handleAPIError(
+            error, 
+            `Chart data for ${symbol}`,
+            () => fetchChartData() // Retry function
+          );
+          
           setChartData([]);
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-        console.error('Error fetching chart data:', err);
-        setChartData([]);
       } finally {
-        setLoading(false);
+        // Only update loading if this is still the current request
+        if (currentVersion === requestVersionRef.current) {
+          setLoading(false);
+        }
+      }
+    };    // Add a longer delay to reduce excessive requests when switching symbols/timeframes
+    const timeoutId = setTimeout(() => {
+      fetchChartData();
+    }, 1000); // Increased from 300ms to 1000ms
+
+    // Cleanup function to cancel request on unmount or dependency change
+    return () => {
+      clearTimeout(timeoutId);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
     };
-
-    fetchChartData();
-  }, [symbol, timeframe]);
+  }, [symbol, timeframe, handleAPIError]);
 
   return { chartData, loading, error };
 };

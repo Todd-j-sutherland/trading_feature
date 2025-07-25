@@ -20,3 +20,19 @@
 .signal-hold {
   @apply text-hold-signal;
 }
+
+/* Ensure proper scrolling behavior */
+html, body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: 100%;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Fix chart scrolling behavior */
+.tv-lightweight-charts {
+  position: relative !important;
+}
