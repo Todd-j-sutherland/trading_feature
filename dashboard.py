@@ -195,11 +195,10 @@ def fetch_ml_feature_analysis() -> Dict:
                 AVG(news_count) as avg_news_count,
                 AVG(ABS(reddit_sentiment)) as avg_reddit_strength,
                 AVG(ABS(event_score)) as avg_event_strength,
-                AVG(ABS(technical_score)) as avg_technical_strength,
+                AVG(technical_score) as avg_technical_strength,
                 ml_features
             FROM sentiment_features 
-            WHERE timestamp >= date('now', '-7 days')
-            AND ml_features IS NOT NULL
+            WHERE timestamp >= date('now', '-30 days')
             LIMIT 1
         """)
         
@@ -242,26 +241,44 @@ def fetch_ml_feature_analysis() -> Dict:
 
 def fetch_prediction_timeline() -> pd.DataFrame:
     """
-    Fetch prediction timeline for performance visualization
-    Returns DataFrame with predictions over time
+    Fetch prediction timeline with actual outcomes for performance visualization
+    Returns DataFrame with predictions and their actual outcomes
     """
     conn = get_database_connection()
     
     try:
         cursor = conn.execute("""
             SELECT 
-                timestamp,
-                symbol,
-                sentiment_score,
-                confidence,
+                tp.created_at as timestamp,
+                tp.symbol,
+                tp.predicted_signal as signal,
+                tp.confidence,
+                COALESCE(latest_sf.technical_score, 0) as technical_score,
+                tp.sentiment_score,
+                tp.actual_outcome,
+                tp.status,
                 CASE 
-                    WHEN sentiment_score > 0.05 THEN 'BUY'
-                    WHEN sentiment_score < -0.05 THEN 'SELL'
-                    ELSE 'HOLD'
-                END as signal
-            FROM sentiment_features 
-            WHERE timestamp >= date('now', '-7 days')
-            ORDER BY timestamp DESC
+                    WHEN tp.actual_outcome IS NOT NULL THEN
+                        CASE WHEN (tp.predicted_signal = 'BUY' AND tp.actual_outcome > 0) OR 
+                                  (tp.predicted_signal = 'SELL' AND tp.actual_outcome < 0) OR
+                                  (tp.predicted_signal = 'HOLD' AND ABS(tp.actual_outcome) < 0.5) 
+                        THEN 'CORRECT' ELSE 'WRONG' END
+                    ELSE 'PENDING'
+                END as accuracy
+            FROM trading_predictions tp
+            LEFT JOIN (
+                SELECT DISTINCT 
+                    sf1.symbol,
+                    sf1.technical_score
+                FROM sentiment_features sf1
+                INNER JOIN (
+                    SELECT symbol, MAX(timestamp) as max_timestamp
+                    FROM sentiment_features
+                    GROUP BY symbol
+                ) sf2 ON sf1.symbol = sf2.symbol AND sf1.timestamp = sf2.max_timestamp
+            ) latest_sf ON tp.symbol = latest_sf.symbol
+            WHERE tp.created_at >= datetime('now', '-7 days')
+            ORDER BY tp.created_at DESC
         """)
         
         results = cursor.fetchall()
@@ -274,9 +291,13 @@ def fetch_prediction_timeline() -> pd.DataFrame:
             data.append({
                 'Timestamp': pd.to_datetime(row['timestamp']),
                 'Symbol': row['symbol'],
-                'Sentiment Score': float(row['sentiment_score'] or 0),
+                'Signal': row['signal'],
                 'Confidence': float(row['confidence'] or 0),
-                'Signal': row['signal']
+                'Technical Score': float(row['technical_score'] or 0),
+                'Sentiment Score': float(row['sentiment_score'] or 0),
+                'Actual Outcome': float(row['actual_outcome'] or 0) if row['actual_outcome'] is not None else None,
+                'Status': row['status'],
+                'Accuracy': row['accuracy']
             })
         
         return pd.DataFrame(data)
@@ -501,47 +522,231 @@ def render_prediction_timeline(timeline_df: pd.DataFrame):
     """
     st.subheader("⏱️ Prediction Timeline (Last 7 Days)")
     
-    # Group by day for overview
+    # Show data availability info
+    if not timeline_df.empty:
+        latest_prediction = timeline_df['Timestamp'].max()
+        oldest_prediction = timeline_df['Timestamp'].min()
+        unique_timestamps = timeline_df['Timestamp'].nunique()
+        
+        if unique_timestamps == 1:
+            st.info(f"📅 All {len(timeline_df)} predictions were generated in a batch run on {latest_prediction.strftime('%Y-%m-%d at %H:%M:%S')}")
+        else:
+            st.info(f"📅 Prediction data available from {oldest_prediction.strftime('%Y-%m-%d %H:%M')} to {latest_prediction.strftime('%Y-%m-%d %H:%M')} ({unique_timestamps} different timestamps)")
+    else:
+        st.warning("⚠️ No prediction timeline data found in the last 7 days")
+        return
+    
+    # Group by day for overview (or by timestamp if batch)
     timeline_df['Date'] = timeline_df['Timestamp'].dt.date
-    daily_stats = timeline_df.groupby('Date').agg({
-        'Confidence': 'mean',
-        'Symbol': 'count',
-        'Signal': lambda x: (x == 'BUY').sum()
-    }).rename(columns={'Symbol': 'Total Predictions', 'Signal': 'Buy Signals'})
+    unique_dates = timeline_df['Date'].nunique()
     
-    daily_stats.reset_index(inplace=True)
+    if unique_dates == 1:
+        # Single batch - show symbol distribution instead
+        symbol_stats = timeline_df.groupby('Symbol').agg({
+            'Confidence': 'mean',
+            'Signal': 'count',
+            'Accuracy': lambda x: (x == 'CORRECT').sum()
+        }).rename(columns={'Signal': 'Total Predictions', 'Accuracy': 'Correct Predictions'})
+        symbol_stats['Success Rate'] = (symbol_stats['Correct Predictions'] / symbol_stats['Total Predictions'] * 100).round(1)
+        symbol_stats.reset_index(inplace=True)
+        
+        # Show symbol performance instead of timeline
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            fig = px.bar(
+                symbol_stats, 
+                x='Symbol', 
+                y='Total Predictions',
+                title="Predictions per Symbol (Batch Run)",
+                color='Success Rate',
+                color_continuous_scale='RdYlGn',
+                text='Total Predictions'
+            )
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            fig = px.scatter(
+                symbol_stats,
+                x='Confidence',
+                y='Success Rate',
+                size='Total Predictions',
+                color='Symbol',
+                title="Confidence vs Success Rate by Symbol",
+                hover_data=['Total Predictions']
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Show summary stats for the batch
+        st.write("**Batch Run Summary:**")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        total_predictions = len(timeline_df)
+        correct_predictions = (timeline_df['Accuracy'] == 'CORRECT').sum()
+        avg_confidence = timeline_df['Confidence'].mean()
+        success_rate = (correct_predictions / total_predictions * 100) if total_predictions > 0 else 0
+        
+        with col1:
+            st.metric("Total Predictions", total_predictions)
+        with col2:
+            st.metric("Correct Predictions", correct_predictions)
+        with col3:
+            st.metric("Success Rate", f"{success_rate:.1f}%")
+        with col4:
+            st.metric("Avg Confidence", f"{avg_confidence:.1%}")
+        
+    else:
+        # Multiple dates - show normal timeline
+        daily_stats = timeline_df.groupby('Date').agg({
+            'Confidence': 'mean',
+            'Symbol': 'count',
+            'Signal': lambda x: (x == 'BUY').sum()
+        }).rename(columns={'Symbol': 'Total Predictions', 'Signal': 'Buy Signals'})
+        
+        daily_stats.reset_index(inplace=True)
+        
+        # Timeline visualization
+        fig = make_subplots(
+            rows=2, cols=1,
+            subplot_titles=('Daily Prediction Volume', 'Average Confidence'),
+            vertical_spacing=0.1
+        )
+        
+        fig.add_trace(
+            go.Bar(x=daily_stats['Date'], y=daily_stats['Total Predictions'], 
+                   name='Total Predictions'),
+            row=1, col=1
+        )
+        
+        fig.add_trace(
+            go.Scatter(x=daily_stats['Date'], y=daily_stats['Confidence'],
+                      mode='lines+markers', name='Avg Confidence'),
+            row=2, col=1
+        )
+        
+        fig.update_layout(height=500, title_text="Prediction Performance Over Time")
+        st.plotly_chart(fig, use_container_width=True)
     
-    # Timeline visualization
-    fig = make_subplots(
-        rows=2, cols=1,
-        subplot_titles=('Daily Prediction Volume', 'Average Confidence'),
-        vertical_spacing=0.1
-    )
+    # Recent predictions table with outcomes
+    st.write("**Sample of Recent Predictions:**")
+    recent_df = timeline_df.head(15).copy()
     
-    fig.add_trace(
-        go.Bar(x=daily_stats['Date'], y=daily_stats['Total Predictions'], 
-               name='Total Predictions'),
-        row=1, col=1
-    )
+    # Helper functions for formatting
+    def format_outcome(row):
+        if row['Actual Outcome'] is None or pd.isna(row['Actual Outcome']):
+            return "Pending"
+        outcome = row['Actual Outcome']
+        if outcome > 0:
+            return f"+{outcome:.2f}%"
+        else:
+            return f"{outcome:.2f}%"
     
-    fig.add_trace(
-        go.Scatter(x=daily_stats['Date'], y=daily_stats['Confidence'],
-                  mode='lines+markers', name='Avg Confidence'),
-        row=2, col=1
-    )
+    def format_accuracy(accuracy):
+        if accuracy == 'CORRECT':
+            return "✅ CORRECT"
+        elif accuracy == 'WRONG':
+            return "❌ WRONG"
+        else:
+            return "⏳ PENDING"
     
-    fig.update_layout(height=500, title_text="Prediction Performance Over Time")
-    st.plotly_chart(fig, use_container_width=True)
+    # Format recent predictions
+    if timeline_df['Timestamp'].nunique() == 1:
+        recent_df['Order'] = range(1, len(recent_df) + 1)
+        recent_df['Time'] = recent_df['Timestamp'].dt.strftime('%m-%d %H:%M') + ' (#' + recent_df['Order'].astype(str) + ')'
+    else:
+        recent_df['Time'] = recent_df['Timestamp'].dt.strftime('%m-%d %H:%M')
     
-    # Recent predictions table
-    st.write("**Most Recent Predictions:**")
-    recent_df = timeline_df.head(20).copy()
-    recent_df['Time'] = recent_df['Timestamp'].dt.strftime('%m-%d %H:%M')
     recent_df['Confidence'] = recent_df['Confidence'].apply(lambda x: f"{x:.1%}")
-    recent_df['Sentiment Score'] = recent_df['Sentiment Score'].apply(lambda x: f"{x:+.4f}")
+    recent_df['Tech Score'] = recent_df['Technical Score'].apply(lambda x: f"{x:.1f}")
+    recent_df['Sentiment'] = recent_df['Sentiment Score'].apply(lambda x: f"{x:+.3f}")
+    recent_df['Outcome'] = recent_df.apply(format_outcome, axis=1)
+    recent_df['Result'] = recent_df['Accuracy'].apply(format_accuracy)
     
-    display_recent = recent_df[['Time', 'Symbol', 'Signal', 'Sentiment Score', 'Confidence']]
+    display_recent = recent_df[['Time', 'Symbol', 'Signal', 'Confidence', 'Tech Score', 'Sentiment', 'Outcome', 'Result']]
     st.dataframe(display_recent, use_container_width=True, hide_index=True)
+    
+    # All predictions table in expandable section
+    with st.expander(f"📋 **View All {len(timeline_df)} Predictions**", expanded=False):
+        st.write("**Complete prediction batch with filtering options:**")
+        
+        # Add filters
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            symbol_filter = st.selectbox(
+                "Filter by Symbol:",
+                ["All"] + sorted(timeline_df['Symbol'].unique().tolist()),
+                key="symbol_filter"
+            )
+        
+        with col2:
+            signal_filter = st.selectbox(
+                "Filter by Signal:",
+                ["All"] + sorted(timeline_df['Signal'].unique().tolist()),
+                key="signal_filter"
+            )
+        
+        with col3:
+            accuracy_filter = st.selectbox(
+                "Filter by Result:",
+                ["All", "CORRECT", "WRONG", "PENDING"],
+                key="accuracy_filter"
+            )
+        
+        # Apply filters
+        filtered_df = timeline_df.copy()
+        
+        if symbol_filter != "All":
+            filtered_df = filtered_df[filtered_df['Symbol'] == symbol_filter]
+        
+        if signal_filter != "All":
+            filtered_df = filtered_df[filtered_df['Signal'] == signal_filter]
+        
+        if accuracy_filter != "All":
+            filtered_df = filtered_df[filtered_df['Accuracy'] == accuracy_filter]
+        
+        if len(filtered_df) > 0:
+            # Format all predictions
+            all_df = filtered_df.copy()
+            
+            # Add row numbers for batch identification
+            if timeline_df['Timestamp'].nunique() == 1:
+                # For batch predictions, add global order numbers
+                all_df = all_df.reset_index(drop=True)
+                all_df['Order'] = range(1, len(all_df) + 1)
+                all_df['Time'] = all_df['Timestamp'].dt.strftime('%m-%d %H:%M') + ' (#' + all_df['Order'].astype(str) + ')'
+            else:
+                all_df['Time'] = all_df['Timestamp'].dt.strftime('%m-%d %H:%M')
+            
+            all_df['Confidence'] = all_df['Confidence'].apply(lambda x: f"{x:.1%}")
+            all_df['Tech Score'] = all_df['Technical Score'].apply(lambda x: f"{x:.1f}")
+            all_df['Sentiment'] = all_df['Sentiment Score'].apply(lambda x: f"{x:+.3f}")
+            all_df['Outcome'] = all_df.apply(format_outcome, axis=1)
+            all_df['Result'] = all_df['Accuracy'].apply(format_accuracy)
+            
+            # Display summary of filtered results
+            st.write(f"**Showing {len(all_df)} predictions** (filtered from {len(timeline_df)} total)")
+            if len(all_df) != len(timeline_df):
+                correct_filtered = (all_df['Accuracy'] == 'CORRECT').sum()
+                success_rate_filtered = (correct_filtered / len(all_df) * 100) if len(all_df) > 0 else 0
+                st.write(f"Filtered success rate: **{success_rate_filtered:.1f}%** ({correct_filtered}/{len(all_df)} correct)")
+            
+            # Display the complete table
+            display_all = all_df[['Time', 'Symbol', 'Signal', 'Confidence', 'Tech Score', 'Sentiment', 'Outcome', 'Result']]
+            st.dataframe(display_all, use_container_width=True, hide_index=True, height=400)
+            
+            # Add download option for the filtered data
+            csv_data = display_all.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Filtered Predictions as CSV",
+                data=csv_data,
+                file_name=f"predictions_batch_{timeline_df['Timestamp'].iloc[0].strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv"
+            )
+            
+        else:
+            st.warning("No predictions match the selected filters.")
 
 def main():
     """
@@ -566,8 +771,27 @@ def main():
     st.sidebar.write(f"**Data Source:** {DATABASE_PATH}")
     st.sidebar.write(f"**Banks Tracked:** {len(ASX_BANKS)}")
     
+    # Add data freshness check
+    try:
+        conn = get_database_connection()
+        cursor = conn.execute("SELECT MAX(timestamp) FROM sentiment_features")
+        latest_sentiment = cursor.fetchone()[0]
+        cursor = conn.execute("SELECT MAX(created_at) FROM trading_predictions")
+        latest_prediction = cursor.fetchone()[0]
+        conn.close()
+        
+        st.sidebar.write("**Data Freshness:**")
+        if latest_sentiment:
+            st.sidebar.write(f"• Sentiment: {latest_sentiment}")
+        if latest_prediction:
+            st.sidebar.write(f"• Predictions: {latest_prediction}")
+    except:
+        pass
+    
     if st.sidebar.button("🔄 Refresh Data"):
-        st.experimental_rerun()
+        # Clear Streamlit cache
+        st.cache_data.clear()
+        st.rerun()
     
     try:
         # Load all data
