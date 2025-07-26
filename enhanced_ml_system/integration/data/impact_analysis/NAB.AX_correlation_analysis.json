@@ -1,0 +1,79 @@
+{
+  "symbol": "NAB.AX",
+  "analysis_period_days": 14,
+  "data_points": 75,
+  "correlations": {
+    "sentiment_vs_price": {
+      "pearson": -0.12185437026561158,
+      "pearson_p_value": 0.29766570519997543,
+      "spearman": -0.30247505148827075,
+      "spearman_p_value": 0.008349323864890928,
+      "significance": "not_significant"
+    },
+    "sentiment_vs_volatility": {
+      "pearson": 0.21980465974683666,
+      "interpretation": "weak_positive"
+    },
+    "sentiment_vs_volume": {
+      "pearson": 0.06165924287916685,
+      "interpretation": "very_weak_positive"
+    },
+    "lagged_correlations": {
+      "1_day": -0.18307265128760436,
+      "2_day": -0.24994423834807722,
+      "3_day": -0.32406424723615257
+    },
+    "data_quality": {
+      "total_points": 75,
+      "valid_points": 75,
+      "data_completeness": 1.0
+    }
+  },
+  "event_impact": {
+    "event_type_impacts": {},
+    "summary": {
+      "highest_impact_positive": null,
+      "highest_impact_negative": null,
+      "most_frequent_event": null,
+      "average_impact": 0
+    }
+  },
+  "predictive_metrics": {
+    "prediction_accuracy": 0.24,
+    "confusion_matrix": {
+      "positive_sentiment": {
+        "up": 0,
+        "down": 0,
+        "flat": 0
+      },
+      "negative_sentiment": {
+        "up": 0,
+        "down": 0,
+        "flat": 0
+      },
+      "neutral_sentiment": {
+        "up": 4,
+        "down": 53,
+        "flat": 18
+      }
+    },
+    "total_predictions": 75,
+    "correct_predictions": 18,
+    "sentiment_distribution": {
+      "positive": 0,
+      "negative": 0,
+      "neutral": 75
+    },
+    "price_distribution": {
+      "up": 4,
+      "down": 53,
+      "flat": 18
+    }
+  },
+  "summary": "Sentiment-price correlation: -0.122 (not_significant). Weak correlation suggests other factors dominate price movements. ",
+  "recommendations": [
+    "No significant sentiment-price correlation. Focus on technical/fundamental analysis."
+  ],
+  "analysis_timestamp": "2025-07-26T13:27:21.528406",
+  "analysis_version": "1.0"
+}

@@ -1,0 +1,77 @@
+{
+  "symbol": "ANZ.AX",
+  "analysis_period_days": 14,
+  "data_points": 76,
+  "correlations": {
+    "sentiment_vs_price": {
+      "pearson": 0.3431728258918505,
+      "pearson_p_value": 0.002406442593662436,
+      "spearman": 0.19286482484236134,
+      "spearman_p_value": 0.09507726821157109,
+      "significance": "significant"
+    },
+    "sentiment_vs_volatility": {
+      "pearson": 0.5976248073283026,
+      "interpretation": "moderate_positive"
+    },
+    "sentiment_vs_volume": {
+      "pearson": 0.52995005457317,
+      "interpretation": "moderate_positive"
+    },
+    "lagged_correlations": {
+      "1_day": 0.3657651716222724,
+      "2_day": 0.3488508832331966,
+      "3_day": 0.3534875444703769
+    },
+    "data_quality": {
+      "total_points": 76,
+      "valid_points": 76,
+      "data_completeness": 1.0
+    }
+  },
+  "event_impact": {
+    "event_type_impacts": {},
+    "summary": {
+      "highest_impact_positive": null,
+      "highest_impact_negative": null,
+      "most_frequent_event": null,
+      "average_impact": 0
+    }
+  },
+  "predictive_metrics": {
+    "prediction_accuracy": 0.6842105263157895,
+    "confusion_matrix": {
+      "positive_sentiment": {
+        "up": 0,
+        "down": 0,
+        "flat": 0
+      },
+      "negative_sentiment": {
+        "up": 0,
+        "down": 0,
+        "flat": 0
+      },
+      "neutral_sentiment": {
+        "up": 18,
+        "down": 6,
+        "flat": 52
+      }
+    },
+    "total_predictions": 76,
+    "correct_predictions": 52,
+    "sentiment_distribution": {
+      "positive": 0,
+      "negative": 0,
+      "neutral": 76
+    },
+    "price_distribution": {
+      "up": 18,
+      "down": 6,
+      "flat": 52
+    }
+  },
+  "summary": "Sentiment-price correlation: 0.343 (significant). Strong correlation suggests news sentiment is a good predictor. ",
+  "recommendations": [],
+  "analysis_timestamp": "2025-07-26T13:26:51.102272",
+  "analysis_version": "1.0"
+}

@@ -45,25 +45,77 @@ class TradingSystemManager:
             return False
     
     def morning_routine(self):
-        """Enhanced morning routine with AI analysis"""
-        print("🌅 MORNING ROUTINE - AI-Powered Trading System")
-        print("=" * 50)
+        """Enhanced morning routine with comprehensive ML analysis"""
+        print("🌅 MORNING ROUTINE - Enhanced ML Trading System")
+        print("=" * 60)
         
-        # System status check
-        print("✅ System status: Operational with enhanced AI structure")
-        
-        # Initialize data collectors
-        print("\n📊 Initializing data collectors...")
+        # Check if enhanced ML components are available
         try:
-            from app.core.data.collectors.market_data import ASXDataFeed
-            from app.core.data.collectors.news_collector import SmartCollector
+            import sys
+            import os
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            sys.path.append(project_root)
             
-            data_feed = ASXDataFeed()
-            smart_collector = SmartCollector()
-            print('✅ Data collectors initialized')
-        except Exception as e:
-            print(f"❌ Data collector error: {e}")
-            return False
+            from enhanced_morning_analyzer_with_ml import EnhancedMorningAnalyzer
+            enhanced_available = True
+            print("✅ Enhanced ML components detected")
+        except ImportError:
+            enhanced_available = False
+            print("⚠️ Enhanced ML components not available, using standard analysis")
+        
+        # Run enhanced morning analysis if available
+        if enhanced_available:
+            try:
+                print("\n🧠 Running Enhanced ML Morning Analysis...")
+                enhanced_analyzer = EnhancedMorningAnalyzer()
+                enhanced_result = enhanced_analyzer.run_enhanced_morning_analysis()
+                
+                if enhanced_result and 'error' not in enhanced_result:
+                    print("✅ Enhanced ML morning analysis completed successfully")
+                    
+                    # Display key results
+                    predictions = enhanced_result.get('bank_predictions', {})
+                    market_overview = enhanced_result.get('market_overview', {})
+                    
+                    print(f"\n📊 Enhanced Analysis Summary:")
+                    print(f"   Banks Analyzed: {len(predictions)}")
+                    print(f"   Market Sentiment: {market_overview.get('overall_sentiment', 'UNKNOWN')}")
+                    print(f"   Feature Pipeline: {enhanced_result.get('data_collection_summary', {}).get('total_features_collected', 0)} features")
+                    
+                    # Show top predictions
+                    if predictions:
+                        print(f"\n🎯 Top Trading Signals:")
+                        for symbol, pred in list(predictions.items())[:3]:
+                            action = pred.get('optimal_action', 'UNKNOWN')
+                            confidence = pred.get('confidence', 0)
+                            print(f"   {symbol}: {action} (confidence: {confidence:.3f})")
+                    
+                    return True
+                else:
+                    print("❌ Enhanced ML analysis failed, falling back to standard analysis")
+                    enhanced_available = False
+            except Exception as e:
+                print(f"❌ Enhanced ML analysis error: {e}")
+                enhanced_available = False
+        
+        # Fallback to standard analysis
+        if not enhanced_available:
+            print("\n📊 Running Standard Morning Analysis...")
+            # System status check
+            print("✅ System status: Operational with standard AI structure")
+            
+            # Initialize data collectors
+            print("\n📊 Initializing data collectors...")
+            try:
+                from app.core.data.collectors.market_data import ASXDataFeed
+                from app.core.data.collectors.news_collector import SmartCollector
+                
+                data_feed = ASXDataFeed()
+                smart_collector = SmartCollector()
+                print('✅ Data collectors initialized')
+            except Exception as e:
+                print(f"❌ Data collector error: {e}")
+                return False
         
         # Enhanced sentiment analysis with REAL data
         print("\n🚀 Running enhanced sentiment analysis...")
@@ -467,25 +519,95 @@ class TradingSystemManager:
         return True
     
     def evening_routine(self):
-        """Enhanced evening routine with comprehensive AI analysis and ML processing"""
-        import os  # Add import for environment variables
-        print("🌆 EVENING ROUTINE - AI-Powered Daily Analysis")
-        print("=" * 50)
+        """Enhanced evening routine with comprehensive ML training and analysis"""
+        print("🌆 EVENING ROUTINE - Enhanced ML Training System")
+        print("=" * 60)
         
-        # Initialize data collectors and analyzers
-        print("\n📋 Initializing evening analysis components...")
+        # Check if enhanced ML components are available
         try:
-            from app.core.data.collectors.market_data import ASXDataFeed
-            from app.core.data.collectors.news_collector import SmartCollector
-            from app.core.data.processors.news_processor import NewsTradingAnalyzer
+            import sys
+            import os
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            sys.path.append(project_root)
             
-            data_feed = ASXDataFeed()
-            smart_collector = SmartCollector()
-            news_analyzer = NewsTradingAnalyzer()
-            print('✅ Evening analysis components initialized')
-        except Exception as e:
-            print(f"❌ Component initialization error: {e}")
-            return False
+            from enhanced_evening_analyzer_with_ml import EnhancedEveningAnalyzer
+            enhanced_available = True
+            print("✅ Enhanced ML components detected")
+        except ImportError:
+            enhanced_available = False
+            print("⚠️ Enhanced ML components not available, using standard analysis")
+        
+        # Run enhanced evening analysis if available
+        if enhanced_available:
+            try:
+                print("\n🧠 Running Enhanced ML Evening Analysis...")
+                enhanced_analyzer = EnhancedEveningAnalyzer()
+                enhanced_result = enhanced_analyzer.run_enhanced_evening_analysis()
+                
+                if enhanced_result and 'error' not in enhanced_result:
+                    print("✅ Enhanced ML evening analysis completed successfully")
+                    
+                    # Display key results
+                    model_training = enhanced_result.get('model_training', {})
+                    backtesting = enhanced_result.get('backtesting', {})
+                    validation = enhanced_result.get('validation_results', {})
+                    predictions = enhanced_result.get('next_day_predictions', {})
+                    
+                    print(f"\n📊 Enhanced Evening Analysis Summary:")
+                    
+                    # Model training results
+                    if model_training.get('training_successful'):
+                        stats = model_training.get('training_data_stats', {})
+                        perf = model_training.get('performance_metrics', {})
+                        print(f"   ✅ Model Training: {stats.get('total_samples', 0)} samples, {stats.get('total_features', 0)} features")
+                        if 'direction_accuracy' in perf:
+                            acc = perf['direction_accuracy']
+                            print(f"   🎯 Direction Accuracy: 1h={acc.get('1h', 0):.1%}, 4h={acc.get('4h', 0):.1%}, 1d={acc.get('1d', 0):.1%}")
+                    else:
+                        print(f"   ❌ Model Training: Failed or insufficient data")
+                    
+                    # Backtesting results
+                    if backtesting.get('backtesting_performed'):
+                        sim = backtesting.get('trading_simulation', {})
+                        print(f"   📈 Backtesting: {sim.get('win_rate', 0):.1%} win rate, {sim.get('total_return_pct', 0):+.2f}% return")
+                    
+                    # Validation results
+                    assessment = validation.get('overall_assessment', 'UNKNOWN')
+                    print(f"   🏅 Model Assessment: {assessment}")
+                    
+                    # Next-day predictions
+                    if predictions.get('predictions_generated'):
+                        conf_summary = predictions.get('confidence_summary', {})
+                        market_outlook = predictions.get('market_outlook', {})
+                        print(f"   🔮 Next-Day Predictions: {conf_summary.get('predictions_generated', 0)} banks")
+                        print(f"   📊 Market Outlook: {market_outlook.get('overall_sentiment', 'NEUTRAL')}")
+                    
+                    return True
+                else:
+                    print("❌ Enhanced ML analysis failed, falling back to standard analysis")
+                    enhanced_available = False
+            except Exception as e:
+                print(f"❌ Enhanced ML analysis error: {e}")
+                enhanced_available = False
+        
+        # Fallback to standard analysis
+        if not enhanced_available:
+            print("\n📊 Running Standard Evening Analysis...")
+            
+            # Initialize data collectors and analyzers
+            print("\n📋 Initializing evening analysis components...")
+            try:
+                from app.core.data.collectors.market_data import ASXDataFeed
+                from app.core.data.collectors.news_collector import SmartCollector
+                from app.core.data.processors.news_processor import NewsTradingAnalyzer
+                
+                data_feed = ASXDataFeed()
+                smart_collector = SmartCollector()
+                news_analyzer = NewsTradingAnalyzer()
+                print('✅ Evening analysis components initialized')
+            except Exception as e:
+                print(f"❌ Component initialization error: {e}")
+                return False
         
         # Enhanced News Sentiment Analysis (Evening Priority for Stage 2)
         print("\n📰 Running Evening Enhanced Sentiment Analysis...")
