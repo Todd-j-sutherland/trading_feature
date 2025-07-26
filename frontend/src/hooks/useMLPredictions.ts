@@ -1,98 +1,135 @@
-import { useState, useEffect, useRef } from 'react';
-import { useAPIError } from '../contexts/ErrorContext';
-import { requestCache } from '../utils/requestCache';
+// Custom React hook for ML predictions
+// Provides real-time data updates to components
 
-interface MLPrediction {
-  time: number;
-  sentimentScore: number;
-  confidence: number;
-  signal: 'BUY' | 'SELL' | 'HOLD';
-  technicalScore: number;
-  newsCount: number;
-  features: {
-    newsImpact: number;
-    technicalScore: number;
-    eventImpact: number;
-    redditSentiment: number;
-  };
+import { useState, useEffect, useCallback } from 'react';
+import { mlPredictionService, BankPrediction, MarketSummary, SentimentHeadline } from '../services/mlPredictionService';
+
+export interface MLDataState {
+  predictions: BankPrediction[];
+  marketSummary: MarketSummary | null;
+  sentimentHeadlines: SentimentHeadline[];
+  isConnected: boolean;
+  isLoading: boolean;
+  error: string | null;
+  lastUpdate: Date;
 }
 
-interface MLPredictionResponse {
-  success: boolean;
-  data: MLPrediction[];
-  stats?: {
-    total_records: number;
-    records_with_technical: number;
-    records_with_reddit: number;
-    avg_confidence: number;
-  };
-}
+export const useMLPredictions = () => {
+  const [state, setState] = useState<MLDataState>({
+    predictions: [],
+    marketSummary: null,
+    sentimentHeadlines: [],
+    isConnected: false,
+    isLoading: true,
+    error: null,
+    lastUpdate: new Date()
+  });
 
-export const useMLPredictions = (symbol: string, timeframe: string) => {
-  const [mlPredictions, setMlPredictions] = useState<MLPrediction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<MLPredictionResponse['stats'] | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const requestVersionRef = useRef(0);
-  const { handleAPIError } = useAPIError();
+  // Update state helper
+  const updateState = useCallback((updates: Partial<MLDataState>) => {
+    setState(prev => ({ ...prev, ...updates }));
+  }, []);
 
+  // Initialize connection and load data
   useEffect(() => {
-    const fetchMLPredictions = async () => {
-      // Increment request version to handle race conditions
-      const currentVersion = ++requestVersionRef.current;
-      
+    let unsubscribe: (() => void) | null = null;
+
+    const initializeML = async () => {
       try {
-        // Use request cache to prevent duplicate concurrent requests
-        const cacheKey = `ml_${symbol}_${timeframe}`;
-        const data = await requestCache.getOrFetch(cacheKey, async () => {
-          const response = await fetch(`/api/banks/${symbol}/ml-indicators?period=${timeframe}`, {
-            signal: abortControllerRef.current?.signal,
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Failed to fetch ML predictions: ${response.statusText}`);
-          }
-          
-          return response.json();
-        });
+        // Connect to WebSocket for real-time updates
+        await mlPredictionService.connectWebSocket();
         
-        // Only update state if this is still the current request
-        if (currentVersion === requestVersionRef.current) {
-          setMlPredictions(data.data || []);
-          setStats(data.stats || null);
-        }
-      } catch (error: any) {
-        // Only handle error if this is still the current request and not cancelled
-        if (currentVersion === requestVersionRef.current && error.name !== 'AbortError') {
-          console.error('Error fetching ML predictions:', error);
-          
-          handleAPIError(
-            error, 
-            `ML predictions for ${symbol}`,
-            () => fetchMLPredictions() // Retry function
-          );
-          
-          setMlPredictions([]);
-          setStats(null);
-        }
-      } finally {
-        // Only update loading if this is still the current request
-        if (currentVersion === requestVersionRef.current) {
-          setLoading(false);
-        }
-      }
-    };    // Add a delay to prevent rapid requests
-    const timeoutId = setTimeout(() => {
-      fetchMLPredictions();
-    }, 1500); // Increased from 500ms to 1500ms to stagger requests    // Cleanup function to cancel request on unmount or dependency change
-    return () => {
-      clearTimeout(timeoutId);
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+        // Subscribe to real-time updates
+        unsubscribe = mlPredictionService.subscribe((data) => {
+          if (data.type === 'initial_data' || data.type === 'update' || data.type === 'live_update') {
+            updateState({
+              predictions: data.predictions || [],
+              marketSummary: data.summary || null,
+              lastUpdate: new Date(),
+              isLoading: false,
+              isConnected: true
+            });
+          }
+        });
+
+        // Load initial data via REST API
+        const [predictions, summary, headlines] = await Promise.all([
+          mlPredictionService.getPredictions(),
+          mlPredictionService.getMarketSummary(),
+          mlPredictionService.getSentimentHeadlines(10)
+        ]);
+
+        updateState({
+          predictions,
+          marketSummary: summary,
+          sentimentHeadlines: headlines,
+          isLoading: false,
+          isConnected: true,
+          error: null
+        });
+
+      } catch (err) {
+        console.error('Error initializing ML connection:', err);
+        updateState({
+          error: 'Failed to connect to ML system',
+          isLoading: false,
+          isConnected: false
+        });
       }
     };
-  }, [symbol, timeframe, handleAPIError]);
 
-  return { mlPredictions, loading, error, stats };
+    initializeML();
+
+    // Cleanup on unmount
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      mlPredictionService.disconnect();
+    };
+  }, [updateState]);
+
+  // Manual refresh function
+  const refreshData = useCallback(async () => {
+    updateState({ isLoading: true });
+    try {
+      await mlPredictionService.refreshData();
+      
+      const [predictions, summary, headlines] = await Promise.all([
+        mlPredictionService.getPredictions(),
+        mlPredictionService.getMarketSummary(),
+        mlPredictionService.getSentimentHeadlines(10)
+      ]);
+
+      updateState({
+        predictions,
+        marketSummary: summary,
+        sentimentHeadlines: headlines,
+        lastUpdate: new Date(),
+        isLoading: false,
+        error: null
+      });
+    } catch (err) {
+      updateState({
+        error: 'Failed to refresh data',
+        isLoading: false
+      });
+    }
+  }, [updateState]);
+
+  // Get prediction for specific bank
+  const getBankPrediction = useCallback(async (symbol: string): Promise<BankPrediction | null> => {
+    try {
+      return await mlPredictionService.getBankPrediction(symbol);
+    } catch (err) {
+      console.error(`Error fetching prediction for ${symbol}:`, err);
+      return null;
+    }
+  }, []);
+
+  return {
+    ...state,
+    refreshData,
+    getBankPrediction
+  };
 };

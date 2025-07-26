@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { createChart, IChartApi, ISeriesApi, Time, CrosshairMode, CandlestickData, HistogramData } from 'lightweight-charts';
 import { CHART_COLORS } from '../constants/trading.constants';
 import { useChartData } from '../hooks/useChartData';
-import { useMLPredictions } from '../hooks/useMLPredictions';
+import { useOriginalMLPredictions } from '../hooks/useOriginalMLPredictions';
 import { useLivePriceData, useLiveMLPredictions } from '../services/liveMlService';
 import { getCurrentAustralianTime, getMarketStatus } from '../utils/timeUtils';
 
@@ -37,7 +37,7 @@ const TradingChart: React.FC<TradingChartProps> = ({ symbol, timeframe }) => {
 
   // Destructure errors from hooks
   const { chartData, loading: chartLoading, error: chartError } = useChartData(symbol, timeframe);
-  const { mlPredictions, loading: mlLoading, stats, error: mlError } = useMLPredictions(symbol, timeframe);
+  const { mlPredictions, loading: mlLoading, stats, error: mlError } = useOriginalMLPredictions(symbol, timeframe);
 
   // Utility function to ensure valid timestamp
   const ensureValidTimestamp = (timestamp: number): number => {
@@ -720,6 +720,8 @@ const TradingChart: React.FC<TradingChartProps> = ({ symbol, timeframe }) => {
     
     if (!chartContainerRef.current) {
       console.log('📐 Container not ready, waiting...');
+      
+      // More aggressive container ready check
       const checkContainer = () => {
         if (chartContainerRef.current && !chartRef.current) {
           console.log('📐 Container became ready! Dimensions:', {
@@ -732,19 +734,34 @@ const TradingChart: React.FC<TradingChartProps> = ({ symbol, timeframe }) => {
         }
       };
       
-      // Check periodically until container is ready
+      // Check multiple times with shorter intervals
       const interval = setInterval(() => {
         if (chartContainerRef.current) {
           console.log('📐 Container ready via interval check');
           checkContainer();
           clearInterval(interval);
         }
-      }, 100);
+      }, 50); // Check every 50ms instead of 100ms
+      
+      // Also check with requestAnimationFrame for better timing
+      const rafCheck = () => {
+        if (chartContainerRef.current && !chartRef.current) {
+          checkContainer();
+        } else if (!chartContainerRef.current) {
+          requestAnimationFrame(rafCheck);
+        }
+      };
+      requestAnimationFrame(rafCheck);
       
       // Clean up interval
       return () => clearInterval(interval);
     } else {
       console.log('📐 Container already ready');
+      // If container is ready but chart isn't created, force creation
+      if (!chartRef.current) {
+        console.log('📐 Container ready but no chart, forcing creation...');
+        setForceUpdate(prev => prev + 1);
+      }
     }
   }, [forceUpdate]); // Include forceUpdate in dependencies
 
@@ -1072,34 +1089,38 @@ const TradingChart: React.FC<TradingChartProps> = ({ symbol, timeframe }) => {
       hasTransformedMLData: !!transformedMLData
     });
     
+    // Force load sample data if chart is ready but no data after 2 seconds
+    if (chartRef.current && candlestickSeriesRef.current && volumeSeriesRef.current && sentimentSeriesRef.current) {
+      console.log('✅ Chart series ready, forcing sample data load...');
+      setTimeout(() => {
+        try {
+          const sampleCandlestickData = generateSampleCandlestickData();
+          const sampleVolumeData = generateSampleVolumeData();
+          const sampleSentimentData = generateSampleSentimentData();
+          const sampleMarkers = generateSampleMarkers();
+          
+          console.log('🚨 Loading sample data as primary option...');
+          candlestickSeriesRef.current?.setData(sampleCandlestickData);
+          volumeSeriesRef.current?.setData(sampleVolumeData);
+          sentimentSeriesRef.current?.setData(sampleSentimentData);
+          candlestickSeriesRef.current?.setMarkers(sampleMarkers);
+          
+          console.log('✅ Sample data loaded successfully');
+          setIsLoading(false);
+        } catch (error) {
+          console.error('❌ Error loading sample data:', error);
+        }
+      }, 500); // Load sample data quickly
+    }
+    
+    // Also try to load real data if available
     if (chartRef.current && candlestickSeriesRef.current && volumeSeriesRef.current && sentimentSeriesRef.current && !chartLoading && !mlLoading) {
-      console.log('✅ All conditions met, loading chart data...');
+      console.log('✅ All conditions met, attempting to load real data...');
       loadChartData();
     } else {
       console.log('⏳ Waiting for conditions to be met...');
-      // Force load sample data if nothing happens after a delay
-      if (chartRef.current && candlestickSeriesRef.current && volumeSeriesRef.current && sentimentSeriesRef.current) {
-        console.log('🚨 Force loading sample data as fallback...');
-        setTimeout(() => {
-          try {
-            const sampleCandlestickData = generateSampleCandlestickData();
-            const sampleVolumeData = generateSampleVolumeData();
-            const sampleSentimentData = generateSampleSentimentData();
-            const sampleMarkers = generateSampleMarkers();
-            
-            candlestickSeriesRef.current?.setData(sampleCandlestickData);
-            volumeSeriesRef.current?.setData(sampleVolumeData);
-            sentimentSeriesRef.current?.setData(sampleSentimentData);
-            candlestickSeriesRef.current?.setMarkers(sampleMarkers);
-            
-            console.log('🚨 Fallback data loaded');
-            setIsLoading(false);
-          } catch (error) {
-            console.error('🚨 Error loading fallback data:', error);
-          }
-        }, 3000); // Wait 3 seconds before fallback
-      }
     }
+    
     // Sync isLoading state with hook loading states
     setIsLoading(chartLoading || mlLoading);
   }, [transformedChartData, transformedMLData, chartLoading, mlLoading, loadChartData]);

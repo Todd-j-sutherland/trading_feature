@@ -887,7 +887,105 @@ class EnhancedMLTrainingPipeline:
             return 'SELL'
         else:
             return 'HOLD'
+    
+    def _fallback_prediction(self, sentiment_data: Dict, symbol: str) -> Dict:
+        """Fallback prediction when models are not available"""
+        try:
+            # Extract sentiment features
+            sentiment_score = sentiment_data.get('overall_sentiment', 0)
+            confidence = sentiment_data.get('confidence', 0.5)
+            
+            # Simple heuristic-based predictions
+            if sentiment_score > 0.3:
+                direction_1h = 'UP'
+                direction_4h = 'UP'
+                direction_1d = 'UP'
+                magnitude_1h = min(abs(sentiment_score) * 1.5, 3.0)
+                magnitude_4h = min(abs(sentiment_score) * 2.0, 4.0)
+                magnitude_1d = min(abs(sentiment_score) * 3.0, 5.0)
+            elif sentiment_score < -0.3:
+                direction_1h = 'DOWN'
+                direction_4h = 'DOWN'
+                direction_1d = 'DOWN'
+                magnitude_1h = -min(abs(sentiment_score) * 1.5, 3.0)
+                magnitude_4h = -min(abs(sentiment_score) * 2.0, 4.0)
+                magnitude_1d = -min(abs(sentiment_score) * 3.0, 5.0)
+            else:
+                direction_1h = direction_4h = direction_1d = 'NEUTRAL'
+                magnitude_1h = magnitude_4h = magnitude_1d = 0.0
+            
+            # Determine action based on sentiment
+            if sentiment_score > 0.6 and confidence > 0.7:
+                action = 'STRONG_BUY'
+            elif sentiment_score > 0.2 and confidence > 0.6:
+                action = 'BUY'
+            elif sentiment_score < -0.6 and confidence > 0.7:
+                action = 'STRONG_SELL'
+            elif sentiment_score < -0.2 and confidence > 0.6:
+                action = 'SELL'
+            else:
+                action = 'HOLD'
+            
+            return {
+                'direction_predictions': {
+                    '1h': direction_1h,
+                    '4h': direction_4h,
+                    '1d': direction_1d
+                },
+                'magnitude_predictions': {
+                    '1h': magnitude_1h,
+                    '4h': magnitude_4h,
+                    '1d': magnitude_1d
+                },
+                'confidence_scores': {
+                    '1h': confidence * 0.8,  # Lower confidence for fallback
+                    '4h': confidence * 0.7,
+                    '1d': confidence * 0.6,
+                    'average': confidence * 0.7
+                },
+                'optimal_action': action,
+                'timestamp': datetime.now().isoformat(),
+                'prediction_type': 'fallback_heuristic'
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Fallback prediction error for {symbol}: {e}")
+            return {
+                'direction_predictions': {'1h': 'HOLD', '4h': 'HOLD', '1d': 'HOLD'},
+                'magnitude_predictions': {'1h': 0.0, '4h': 0.0, '1d': 0.0},
+                'confidence_scores': {'1h': 0.3, '4h': 0.3, '1d': 0.3, 'average': 0.3},
+                'optimal_action': 'HOLD',
+                'timestamp': datetime.now().isoformat(),
+                'prediction_type': 'fallback_default',
+                'error': str(e)
+            }
 
+# Data Validation Framework
+class DataValidator:
+    """Comprehensive data validation framework"""
+    
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+    
+    def validate_sentiment_data(self, data: Dict) -> bool:
+        """Validate sentiment analysis output"""
+        required_fields = [
+            'overall_sentiment', 'confidence', 'news_count',
+            'sentiment_components', 'timestamp'
+        ]
+        
+        # Check required fields
+        for field in required_fields:
+            if field not in data:
+                raise ValueError(f"Missing required field: {field}")
+        
+        # Validate ranges
+        assert -1 <= data['overall_sentiment'] <= 1, "Sentiment out of range"
+        assert 0 <= data['confidence'] <= 1, "Confidence out of range"
+        assert data['news_count'] >= 0, "Invalid news count"
+        
+        return True
+    
     def validate_technical_data(self, data: Dict) -> bool:
         """Validate technical analysis output"""
         indicators = data.get('indicators', {})
@@ -988,30 +1086,3 @@ class EnhancedMLTrainingPipeline:
                 'direction_predictions': {'1h': 0, '4h': 0, '1d': 0},
                 'magnitude_predictions': {'1h': 0.0, '4h': 0.0, '1d': 0.0}
             }
-    
-
-# Data Validation Framework
-class DataValidator:
-    """Comprehensive data validation framework"""
-    
-    def __init__(self):
-        self.logger = logging.getLogger(__name__)
-    
-    def validate_sentiment_data(self, data: Dict) -> bool:
-        """Validate sentiment analysis output"""
-        required_fields = [
-            'overall_sentiment', 'confidence', 'news_count',
-            'sentiment_components', 'timestamp'
-        ]
-        
-        # Check required fields
-        for field in required_fields:
-            if field not in data:
-                raise ValueError(f"Missing required field: {field}")
-        
-        # Validate ranges
-        assert -1 <= data['overall_sentiment'] <= 1, "Sentiment out of range"
-        assert 0 <= data['confidence'] <= 1, "Confidence out of range"
-        assert data['news_count'] >= 0, "Invalid news count"
-        
-        return True
