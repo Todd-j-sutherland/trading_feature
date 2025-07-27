@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { requestCache } from '../utils/requestCache';
+import { API_BASE_URL } from '../constants/trading.constants';
+import { OHLCVData } from '../types/trading.types';
 import { useAPIError } from '../contexts/ErrorContext';
+import { requestCache } from '../utils/requestCache';
 
 interface ChartDataPoint {
   timestamp: number;
@@ -28,7 +30,7 @@ export const useChartData = (symbol: string, timeframe: string) => {
         // Use request cache to prevent duplicate concurrent requests
         const cacheKey = `chart_${symbol}_${timeframe}`;
         const data = await requestCache.getOrFetch(cacheKey, async () => {
-          const response = await fetch(`/api/banks/${symbol}/ohlcv?period=${timeframe}`, {
+          const response = await fetch(`${API_BASE_URL}/banks/${symbol}/ohlcv?period=${timeframe}`, {
             signal: abortControllerRef.current?.signal,
           });
           

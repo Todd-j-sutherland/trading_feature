@@ -2,6 +2,7 @@
 // This is a standalone dashboard to isolate and test ML functionality
 
 import React, { useState, useEffect } from 'react';
+import { ML_API_BASE_URL } from '../constants/trading.constants';
 
 interface BankPrediction {
   symbol: string;
@@ -50,7 +51,8 @@ const SimpleMLDashboard: React.FC = () => {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [connectionStatus, setConnectionStatus] = useState('Connecting...');
 
-  const API_BASE_URL = 'http://localhost:8001';
+  // Use environment-aware ML API URL
+  const API_BASE_URL = ML_API_BASE_URL;
 
   // Fetch ML data
   const fetchMLData = async () => {

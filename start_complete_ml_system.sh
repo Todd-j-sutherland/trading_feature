@@ -19,9 +19,14 @@ if [ ! -d "venv" ]; then
     python3 -m venv venv
 fi
 
-# Activate virtual environment and install dependencies
-echo "📦 Setting up Python environment..."
-source venv/bin/activate
+# Check if we're on remote server and use correct environment
+if [ -d "../trading_venv" ]; then
+    echo "📦 Using remote trading_venv environment..."
+    source ../trading_venv/bin/activate
+else
+    echo "📦 Using local venv environment..."
+    source venv/bin/activate
+fi
 pip install fastapi uvicorn websockets pydantic pandas numpy yfinance scikit-learn joblib
 
 # Start backend services
@@ -38,17 +43,19 @@ echo "⏳ Waiting for backends to initialize..."
 sleep 8
 
 # Start frontend
-echo "🎨 Starting Frontend Dashboard..."
-./start_ml_frontend.sh &
+echo "🎨 Starting Frontend Dashboard (Production Build)..."
+echo "📍 Current directory: $(pwd)"
+echo "📁 Frontend directory exists: $([ -d "frontend" ] && echo "YES" || echo "NO")"
+./start_ml_frontend_production.sh &
 FRONTEND_PID=$!
 
 echo ""
 echo "🎯 SYSTEM READY!"
 echo "==============="
-echo "🔗 Frontend Dashboard: http://localhost:3002"
-echo "🏦 Main Backend API: http://localhost:8000"
-echo "🤖 ML Backend API: http://localhost:8001/docs"
-echo "📊 Real-time WebSocket: ws://localhost:8001/ws/live-updates"
+echo "🔗 Frontend Dashboard: http://0.0.0.0:3002 (or http://YOUR_SERVER_IP:3002)"
+echo "🏦 Main Backend API: http://0.0.0.0:8000 (or http://YOUR_SERVER_IP:8000)"
+echo "🤖 ML Backend API: http://0.0.0.0:8001/docs (or http://YOUR_SERVER_IP:8001/docs)"
+echo "📊 Real-time WebSocket: ws://0.0.0.0:8001/ws/live-updates (or ws://YOUR_SERVER_IP:8001/ws/live-updates)"
 echo "📈 HTML Dashboard: file://$(pwd)/enhanced_ml_system/bank_performance_dashboard.html"
 echo ""
 echo "💡 The system provides:"
@@ -58,6 +65,10 @@ echo "   • Real-time sentiment analysis from news"
 echo "   • WebSocket updates every 5 minutes"
 echo "   • REST API endpoints for all data"
 echo "   • Integrated frontend with existing charts"
+echo ""
+echo "🌐 REMOTE ACCESS INSTRUCTIONS:"
+echo "   Replace 'YOUR_SERVER_IP' with your server's public IP address"
+echo "   For ssh root@170.64.199.151, use: http://170.64.199.151:3002"
 echo ""
 echo "Press Ctrl+C to stop all services..."
 

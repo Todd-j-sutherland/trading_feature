@@ -1105,36 +1105,354 @@ python enhanced_ml_system/multi_bank_data_collector.py
 
 ## ⚡ **Quick Start Commands**
 
-### **Complete System Startup**
+### **🛑 Process Management - Clean Startup**
+
+#### **Step 1: Kill Existing Processes (ALWAYS DO THIS FIRST)**
 ```bash
-# Start everything (recommended)
+# Kill all Node.js processes (frontend/servers)
+pkill -f node
+
+# Kill all Python processes (backends/ML systems)
+pkill -f python
+pkill -f uvicorn
+pkill -f api_server
+pkill -f realtime_ml_api
+
+# Alternative: Kill specific ports if needed
+lsof -ti:3000,3002,8000,8001 | xargs kill -9
+
+# Verify all processes are stopped
+ps aux | grep -E "(node|python|uvicorn)" | grep -v grep
+# Should return empty if all processes killed
+```
+
+#### **Step 2: Complete System Startup**
+```bash
+# Start everything (recommended - runs in background)
 ./start_complete_ml_system.sh
 
 # What it starts:
-# - Main Backend (port 8000)
-# - Enhanced ML Backend (port 8001)  
-# - React Frontend (port 3000)
-# - Data collection processes
-# - WebSocket updates
+# - Main Backend (port 8000) - Chart data, ML predictions, caching
+# - Enhanced ML Backend (port 8001) - Real-time 11-bank analysis  
+# - React Frontend (port 3002) - Dashboard with optimized caching
+# - Data collection processes - News, sentiment, technical analysis
+# - WebSocket updates - Live streaming every 5 minutes
 ```
 
-### **Daily Operations**
+#### **Step 3: Verify System Startup**
 ```bash
-# Morning analysis (3-5 minutes)
+# Check all processes are running
+echo "🔍 Checking System Status..."
+ps aux | grep -E "(api_server|realtime_ml_api|node.*serve)" | grep -v grep
+
+# Check ports are open
+echo "🌐 Checking Open Ports..."
+lsof -i :8000,8001,3002 | grep LISTEN
+
+# Test backend connectivity
+echo "🔧 Testing Backend APIs..."
+curl -s http://localhost:8000/api/cache/status | head -20
+curl -s http://localhost:8001/api/market-summary | head -20
+
+# Test frontend
+echo "🎨 Testing Frontend..."
+curl -s http://localhost:3002 | head -10
+```
+
+#### **🌐 System Access Points**
+```bash
+# Once system is running, access via:
+
+# 📊 MAIN REACT DASHBOARD (Primary Interface)
+open http://localhost:3002
+# - Interactive candlestick charts with ML signals
+# - Real-time sentiment analysis overlay
+# - Technical indicators (RSI, MACD, Bollinger Bands)
+# - Optimized caching (15-minute ML predictions)
+
+# 🤖 SIMPLE ML TESTING DASHBOARD  
+open http://localhost:3002   # Same port, different interface
+# - 11 Australian banks real-time analysis
+# - ML prediction confidence scores
+# - Buy/Sell/Hold signal distribution
+# - Market summary statistics
+
+# 🔧 MAIN BACKEND API (Port 8000)
+curl http://localhost:8000/api/cache/status        # Cache performance
+curl http://localhost:8000/api/banks/CBA.AX/ohlcv  # Price data
+open http://localhost:8000/docs                    # API documentation
+
+# 🧠 ENHANCED ML BACKEND API (Port 8001)  
+curl http://localhost:8001/api/predictions         # All bank predictions
+curl http://localhost:8001/api/market-summary      # Market overview
+open http://localhost:8001/docs                    # ML API documentation
+
+# 📡 WEBSOCKET LIVE UPDATES
+# ws://localhost:8001/ws/live-updates              # Real-time data stream
+```
+
+### **📊 Complete Data Flow - Start to Finish**
+
+#### **🔄 Data Pipeline Architecture**
+```
+1. DATA SOURCES → 2. COLLECTION → 3. PROCESSING → 4. ML MODELS → 5. FRONTEND
+      ↓               ↓              ↓              ↓             ↓
+   YFinance      Multi-Bank     Feature Eng.   RandomForest   React UI
+   News APIs     Collector      54+ Features   XGBoost        Charts
+   Reddit        Sentiment      Technical      Neural Net     Dashboards
+   Market Data   Analysis       Price/Volume   Ensemble       Cache Layer
+```
+
+#### **🕐 Real-time Data Collection (Every 5 Minutes)**
+```python
+# 1. Price Data Collection (YFinance)
+for symbol in ['CBA.AX', 'ANZ.AX', 'WBC.AX', ...]:  # 11 banks
+    price_data = yf.download(symbol, period='1d', interval='1m')
+    # Cache: 15 minutes (backend optimization)
+    
+# 2. News & Sentiment Analysis
+news_articles = collect_financial_news(symbols)
+sentiment_scores = analyze_sentiment(articles)  # FinBERT, RoBERTa
+reddit_sentiment = analyze_reddit_sentiment(symbols)
+# Cache: No caching (always fresh sentiment)
+
+# 3. Technical Indicators Calculation
+technical_data = {
+    'rsi': calculate_rsi(price_data),          # 0-100
+    'macd': calculate_macd(price_data),        # MACD lines
+    'bollinger': calculate_bollinger(price_data),
+    'sma_20/50/200': calculate_sma(price_data),
+    'volume_analysis': analyze_volume(price_data)
+}
+# Cache: 5 minutes (backend optimization)
+```
+
+#### **🧠 ML Feature Engineering & Prediction Pipeline**
+```python
+# 4. Feature Engineering (54+ Features)
+ml_features = combine_features(
+    sentiment_features=sentiment_scores,      # 12 features
+    technical_features=technical_data,        # 18 features  
+    price_features=price_history,            # 12 features
+    volume_features=volume_analysis,         # 6 features
+    market_context=market_data               # 6 features
+)
+
+# 5. ML Model Prediction (Ensemble)
+for symbol in symbols:
+    # Load pre-trained models
+    models = load_model_ensemble(symbol)     # RandomForest, XGBoost, Neural Net
+    
+    # Generate predictions
+    prediction = models.predict(ml_features[symbol])
+    results[symbol] = {
+        'direction': prediction['direction'],     # UP/DOWN
+        'magnitude': prediction['magnitude'],     # % change expected
+        'confidence': prediction['confidence'],   # 0-1
+        'optimal_action': prediction['action']    # BUY/SELL/HOLD/STRONG_BUY/etc
+    }
+
+# 6. Store & Cache Results
+store_in_database(predictions)
+cache_ml_predictions(predictions, cache_time=15_minutes)
+broadcast_websocket_updates(predictions)
+```
+
+#### **🌐 Frontend Data Consumption & Caching**
+```typescript
+// 7. Frontend Request Optimization
+class RequestCache {
+    static getCacheTime(dataType: string): number {
+        switch (dataType) {
+            case 'ml_predictions': return 15 * 60 * 1000;  // 15 minutes
+            case 'technical_indicators': return 5 * 60 * 1000;   // 5 minutes  
+            case 'price_data': return 15 * 60 * 1000;      // 15 minutes
+            default: return 60 * 1000;                     // 1 minute
+        }
+    }
+}
+
+// 8. Chart Rendering & Updates
+TradingChart.tsx renders:
+- Candlestick charts (OHLCV data)
+- Technical indicators overlay (SMA, RSI, Bollinger)
+- ML prediction signals (BUY/SELL markers)
+- Sentiment analysis overlay (confidence lines)
+- Real-time WebSocket updates (every 5 minutes)
+```
+
+#### **💾 Data Storage & Persistence**
+```sql
+-- Database Schema (SQLite)
+CREATE TABLE enhanced_predictions (
+    id INTEGER PRIMARY KEY,
+    symbol TEXT,                    -- e.g., 'CBA.AX'
+    timestamp DATETIME,
+    sentiment_score REAL,           -- -1 to +1
+    rsi REAL,                      -- 0-100
+    current_price REAL,
+    predicted_direction TEXT,       -- 'BUY'/'SELL'/'HOLD'
+    prediction_confidence REAL,     -- 0-1
+    features_json TEXT             -- All 54+ features as JSON
+);
+
+-- Cache Tables (In-Memory)
+price_data_cache         -- 15-minute TTL
+technical_indicators_cache -- 5-minute TTL  
+ml_predictions_cache     -- 15-minute TTL
+```
+
+### **✅ System Verification Commands**
+
+#### **🔍 Process Health Checks**
+```bash
+# Check all trading system processes
+echo "📊 TRADING SYSTEM PROCESS STATUS"
+echo "================================"
+ps aux | grep -E "(api_server|realtime_ml_api|node.*serve)" | grep -v grep
+
+# Check specific port usage
+echo -e "\n🌐 PORT USAGE:"
+lsof -i :8000 && echo "✅ Main Backend (8000) - Running" || echo "❌ Main Backend (8000) - NOT RUNNING"
+lsof -i :8001 && echo "✅ ML Backend (8001) - Running" || echo "❌ ML Backend (8001) - NOT RUNNING"  
+lsof -i :3002 && echo "✅ Frontend (3002) - Running" || echo "❌ Frontend (3002) - NOT RUNNING"
+
+# Memory usage check
+echo -e "\n💾 MEMORY USAGE:"
+ps aux | grep -E "(api_server|realtime_ml_api)" | awk '{print $11, $4"%", $6/1024"MB"}' | grep -v grep
+```
+
+#### **🧪 API Connectivity Tests**
+```bash
+# Test Main Backend (Port 8000)
+echo "🔧 TESTING MAIN BACKEND API:"
+curl -s -w "Status: %{http_code}, Time: %{time_total}s\n" \
+     http://localhost:8000/api/cache/status -o /dev/null
+
+# Test Enhanced ML Backend (Port 8001)  
+echo "🤖 TESTING ML BACKEND API:"
+curl -s -w "Status: %{http_code}, Time: %{time_total}s\n" \
+     http://localhost:8001/api/market-summary -o /dev/null
+
+# Test Frontend
+echo "🎨 TESTING FRONTEND:"
+curl -s -w "Status: %{http_code}, Time: %{time_total}s\n" \
+     http://localhost:3002 -o /dev/null
+
+# Test ML Prediction Performance
+echo "⚡ TESTING ML PREDICTION PERFORMANCE:"
+echo "First request (fresh data):"
+time curl -s "http://localhost:8000/api/banks/CBA.AX/ml-indicators?period=1D" > /dev/null
+echo "Second request (cached data):"
+time curl -s "http://localhost:8000/api/banks/CBA.AX/ml-indicators?period=1D" > /dev/null
+```
+
+#### **📊 Cache Performance Verification**
+```bash
+# Check cache status and performance
+echo "🚀 CACHE PERFORMANCE STATUS:"
+curl -s http://localhost:8000/api/cache/status | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+print(f'Cache Entries: {data[\"cache_stats\"][\"total_memory_items\"]}')
+print(f'ML Models Loaded: {data[\"cache_stats\"][\"ml_models_loaded\"]}')
+print(f'Price Data Cached: {data[\"cache_stats\"][\"price_data_entries\"]}')
+print(f'Policy: {data[\"cache_policies\"][\"price_data_cache_time\"]}')
+"
+
+# Test cache hit/miss performance
+echo -e "\n⏱️ CACHE PERFORMANCE TEST:"
+echo "Testing 3 consecutive requests for cache efficiency..."
+for i in {1..3}; do
+    echo "Request $i:"
+    time curl -s "http://localhost:8000/api/banks/CBA.AX/ml-indicators?period=1D" | \
+         python3 -c "import json,sys; data=json.load(sys.stdin); print(f'ML Confidence: {data[\"data\"][0][\"confidence\"]}')"
+done
+```
+
+#### **🏦 Bank Data Validation**
+```bash
+# Verify all 11 banks are being analyzed
+echo "🏦 BANK ANALYSIS VERIFICATION:"
+curl -s http://localhost:8001/api/predictions | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+print(f'Total Banks Analyzed: {len(data)}')
+for bank in data:
+    print(f'{bank[\"symbol\"]}: {bank[\"optimal_action\"]} (Conf: {bank[\"prediction_confidence\"]:.1%})')
+"
+
+# Check market summary statistics
+echo -e "\n📈 MARKET SUMMARY:"
+curl -s http://localhost:8001/api/market-summary | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+print(f'Buy Signals: {data[\"buy_signals\"]}')
+print(f'Sell Signals: {data[\"sell_signals\"]}') 
+print(f'Hold Signals: {data[\"hold_signals\"]}')
+print(f'Avg Sentiment: {data[\"avg_sentiment\"]:.3f}')
+print(f'Best Performer: {data[\"best_performer\"][\"symbol\"]} ({data[\"best_performer\"][\"change\"]:+.2f}%)')
+"
+```
+
+### **🎯 Daily Operations Workflow**
+
+#### **📅 Morning Routine (8:00 AM - 5 minutes)**
+```bash
+# 1. Check if system is running
+ps aux | grep -E "(api_server|realtime_ml_api)" | grep -v grep
+
+# 2. If not running, clean start:
+pkill -f python && pkill -f node  # Kill existing processes
+./start_complete_ml_system.sh     # Start complete system
+
+# 3. Run morning analysis
 python -m app.main morning
 
-# Evening analysis (8-12 minutes)
+# 4. Verify system health
+curl -s http://localhost:8000/api/cache/status
+curl -s http://localhost:8001/api/market-summary
+
+# 5. Access dashboards for monitoring
+open http://localhost:3002        # Main React dashboard
+```
+
+#### **🌅 Market Hours Monitoring (9:00 AM - 4:00 PM)**
+```bash
+# Monitor real-time updates (WebSocket broadcasts every 5 minutes)
+# Frontend auto-refreshes with optimized caching:
+# - ML predictions: 15-minute cache
+# - Technical indicators: 5-minute cache  
+# - Price data: 15-minute cache
+
+# Quick market check command
+curl -s http://localhost:8001/api/market-summary | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+print(f'🔥 {data[\"buy_signals\"]} BUY | ⏸️ {data[\"hold_signals\"]} HOLD | 🔻 {data[\"sell_signals\"]} SELL')
+print(f'📊 Avg Sentiment: {data[\"avg_sentiment\"]:.3f}')
+"
+```
+
+#### **🌆 Evening Analysis (6:00 PM - 12 minutes)**
+```bash
+# 1. Run comprehensive evening analysis
 python -m app.main evening
+# This automatically:
+# - Analyzes day's performance vs predictions
+# - Retrains ML models with new data
+# - Generates validation metrics export files
+# - Updates model performance statistics
 
-# System health check
-python -m app.main status
+# 2. Review validation results
+cat metrics_exports/validation_summary_$(date +%Y%m%d)*.txt
 
-# Generate validation metrics export (1-2 minutes)
-python export_and_validate_metrics.py
+# 3. Check system performance
+python export_and_validate_metrics.py  # Manual validation export
 
-# Dashboard access
-open http://localhost:3000        # Main dashboard
-open http://localhost:3000/simple-ml  # ML testing dashboard
+# 4. System cleanup (optional)
+find logs/ -name "*.log" -mtime +7 -delete     # Clean old logs
+find cache/ -name "*.pkl" -mtime +3 -delete    # Clean old cache files
 ```
 
 ### **📊 Validation Metrics Management**
@@ -1284,23 +1602,97 @@ du -sh logs/ metrics_exports/
 
 ## 🚨 **Troubleshooting**
 
-### **Common Issues**
+### **⚠️ Process Management Issues**
+
+**System won't start / Ports already in use:**
+```bash
+# STEP 1: Kill all existing processes (CRITICAL)
+echo "🛑 Killing all Node.js processes..."
+pkill -f node
+
+echo "🛑 Killing all Python processes..."
+pkill -f python
+pkill -f uvicorn
+pkill -f api_server
+pkill -f realtime_ml_api
+
+# STEP 2: Verify ports are free
+echo "🔍 Checking ports are free..."
+lsof -i :3000,3002,8000,8001 || echo "✅ All ports free"
+
+# STEP 3: Force kill if processes persist
+echo "🔨 Force killing remaining processes on ports..."
+lsof -ti:3000,3002,8000,8001 | xargs kill -9 2>/dev/null || echo "✅ No processes to kill"
+
+# STEP 4: Clean start
+echo "🚀 Starting clean system..."
+./start_complete_ml_system.sh
+```
+
+**Zombie processes / System hanging:**
+```bash
+# Check for zombie processes
+ps aux | grep -E "(python|node)" | grep -E "(Z|<defunct>)"
+
+# Nuclear option - kill all python/node processes
+sudo pkill -9 python
+sudo pkill -9 node
+
+# Restart system
+./start_complete_ml_system.sh
+```
+
+### **🔌 Connection Issues**
 
 **Frontend can't connect to backend:**
 ```bash
 # Check if backends are running
-ps aux | grep -E "(api_server|realtime_ml_api)"
+ps aux | grep -E "(api_server|realtime_ml_api)" | grep -v grep
 
-# Restart complete system
-./start_complete_ml_system.sh
+# Check ports are listening
+lsof -i :8000,8001 | grep LISTEN
+
+# Test backend connectivity
+curl -v http://localhost:8000/api/cache/status
+curl -v http://localhost:8001/api/market-summary
+
+# If backends not running, restart
+pkill -f python && ./start_complete_ml_system.sh
 ```
+
+**CORS / Proxy issues:**
+```bash
+# Check frontend proxy configuration
+cat frontend/vite.config.ts | grep -A 5 proxy
+
+# Test direct API access (bypass proxy)
+curl http://localhost:8000/api/banks/CBA.AX/ohlcv?period=1D
+
+# Clear browser cache and restart frontend
+cd frontend && rm -rf node_modules/.vite && npm run dev
+```
+
+### **💾 Data & Model Issues**
 
 **ML models not loading:**
 ```bash
 # Check model files exist
 ls -la data/ml_models/models/
+echo "Model count: $(ls data/ml_models/models/ | wc -l)"
 
-# Regenerate models
+# Check model file integrity
+python -c "
+import joblib, os
+model_dir = 'data/ml_models/models/'
+for file in os.listdir(model_dir):
+    try:
+        joblib.load(os.path.join(model_dir, file))
+        print(f'✅ {file}')
+    except Exception as e:
+        print(f'❌ {file}: {e}')
+"
+
+# Regenerate models if corrupted
 python -m app.main evening
 ```
 
@@ -1372,15 +1764,39 @@ print('MetricsValidator initialized successfully')
 
 This ASX Trading System provides:
 
-✅ **Complete ML Pipeline**: 54+ features, ensemble models, real-time predictions
-✅ **Dual Backend Architecture**: Original + enhanced ML capabilities  
-✅ **Modern Frontend**: React with interactive charts and ML dashboards
-✅ **Automated Workflows**: Morning analysis, evening training, validation
-✅ **Production Ready**: Error handling, fallbacks, monitoring, documentation
+✅ **Complete ML Pipeline**: 54+ features, ensemble models, real-time predictions  
+✅ **Dual Backend Architecture**: Original + enhanced ML capabilities (Ports 8000 & 8001)  
+✅ **Modern Frontend**: React with interactive charts and ML dashboards (Port 3002)  
+✅ **Optimized Performance**: 15-minute ML caching, 5x speed improvement, request deduplication  
+✅ **Automated Workflows**: Morning analysis, evening training, validation metrics  
+✅ **Process Management**: Clean startup/shutdown, port management, zombie process handling  
+✅ **Production Ready**: Error handling, fallbacks, monitoring, comprehensive documentation  
+
+## 🚀 **Quick Reference Commands**
+
+```bash
+# 🛑 CLEAN SYSTEM START (Always run first)
+pkill -f python && pkill -f node
+./start_complete_ml_system.sh
+
+# 🔍 VERIFY SYSTEM RUNNING  
+ps aux | grep -E "(api_server|realtime_ml_api|node.*serve)" | grep -v grep
+curl -s http://localhost:8000/api/cache/status
+curl -s http://localhost:8001/api/market-summary
+
+# 🌐 ACCESS DASHBOARDS
+open http://localhost:3002        # Main React Dashboard
+open http://localhost:8001/docs   # ML API Documentation
+
+# 📊 DAILY OPERATIONS
+python -m app.main morning        # Morning analysis (5 min)
+python -m app.main evening        # Evening training (12 min)
+python export_and_validate_metrics.py  # Validation export
+```
 
 **Use this document as authoritative reference for all system operations and development.**
 
 ---
 
-*Last Updated: July 26, 2025*
-*System Version: Enhanced ML Trading System v2.1*
+*Last Updated: July 27, 2025*  
+*System Version: Enhanced ML Trading System v2.2 - Optimized Caching*

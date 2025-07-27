@@ -255,33 +255,20 @@ const TradingChart: React.FC<TradingChartProps> = ({ symbol, timeframe }) => {
         sentiment: !!sentimentSeriesRef.current
       });
 
-      // IMMEDIATE SAMPLE DATA LOAD - to test chart rendering
-      console.log('🚀 Loading immediate sample data...');
+      // IMMEDIATE CHECK - test chart rendering without sample data
+      console.log('🚀 Chart ready for real data...');
       setTimeout(() => {
         try {
-          const sampleCandlestickData = generateSampleCandlestickData();
-          const sampleVolumeData = generateSampleVolumeData();
-          const sampleSentimentData = generateSampleSentimentData();
-          const sampleMarkers = generateSampleMarkers();
+          console.log('✅ Chart initialized - waiting for real data only');
+          console.log('🚫 NO SAMPLE DATA - Chart will remain empty until real data arrives');
           
-          console.log('🚀 Setting sample data:', {
-            candleCount: sampleCandlestickData.length,
-            volumeCount: sampleVolumeData.length,
-            sentimentCount: sampleSentimentData.length,
-            markersCount: sampleMarkers.length
-          });
           
-          candlestickSeries.setData(sampleCandlestickData);
-          volumeSeries.setData(sampleVolumeData);
-          sentimentSeries.setData(sampleSentimentData);
-          candlestickSeries.setMarkers(sampleMarkers);
-          
-          console.log('✅ Sample data loaded successfully!');
+          console.log('✅ Chart ready - no sample data loaded');
           setIsLoading(false);
         } catch (error) {
-          console.error('❌ Error loading sample data:', error);
+          console.error('❌ Error initializing chart:', error);
         }
-      }, 100); // Load sample data almost immediately
+      }, 100); // Initialize chart
 
     } catch (error) {
       console.error('❌ Error creating chart:', error);
@@ -1016,14 +1003,36 @@ const TradingChart: React.FC<TradingChartProps> = ({ symbol, timeframe }) => {
       return;
     }
 
+    console.log('🔍 DETAILED CHART DATA DEBUG:', {
+      'chartData_available': !!chartData,
+      'chartData_length': chartData?.length || 0,
+      'chartData_sample': chartData?.slice(0, 2),
+      'mlPredictions_available': !!mlPredictions,
+      'mlPredictions_length': mlPredictions?.length || 0,
+      'mlPredictions_sample': mlPredictions?.slice(0, 2),
+      'transformedChartData_available': !!transformedChartData,
+      'transformedMLData_available': !!transformedMLData,
+      'chartLoading': chartLoading,
+      'mlLoading': mlLoading,
+      'chartError': chartError,
+      'mlError': mlError
+    });
+
     setIsLoading(true);
 
     try {
-      // Use transformed data if available, otherwise generate sample data
+      // ONLY use real data - NO sample/fallback data allowed
       if (transformedChartData) {
-        console.log('📈 Setting real chart data...');
+        console.log('📈 Setting real chart data...', {
+          'candlestickData_length': transformedChartData.candlestickData?.length || 0,
+          'volumeData_length': transformedChartData.volumeData?.length || 0,
+          'sortedChartData_length': transformedChartData.sortedChartData?.length || 0,
+          'candlestickData_sample': transformedChartData.candlestickData?.slice(0, 2),
+          'volumeData_sample': transformedChartData.volumeData?.slice(0, 2)
+        });
         candlestickSeriesRef.current.setData(transformedChartData.candlestickData);
         volumeSeriesRef.current.setData(transformedChartData.volumeData);
+        console.log('✅ Chart data successfully applied to series');
         
         // Set the last timestamp to the most recent data point
         if (transformedChartData.sortedChartData.length > 0) {
@@ -1033,16 +1042,13 @@ const TradingChart: React.FC<TradingChartProps> = ({ symbol, timeframe }) => {
         
         setLastUpdate(new Date());
       } else {
-        console.log('📊 Generating sample chart data...');
-        // Generate sample candlestick data
-        const sampleCandlestickData = generateSampleCandlestickData();
-        const sampleVolumeData = generateSampleVolumeData();
-        candlestickSeriesRef.current.setData(sampleCandlestickData);
-        volumeSeriesRef.current.setData(sampleVolumeData);
-        console.log('📊 Sample data set:', { candleCount: sampleCandlestickData.length, volumeCount: sampleVolumeData.length });
+        console.warn('� NO CHART DATA AVAILABLE - Chart will remain empty (no sample data)');
+        // Clear chart series to show empty state instead of sample data
+        candlestickSeriesRef.current.setData([]);
+        volumeSeriesRef.current.setData([]);
       }
 
-      // Load ML sentiment data
+      // Load ML sentiment data - ONLY real data
       if (transformedMLData) {
         console.log('🤖 Setting real ML data...');
         sentimentSeriesRef.current.setData(transformedMLData.sentimentData);
@@ -1056,15 +1062,10 @@ const TradingChart: React.FC<TradingChartProps> = ({ symbol, timeframe }) => {
         // Add prediction markers for high confidence signals
         candlestickSeriesRef.current.setMarkers(transformedMLData.markers);
       } else {
-        console.log('🤖 Generating sample ML data...');
-        // Generate sample sentiment data
-        const sampleSentimentData = generateSampleSentimentData();
-        sentimentSeriesRef.current.setData(sampleSentimentData);
-        
-        // Add sample markers
-        const sampleMarkers = generateSampleMarkers();
-        candlestickSeriesRef.current.setMarkers(sampleMarkers);
-        console.log('🤖 Sample ML data set:', { sentimentCount: sampleSentimentData.length, markersCount: sampleMarkers.length });
+        console.warn('🚫 NO ML DATA AVAILABLE - Chart will show no sentiment/markers (no sample data)');
+        // Clear ML data instead of using sample data
+        sentimentSeriesRef.current.setData([]);
+        candlestickSeriesRef.current.setMarkers([]);
       }
 
       console.log('✅ Chart data loading completed');
@@ -1089,28 +1090,17 @@ const TradingChart: React.FC<TradingChartProps> = ({ symbol, timeframe }) => {
       hasTransformedMLData: !!transformedMLData
     });
     
-    // Force load sample data if chart is ready but no data after 2 seconds
+    // Chart is ready but no sample data will be loaded - only real data
     if (chartRef.current && candlestickSeriesRef.current && volumeSeriesRef.current && sentimentSeriesRef.current) {
-      console.log('✅ Chart series ready, forcing sample data load...');
+      console.log('✅ Chart series ready - waiting for real data only...');
       setTimeout(() => {
         try {
-          const sampleCandlestickData = generateSampleCandlestickData();
-          const sampleVolumeData = generateSampleVolumeData();
-          const sampleSentimentData = generateSampleSentimentData();
-          const sampleMarkers = generateSampleMarkers();
-          
-          console.log('🚨 Loading sample data as primary option...');
-          candlestickSeriesRef.current?.setData(sampleCandlestickData);
-          volumeSeriesRef.current?.setData(sampleVolumeData);
-          sentimentSeriesRef.current?.setData(sampleSentimentData);
-          candlestickSeriesRef.current?.setMarkers(sampleMarkers);
-          
-          console.log('✅ Sample data loaded successfully');
+          console.log('🚫 NO SAMPLE DATA - Chart remains empty until real data arrives');
           setIsLoading(false);
         } catch (error) {
-          console.error('❌ Error loading sample data:', error);
+          console.error('❌ Error with chart initialization:', error);
         }
-      }, 500); // Load sample data quickly
+      }, 500); // Brief delay for initialization
     }
     
     // Also try to load real data if available
@@ -1125,123 +1115,8 @@ const TradingChart: React.FC<TradingChartProps> = ({ symbol, timeframe }) => {
     setIsLoading(chartLoading || mlLoading);
   }, [transformedChartData, transformedMLData, chartLoading, mlLoading, loadChartData]);
 
-  const generateSampleCandlestickData = () => {
-    const config = TIMEFRAME_CONFIG[timeframe as keyof typeof TIMEFRAME_CONFIG] || TIMEFRAME_CONFIG['1D'];
-    const data = [];
-    const now = new Date();
-    let lastClose = 118; // Starting price for CBA
-    
-    for (let i = 0; i < config.dataPoints; i++) {
-      const time = new Date(now.getTime() - (config.dataPoints - 1 - i) * config.interval * 1000);
-      const timestamp = Math.floor(time.getTime() / 1000) as Time;
-      
-      // Generate realistic OHLC data
-      const volatility = 0.02; // 2% volatility
-      const change = (Math.random() - 0.5) * volatility * lastClose;
-      const open = lastClose;
-      const close = Math.max(open + change, 110); // Minimum price floor
-      
-      // High and low based on open/close
-      const maxPrice = Math.max(open, close);
-      const minPrice = Math.min(open, close);
-      const high = maxPrice + Math.random() * volatility * 0.5 * maxPrice;
-      const low = minPrice - Math.random() * volatility * 0.5 * minPrice;
-      
-      data.push({
-        time: timestamp,
-        open,
-        high,
-        low,
-        close,
-      });
-      
-      lastClose = close;
-    }
-    
-    return data;
-  };
-
-  const generateSampleVolumeData = () => {
-    const config = TIMEFRAME_CONFIG[timeframe as keyof typeof TIMEFRAME_CONFIG] || TIMEFRAME_CONFIG['1D'];
-    const data = [];
-    const now = new Date();
-    
-    for (let i = 0; i < config.dataPoints; i++) {
-      const time = new Date(now.getTime() - (config.dataPoints - 1 - i) * config.interval * 1000);
-      const timestamp = Math.floor(time.getTime() / 1000) as Time;
-      
-      // Generate realistic volume (millions of shares)
-      const baseVolume = 5000000; // 5M shares base
-      const volume = baseVolume + Math.random() * baseVolume * 2;
-      
-      data.push({
-        time: timestamp,
-        value: volume,
-        color: Math.random() > 0.5 ? '#00C851' : '#FF4444',
-      });
-    }
-    
-    return data;
-  };
-
-  const generateSampleSentimentData = () => {
-    const config = TIMEFRAME_CONFIG[timeframe as keyof typeof TIMEFRAME_CONFIG] || TIMEFRAME_CONFIG['1D'];
-    const data = [];
-    const now = new Date();
-    
-    for (let i = 0; i < config.dataPoints; i++) {
-      const time = new Date(now.getTime() - (config.dataPoints - 1 - i) * config.interval * 1000);
-      const timestamp = Math.floor(time.getTime() / 1000) as Time;
-      
-      // Generate sentiment between -1 and 1
-      const sentiment = Math.sin((i / config.dataPoints) * Math.PI * 4) * 0.4 + 
-                       (Math.random() - 0.5) * 0.3;
-      
-      data.push({
-        time: timestamp,
-        value: Math.max(-1, Math.min(1, sentiment)),
-      });
-    }
-    
-    return data;
-  };
-
-  const generateSampleMarkers = () => {
-    const config = TIMEFRAME_CONFIG[timeframe as keyof typeof TIMEFRAME_CONFIG] || TIMEFRAME_CONFIG['1D'];
-    const now = new Date();
-    const markers: Array<{
-      time: Time;
-      position: 'belowBar' | 'aboveBar';
-      color: string;
-      shape: 'arrowUp' | 'arrowDown';
-      text: string;
-      size: number;
-    }> = [];
-
-    // Add a few sample signals
-    const signalPoints = [
-      Math.floor(config.dataPoints * 0.3),
-      Math.floor(config.dataPoints * 0.7),
-      Math.floor(config.dataPoints * 0.9)
-    ];
-
-    signalPoints.forEach((point, index) => {
-      const time = new Date(now.getTime() - (config.dataPoints - 1 - point) * config.interval * 1000);
-      const timestamp = Math.floor(time.getTime() / 1000) as Time;
-      
-      const isBuy = index % 2 === 0;
-      markers.push({
-        time: timestamp,
-        position: isBuy ? 'belowBar' as const : 'aboveBar' as const,
-        color: isBuy ? CHART_COLORS.buySignal : CHART_COLORS.sellSignal,
-        shape: isBuy ? 'arrowUp' as const : 'arrowDown' as const,
-        text: `${isBuy ? 'BUY' : 'SELL'} (${(0.6 + Math.random() * 0.3).toFixed(2)})`,
-        size: 1,
-      });
-    });
-
-    return markers;
-  };
+  // Sample data generation functions REMOVED
+  // This chart now only displays real data - no fallback sample data
 
 
 

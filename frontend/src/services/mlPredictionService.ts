@@ -1,6 +1,8 @@
 // API service for real-time ML predictions
 // Connects React frontend to Python ML backend
 
+import { ML_API_BASE_URL, WS_BASE_URL_8001 } from '../constants/trading.constants';
+
 export interface BankPrediction {
   symbol: string;
   bank_name: string;
@@ -50,7 +52,7 @@ export interface SentimentHeadline {
 }
 
 class MLPredictionService {
-  private baseURL = 'http://localhost:8001';
+  private baseURL = ML_API_BASE_URL;
   private websocket: WebSocket | null = null;
   private listeners: ((data: any) => void)[] = [];
 
@@ -88,7 +90,7 @@ class MLPredictionService {
   connectWebSocket(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        this.websocket = new WebSocket(`ws://localhost:8001/ws/live-updates`);
+        this.websocket = new WebSocket(`${WS_BASE_URL_8001}/ws/live-updates`);
         
         this.websocket.onopen = () => {
           console.log('🔗 Connected to ML real-time updates');

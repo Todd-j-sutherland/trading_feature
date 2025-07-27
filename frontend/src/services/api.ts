@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios';
-import { API_BASE_URL } from '../constants/trading.constants';
+import { API_BASE_URL, WS_BASE_URL_8000 } from '../constants/trading.constants';
 import { MLPrediction, OHLCVData } from '../types/trading.types';
 
 // Create axios instance with default config
@@ -165,7 +165,7 @@ export class TradingWebSocket {
   private onError: (error: any) => void;
 
   constructor(onMessage: (data: any) => void, onError: (error: any) => void = console.error) {
-    this.url = 'ws://localhost:8000/api/stream/predictions';
+    this.url = `${WS_BASE_URL_8000}/api/stream/predictions`;
     this.onMessage = onMessage;
     this.onError = onError;
   }

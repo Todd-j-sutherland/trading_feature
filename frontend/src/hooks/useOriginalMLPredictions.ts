@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { API_BASE_URL } from '../constants/trading.constants';
 import { useAPIError } from '../contexts/ErrorContext';
-import { requestCache } from '../utils/requestCache';
+import { requestCache, RequestCache } from '../utils/requestCache';
 
 interface MLPrediction {
   time: number;
@@ -47,8 +48,13 @@ export const useOriginalMLPredictions = (symbol: string, timeframe: string) => {
       try {
         // Use request cache to prevent duplicate concurrent requests
         const cacheKey = `ml_${symbol}_${timeframe}`;
+        const cacheTime = RequestCache.getCacheTime('ml_predictions'); // 15 minutes
+        
+        console.log(`🔮 Fetching ML predictions for ${symbol} (${timeframe}) - Cache: ${Math.round(cacheTime / 60000)}min`);
+        
         const data = await requestCache.getOrFetch(cacheKey, async () => {
-          const response = await fetch(`/api/banks/${symbol}/ml-indicators?period=${timeframe}`, {
+          console.log(`🌐 Making API call for ${symbol} ML predictions`);
+          const response = await fetch(`${API_BASE_URL}/banks/${symbol}/ml-indicators?period=${timeframe}`, {
             signal: abortControllerRef.current?.signal,
           });
           
@@ -57,10 +63,11 @@ export const useOriginalMLPredictions = (symbol: string, timeframe: string) => {
           }
           
           return response.json();
-        });
+        }, cacheTime); // Use the 15-minute cache time for ML predictions
         
         // Only update state if this is still the current request
         if (currentVersion === requestVersionRef.current) {
+          console.log(`✅ ML predictions updated for ${symbol}: ${data.data?.length || 0} records`);
           setMlPredictions(data.data || []);
           setStats(data.stats || null);
           setError(null); // Clear any previous errors
@@ -89,10 +96,10 @@ export const useOriginalMLPredictions = (symbol: string, timeframe: string) => {
       }
     };
 
-    // Add a delay to prevent rapid requests
+    // Add a delay to prevent rapid requests on component mount
     const timeoutId = setTimeout(() => {
       fetchMLPredictions();
-    }, 1500); // Increased from 500ms to 1500ms to stagger requests
+    }, 2000); // Increased from 1500ms to 2000ms to stagger requests further
 
     // Cleanup function to cancel request on unmount or dependency change
     return () => {

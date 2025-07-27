@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../constants/trading.constants';
 
 export interface LiveMLPrediction {
   timestamp: number;
@@ -125,7 +126,7 @@ class LiveMLService {
    */
   private async fetchLatestPrice(symbol: string): Promise<LiveOHLCV | null> {
     try {
-      const response = await fetch(`/api/live/price/${symbol}`);
+      const response = await fetch(`${API_BASE_URL}/live/price/${symbol}`);
       if (!response.ok) throw new Error(`Failed to fetch price: ${response.statusText}`);
       
       const data = await response.json();
@@ -141,7 +142,7 @@ class LiveMLService {
    */
   private async calculateTechnicalIndicators(symbol: string): Promise<any> {
     try {
-      const response = await fetch(`/api/live/technical/${symbol}`);
+      const response = await fetch(`${API_BASE_URL}/live/technical/${symbol}`);
       if (!response.ok) throw new Error(`Failed to fetch technical indicators: ${response.statusText}`);
       
       const data = await response.json();
@@ -159,7 +160,7 @@ class LiveMLService {
     if (!priceData) return null;
 
     try {
-      const response = await fetch('/api/live/ml-predict', {
+      const response = await fetch(`${API_BASE_URL}/live/ml-predict`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

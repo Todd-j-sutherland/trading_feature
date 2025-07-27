@@ -8,12 +8,18 @@ if [ ! -d "venv" ]; then
     python3 -m venv venv
 fi
 
-# Activate virtual environment
-source venv/bin/activate
+# Check if we're on remote server and use correct environment
+if [ -d "../trading_venv" ]; then
+    echo "📦 Using remote trading_venv environment..."
+    source ../trading_venv/bin/activate
+else
+    echo "📦 Using local venv environment..."
+    source venv/bin/activate
+fi
 
 # Install required packages
 echo "📦 Installing Python dependencies..."
-pip install fastapi uvicorn websockets pydantic pandas numpy sqlite3 yfinance scikit-learn
+pip install fastapi uvicorn websockets pydantic pandas numpy yfinance scikit-learn
 
 # Start the ML data collection in background
 echo "🔄 Starting ML data collection..."
@@ -26,8 +32,8 @@ python enhanced_ml_system/realtime_ml_api.py &
 API_SERVER_PID=$!
 
 echo "✅ Backend services started!"
-echo "🔗 API Documentation: http://localhost:8001/docs"
-echo "📊 WebSocket: ws://localhost:8001/ws/live-updates"
+echo "🔗 API Documentation: http://0.0.0.0:8001/docs (or http://YOUR_SERVER_IP:8001/docs)"
+echo "📊 WebSocket: ws://0.0.0.0:8001/ws/live-updates (or ws://YOUR_SERVER_IP:8001/ws/live-updates)"
 echo "📈 API Endpoints: http://localhost:8001/api/"
 
 # Function to cleanup on exit

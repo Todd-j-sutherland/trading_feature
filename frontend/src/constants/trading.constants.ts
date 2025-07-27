@@ -30,4 +30,44 @@ export const CHART_COLORS = {
   downCandle: '#FF4444',
 };
 
-export const API_BASE_URL = 'http://localhost:8000/api';
+// Environment-based API configuration
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:8000/api';
+    } else {
+      return `http://${hostname}:8000/api`;
+    }
+  }
+  return 'http://localhost:8000/api';
+};
+
+const getMLApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:8001';
+    } else {
+      return `http://${hostname}:8001`;
+    }
+  }
+  return 'http://localhost:8001';
+};
+
+const getWebSocketUrl = (port: number) => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return `ws://localhost:${port}`;
+    } else {
+      return `ws://${hostname}:${port}`;
+    }
+  }
+  return `ws://localhost:${port}`;
+};
+
+export const API_BASE_URL = getApiBaseUrl();
+export const ML_API_BASE_URL = getMLApiBaseUrl();
+export const WS_BASE_URL_8000 = getWebSocketUrl(8000);
+export const WS_BASE_URL_8001 = getWebSocketUrl(8001);
