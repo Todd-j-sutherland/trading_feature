@@ -56,12 +56,13 @@ class TradingSystemManager:
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
             sys.path.append(project_root)
             
-            from enhanced_morning_analyzer_with_ml import EnhancedMorningAnalyzer
+            from enhanced_ml_system.analyzers.enhanced_morning_analyzer_with_ml import EnhancedMorningAnalyzer
             enhanced_available = True
             print("✅ Enhanced ML components detected")
-        except ImportError:
+        except ImportError as e:
             enhanced_available = False
-            print("⚠️ Enhanced ML components not available, using standard analysis")
+            print(f"⚠️ Enhanced ML components not available: {e}")
+            print("Using standard analysis")
         
         # Run enhanced morning analysis if available
         if enhanced_available:
@@ -530,13 +531,31 @@ class TradingSystemManager:
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
             sys.path.append(project_root)
             
-            from enhanced_evening_analyzer_with_ml import EnhancedEveningAnalyzer
+            from enhanced_ml_system.analyzers.enhanced_evening_analyzer_with_ml import EnhancedEveningAnalyzer
             enhanced_available = True
             print("✅ Enhanced ML components detected")
-        except ImportError:
+        except ImportError as e:
             enhanced_available = False
-            print("⚠️ Enhanced ML components not available, using standard analysis")
+            print(f"⚠️ Enhanced ML components not available: {e}")
+            print("Using standard analysis")
         
+        # Update technical scores first (before any analysis)
+        print("\n📊 Updating Technical Scores...")
+        try:
+            from technical_analysis_engine import TechnicalAnalysisEngine
+            tech_engine = TechnicalAnalysisEngine()
+            tech_success = tech_engine.update_database_technical_scores()
+            if tech_success:
+                print("✅ Technical scores updated successfully")
+                # Get summary for display
+                summary = tech_engine.get_technical_summary()
+                print(f"   📈 Technical Analysis: {summary['total_banks_analyzed']} banks analyzed")
+                print(f"   📊 Signals - BUY: {summary['signals']['BUY']}, HOLD: {summary['signals']['HOLD']}, SELL: {summary['signals']['SELL']}")
+            else:
+                print("⚠️ Technical score update failed, continuing with analysis")
+        except Exception as e:
+            print(f"⚠️ Technical score update error: {e}, continuing with analysis")
+
         # Run enhanced evening analysis if available
         if enhanced_available:
             try:

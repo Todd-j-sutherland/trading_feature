@@ -1,0 +1,140 @@
+{
+  "export_metadata": {
+    "timestamp": "20250726_205138",
+    "export_time": "2025-07-26T20:51:38.031731",
+    "dashboard_version": "1.0.0",
+    "python_version": "3.12.7 (main, Jul  8 2025, 15:44:31) [Clang 14.0.0 (clang-1400.0.29.202)]",
+    "database_path": "data/ml_models/training_data.db"
+  },
+  "ml_performance": {
+    "total_predictions": 170,
+    "avg_confidence": 0.6048084117647057,
+    "buy_signals": 74,
+    "sell_signals": 37,
+    "hold_signals": 59,
+    "completed_trades": 10,
+    "success_rate": 0.6,
+    "avg_return": 0.4302838789910532,
+    "best_trade": 1.0182143631929177,
+    "worst_trade": 0.0
+  },
+  "sentiment_scores": [
+    {
+      "Symbol": "ANZ.AX",
+      "Timestamp": "2025-07-26T20:47:35.096705",
+      "Sentiment Score": 0.028037711135023558,
+      "Confidence": 0.6161900000000001,
+      "Signal": "HOLD",
+      "News Count": 11,
+      "Reddit Sentiment": 0.0,
+      "Event Score": 0.015447682495198295,
+      "Technical Score": 0.0
+    },
+    {
+      "Symbol": "CBA.AX",
+      "Timestamp": "2025-07-26T20:46:43.303452",
+      "Sentiment Score": 0.10383218730724059,
+      "Confidence": 0.6117400000000001,
+      "Signal": "BUY",
+      "News Count": 10,
+      "Reddit Sentiment": 0.0,
+      "Event Score": 0.013240870710169965,
+      "Technical Score": 0.0
+    },
+    {
+      "Symbol": "MQG.AX",
+      "Timestamp": "2025-07-26T20:48:27.388660",
+      "Sentiment Score": 0.08201096229693167,
+      "Confidence": 0.61711,
+      "Signal": "BUY",
+      "News Count": 17,
+      "Reddit Sentiment": 0.0,
+      "Event Score": 0.031101334090332566,
+      "Technical Score": 0.0
+    },
+    {
+      "Symbol": "NAB.AX",
+      "Timestamp": "2025-07-26T20:48:01.150120",
+      "Sentiment Score": 0.004379272387716069,
+      "Confidence": 0.5857300000000001,
+      "Signal": "HOLD",
+      "News Count": 13,
+      "Reddit Sentiment": 0.0,
+      "Event Score": 0.008418086416759618,
+      "Technical Score": 0.0
+    },
+    {
+      "Symbol": "QBE.AX",
+      "Timestamp": "2025-07-26T20:49:21.700363",
+      "Sentiment Score": 0.062319360154996124,
+      "Confidence": 0.5713800000000001,
+      "Signal": "BUY",
+      "News Count": 8,
+      "Reddit Sentiment": 0.0,
+      "Event Score": 0.007256971048930704,
+      "Technical Score": 0.0
+    },
+    {
+      "Symbol": "SUN.AX",
+      "Timestamp": "2025-07-26T20:48:57.167000",
+      "Sentiment Score": 0.044419436997974626,
+      "Confidence": 0.5952900000000001,
+      "Signal": "HOLD",
+      "News Count": 14,
+      "Reddit Sentiment": 0.0,
+      "Event Score": 0.02423309975267932,
+      "Technical Score": 0.0
+    },
+    {
+      "Symbol": "WBC.AX",
+      "Timestamp": "2025-07-26T20:47:08.728679",
+      "Sentiment Score": 0.08144525199330917,
+      "Confidence": 0.6136900000000001,
+      "Signal": "BUY",
+      "News Count": 13,
+      "Reddit Sentiment": 0.0,
+      "Event Score": 0.026481741420339933,
+      "Technical Score": 0.0
+    }
+  ],
+  "feature_analysis": {
+    "total_records": 170,
+    "feature_usage": {
+      "news_analysis": 100.0,
+      "reddit_sentiment": 89.41176470588236,
+      "event_scoring": 100.0,
+      "technical_indicators": 100.0
+    },
+    "feature_strength": {
+      "avg_news_count": 12.211764705882352,
+      "avg_reddit_strength": 0.033275000000000006,
+      "avg_event_strength": 0.0175191404849726,
+      "avg_technical_strength": 24.076470588235296
+    },
+    "ml_features": {}
+  },
+  "database_statistics": {
+    "sentiment_features_count": 170,
+    "trading_outcomes_count": 10,
+    "model_performance_count": 1,
+    "sentiment_date_range": {
+      "earliest": "2025-07-21T22:11:57.250983",
+      "latest": "2025-07-26T20:49:21.700363",
+      "unique_symbols": 9
+    },
+    "trading_date_range": {
+      "earliest_trade": "2025-07-23 10:02:36",
+      "latest_trade": "2025-07-23 10:19:52",
+      "completed_trades": 10,
+      "pending_trades": 0
+    },
+    "recent_activity": {
+      "predictions_last_7_days": 170
+    }
+  },
+  "validation_metadata": {
+    "total_records_exported": 7,
+    "export_success": true,
+    "export_duration_seconds": 0.007366
+  }
+}

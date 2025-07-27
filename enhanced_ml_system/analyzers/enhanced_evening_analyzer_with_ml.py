@@ -41,6 +41,7 @@ try:
     from app.core.ml.enhanced_training_pipeline import EnhancedMLTrainingPipeline, DataValidator
     from app.core.analysis.technical import TechnicalAnalyzer, get_market_data
     from app.core.sentiment.news_analyzer import NewsSentimentAnalyzer
+    from technical_analysis_engine import TechnicalAnalysisEngine
     from app.config.settings import Settings
     import pandas as pd
     import numpy as np
@@ -73,6 +74,7 @@ class EnhancedEveningAnalyzer:
             self.technical_analyzer = TechnicalAnalyzer(self.settings)
             self.sentiment_analyzer = NewsSentimentAnalyzer()
             self.data_validator = DataValidator()
+            self.technical_engine = TechnicalAnalysisEngine()
             self.logger.info("Enhanced ML components initialized")
         else:
             self.logger.warning("Enhanced ML components not available")
@@ -86,6 +88,36 @@ class EnhancedEveningAnalyzer:
         os.makedirs("data/ml_models", exist_ok=True)
         
         self.logger.info("Enhanced Evening Analyzer initialized")
+    
+    def update_technical_scores(self) -> bool:
+        """
+        Update technical scores for all banks
+        """
+        try:
+            print("📊 Updating technical scores...")
+            if hasattr(self, 'technical_engine'):
+                success = self.technical_engine.update_database_technical_scores()
+                
+                if success:
+                    print("✅ Technical scores updated successfully")
+                    
+                    # Get summary for logging
+                    summary = self.technical_engine.get_technical_summary()
+                    print(f"📈 Technical Analysis Summary:")
+                    print(f"   Banks analyzed: {summary['total_banks_analyzed']}")
+                    print(f"   BUY signals: {summary['signals']['BUY']}")
+                    print(f"   HOLD signals: {summary['signals']['HOLD']}")
+                    print(f"   SELL signals: {summary['signals']['SELL']}")
+                    print(f"   Average score: {summary['average_technical_score']}")
+                    
+                return success
+            else:
+                print("❌ Technical engine not available")
+                return False
+            
+        except Exception as e:
+            print(f"❌ Error updating technical scores: {e}")
+            return False
     
     def run_enhanced_evening_analysis(self) -> Dict:
         """
@@ -116,6 +148,12 @@ class EnhancedEveningAnalyzer:
         if not ML_ENHANCED_AVAILABLE:
             self.logger.warning("Enhanced analysis not available")
             return self._run_basic_evening_analysis()
+        
+        # Phase 0: Update Technical Scores
+        self.logger.info("📊 Phase 0: Updating Technical Scores")
+        tech_success = self.update_technical_scores()
+        if not tech_success:
+            self.logger.warning("⚠️ Technical score update failed, continuing with analysis...")
         
         # Phase 1: Comprehensive Data Collection and Validation
         self.logger.info("📊 Phase 1: Data Collection and Validation")
