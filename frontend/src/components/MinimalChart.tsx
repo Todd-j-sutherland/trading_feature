@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, Time, ColorType } from 'lightweight-charts';
+import { API_BASE_URL } from '../constants/trading.constants';
 
 interface MinimalChartProps {
   symbol: string;
@@ -16,7 +17,7 @@ const MinimalChart: React.FC<MinimalChartProps> = ({ symbol }) => {
     const fetchRealData = async () => {
       setStatus('🔄 Fetching real OHLCV data...');
       try {
-        const response = await fetch(`/api/banks/${symbol}/ohlcv?period=1D`);
+        const response = await fetch(`${API_BASE_URL}/banks/${symbol}/ohlcv?period=1D`);
         const data = await response.json();
         
         if (data.success && data.data && data.data.length > 0) {

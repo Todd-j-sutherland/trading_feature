@@ -1800,3 +1800,39 @@ python export_and_validate_metrics.py  # Validation export
 
 *Last Updated: July 27, 2025*  
 *System Version: Enhanced ML Trading System v2.2 - Optimized Caching*
+
+
+Graceful shutdown
+
+# Comprehensive graceful shutdown of all trading processes
+echo "🛑 Gracefully shutting down trading system..."
+
+# Step 1: Send SIGTERM to all main processes
+pkill -TERM -f "realtime_ml_api"
+pkill -TERM -f "api_server" 
+pkill -TERM -f "news_collector"
+pkill -TERM -f "multi_bank_data_collector"
+pkill -TERM -f "enhanced_morning_analyzer"
+
+# Step 2: Wait for graceful shutdown
+echo "⏳ Waiting 10 seconds for graceful shutdown..."
+sleep 10
+
+# Step 3: Check what's still running
+REMAINING=$(ps aux | grep -E "(python.*collector|python.*analyzer|uvicorn|api_server)" | grep -v grep)
+if [ -n "$REMAINING" ]; then
+    echo "⚠️ Some processes still running:"
+    echo "$REMAINING"
+    echo "🔨 Sending SIGKILL as fallback..."
+    pkill -KILL -f "realtime_ml_api"
+    pkill -KILL -f "api_server"
+    pkill -KILL -f "collector"
+    pkill -KILL -f "analyzer"
+else
+    echo "✅ All processes shut down gracefully"
+fi
+
+# Step 4: Verify ports are free
+echo "🔍 Checking ports..."
+lsof -i :8000 || echo "✅ Port 8000 free"
+lsof -i :8001 || echo "✅ Port 8001 free"

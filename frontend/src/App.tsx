@@ -7,6 +7,7 @@ import SimpleMLDashboard from './components/SimpleMLDashboard';
 import IntegratedMLDashboard from './components/IntegratedMLDashboard';
 import MinimalChart from './components/MinimalChart';
 import { ASX_BANKS } from './constants/trading.constants';
+import { useBankMLSentiment } from './hooks/useBankMLSentiment';
 
 // Memoized components for better performance
 const MemoizedTradingChart = React.memo(TradingChart);
@@ -16,6 +17,9 @@ function App() {
   const [selectedBank, setSelectedBank] = useState(ASX_BANKS[0]);
   const [timeframe, setTimeframe] = useState('1D');
   const [currentView, setCurrentView] = useState<'main' | 'ml-test' | 'integrated-ml' | 'minimal-test'>('main');
+
+  // Get real-time ML sentiment data for selected bank
+  const { sentiment: mlSentiment, isLoading: mlLoading, error: mlError } = useBankMLSentiment(selectedBank.code);
 
   // Memoized callbacks to prevent unnecessary re-renders
   const handleBankSelect = useCallback((bank: typeof ASX_BANKS[0]) => {
@@ -55,7 +59,7 @@ function App() {
                       : 'text-gray-300 hover:text-white'
                   }`}
                 >
-                  🧠 Integrated ML dd
+                  🧠 Integrated ML 
                 </button>
                 <button
                   onClick={() => setCurrentView('minimal-test')}
@@ -134,29 +138,86 @@ function App() {
                 <h3 className="text-lg font-semibold mb-4 flex items-center">
                   <span className="mr-2">🤖</span>
                   ML Sentiment Analysis
+                  {mlLoading && (
+                    <span className="ml-2 text-sm text-gray-400">Loading...</span>
+                  )}
+                  {mlError && (
+                    <span className="ml-2 text-sm text-red-400">Error loading data</span>
+                  )}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-lg p-4 border border-green-700">
-                    <h4 className="text-sm font-medium text-green-300 mb-2">Current Signal</h4>
-                    <p className="text-2xl font-bold text-green-400">BUY</p>
-                    <div className="text-xs text-green-300 mt-1">Strong uptrend</div>
+                  <div className={`rounded-lg p-4 border ${
+                    mlSentiment.current_signal === 'BUY' || mlSentiment.current_signal === 'STRONG_BUY'
+                      ? 'bg-gradient-to-br from-green-900 to-green-800 border-green-700'
+                      : mlSentiment.current_signal === 'SELL' || mlSentiment.current_signal === 'STRONG_SELL'
+                      ? 'bg-gradient-to-br from-red-900 to-red-800 border-red-700'
+                      : 'bg-gradient-to-br from-gray-900 to-gray-800 border-gray-700'
+                  }`}>
+                    <h4 className={`text-sm font-medium mb-2 ${
+                      mlSentiment.current_signal === 'BUY' || mlSentiment.current_signal === 'STRONG_BUY'
+                        ? 'text-green-300'
+                        : mlSentiment.current_signal === 'SELL' || mlSentiment.current_signal === 'STRONG_SELL'
+                        ? 'text-red-300'
+                        : 'text-gray-300'
+                    }`}>Current Signal</h4>
+                    <p className={`text-2xl font-bold ${
+                      mlSentiment.current_signal === 'BUY' || mlSentiment.current_signal === 'STRONG_BUY'
+                        ? 'text-green-400'
+                        : mlSentiment.current_signal === 'SELL' || mlSentiment.current_signal === 'STRONG_SELL'
+                        ? 'text-red-400'
+                        : 'text-gray-400'
+                    }`}>
+                      {mlLoading ? '...' : mlSentiment.current_signal}
+                    </p>
+                    <div className={`text-xs mt-1 ${
+                      mlSentiment.current_signal === 'BUY' || mlSentiment.current_signal === 'STRONG_BUY'
+                        ? 'text-green-300'
+                        : mlSentiment.current_signal === 'SELL' || mlSentiment.current_signal === 'STRONG_SELL'
+                        ? 'text-red-300'
+                        : 'text-gray-300'
+                    }`}>
+                      {mlLoading ? 'Loading...' : mlSentiment.signal_description}
+                    </div>
                   </div>
                   <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-lg p-4 border border-blue-700">
                     <h4 className="text-sm font-medium text-blue-300 mb-2">Confidence</h4>
-                    <p className="text-2xl font-bold text-blue-400">78%</p>
+                    <p className="text-2xl font-bold text-blue-400">
+                      {mlLoading ? '...' : `${Math.round(mlSentiment.confidence * 100)}%`}
+                    </p>
                     <div className="w-full bg-blue-900 rounded-full h-2 mt-2">
-                      <div className="bg-blue-400 h-2 rounded-full" style={{ width: '78%' }}></div>
+                      <div 
+                        className="bg-blue-400 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: mlLoading ? '0%' : `${mlSentiment.confidence * 100}%` }}
+                      ></div>
                     </div>
                   </div>
                   <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-lg p-4 border border-purple-700">
                     <h4 className="text-sm font-medium text-purple-300 mb-2">Sentiment Score</h4>
-                    <p className="text-2xl font-bold text-purple-400">+0.23</p>
-                    <div className="text-xs text-purple-300 mt-1">Bullish sentiment</div>
+                    <p className="text-2xl font-bold text-purple-400">
+                      {mlLoading ? '...' : `${mlSentiment.sentiment_score >= 0 ? '+' : ''}${mlSentiment.sentiment_score.toFixed(2)}`}
+                    </p>
+                    <div className="text-xs text-purple-300 mt-1">
+                      {mlLoading ? 'Loading...' : mlSentiment.sentiment_description}
+                    </div>
                   </div>
-                  <div className="bg-gradient-to-br from-amber-900 to-amber-800 rounded-lg p-4 border border-amber-700">
-                    <h4 className="text-sm font-medium text-amber-300 mb-2">Market Status</h4>
-                    <p className="text-lg font-bold text-amber-400">OPEN</p>
-                    <div className="text-xs text-amber-300 mt-1">Active trading</div>
+                  <div className={`rounded-lg p-4 border ${
+                    mlSentiment.market_status === 'OPEN'
+                      ? 'bg-gradient-to-br from-amber-900 to-amber-800 border-amber-700'
+                      : 'bg-gradient-to-br from-gray-900 to-gray-800 border-gray-700'
+                  }`}>
+                    <h4 className={`text-sm font-medium mb-2 ${
+                      mlSentiment.market_status === 'OPEN' ? 'text-amber-300' : 'text-gray-300'
+                    }`}>Market Status</h4>
+                    <p className={`text-lg font-bold ${
+                      mlSentiment.market_status === 'OPEN' ? 'text-amber-400' : 'text-gray-400'
+                    }`}>
+                      {mlLoading ? '...' : mlSentiment.market_status}
+                    </p>
+                    <div className={`text-xs mt-1 ${
+                      mlSentiment.market_status === 'OPEN' ? 'text-amber-300' : 'text-gray-300'
+                    }`}>
+                      {mlLoading ? 'Loading...' : mlSentiment.market_status === 'OPEN' ? 'Active trading' : 'Markets closed'}
+                    </div>
                   </div>
                 </div>
               </div>

@@ -32,26 +32,12 @@ export const CHART_COLORS = {
 
 // Environment-based API configuration
 const getApiBaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8000/api';
-    } else {
-      return `http://${hostname}:8000/api`;
-    }
-  }
+  // Always use backend port 8000 for API calls
   return 'http://localhost:8000/api';
 };
 
 const getMLApiBaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8001';
-    } else {
-      return `http://${hostname}:8001`;
-    }
-  }
+  // Always use backend port 8001 for ML API calls
   return 'http://localhost:8001';
 };
 

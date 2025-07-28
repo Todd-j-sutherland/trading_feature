@@ -464,16 +464,56 @@ class MLTrainingPipeline:
     
     def get_latest_model_version(self) -> Optional[str]:
         """Get the latest model version"""
-        try:
-            metadata_path = os.path.join(self.models_dir, 'current_metadata.json')
-            if os.path.exists(metadata_path):
-                with open(metadata_path, 'r') as f:
-                    metadata = json.load(f)
-                return metadata['version']
-        except Exception as e:
-            logger.error(f"Error loading model version: {e}")
+        # Try multiple possible metadata file locations
+        possible_paths = [
+            os.path.join(self.models_dir, 'current_metadata.json'),
+            os.path.join(self.data_dir, 'current_metadata.json'),
+            os.path.join('data/ml_models/models', 'current_metadata.json'),
+            os.path.join('data/ml_models', 'current_metadata.json')
+        ]
         
-        return None
+        for metadata_path in possible_paths:
+            try:
+                if os.path.exists(metadata_path):
+                    with open(metadata_path, 'r') as f:
+                        metadata = json.load(f)
+                    
+                    # Try different possible version keys
+                    version = metadata.get('version')
+                    if version:
+                        logger.info(f"Loaded model version '{version}' from {metadata_path}")
+                        return version
+                    
+                    # Fallback: generate version from other metadata
+                    if 'training_date' in metadata:
+                        version = f"v_{metadata['training_date']}"
+                        logger.info(f"Generated version '{version}' from training_date in {metadata_path}")
+                        return version
+                    
+                    if 'created_at' in metadata:
+                        # Extract date from ISO format
+                        try:
+                            from datetime import datetime
+                            created = datetime.fromisoformat(metadata['created_at'].replace('Z', '+00:00'))
+                            version = f"v_{created.strftime('%Y%m%d_%H%M%S')}"
+                            logger.info(f"Generated version '{version}' from created_at in {metadata_path}")
+                            return version
+                        except:
+                            pass
+                    
+                    # Last resort: use model type and timestamp
+                    model_type = metadata.get('model_type', 'unknown')
+                    version = f"v_{model_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    logger.warning(f"Generated fallback version '{version}' from {metadata_path}")
+                    return version
+                        
+            except Exception as e:
+                logger.warning(f"Error reading metadata from {metadata_path}: {e}")
+                continue
+        
+        # If no metadata files found, return a default version
+        logger.warning("No valid metadata files found, using default version")
+        return "v_default_no_metadata"
     
     def update_model_online(self, new_samples: List[Tuple[Dict, int]]):
         """
