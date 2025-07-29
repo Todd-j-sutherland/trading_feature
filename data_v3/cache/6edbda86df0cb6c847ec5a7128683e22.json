@@ -1,0 +1,128 @@
+{
+  "symbol": "QBE.AX",
+  "timestamp": "2025-07-21T08:00:03.202520",
+  "news_count": 20,
+  "sentiment_scores": {
+    "average_sentiment": -0.041725,
+    "positive_count": 2,
+    "negative_count": 4,
+    "neutral_count": 4,
+    "sentiment_distribution": {
+      "very_positive": 0,
+      "positive": 2,
+      "neutral": 4,
+      "negative": 4,
+      "very_negative": 0
+    },
+    "strongest_sentiment": -0.2997
+  },
+  "reddit_sentiment": {
+    "posts_analyzed": 1,
+    "average_sentiment": 0.11016798418972336,
+    "bullish_count": 1,
+    "bearish_count": 0,
+    "neutral_count": 0,
+    "top_posts": [
+      {
+        "title": "Overlooked Items to Add to Contents Insurance (& other suggestion requests)",
+        "score": 4,
+        "sentiment": 0.11016798418972336,
+        "category": "bullish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m4i9q6/overlooked_items_to_add_to_contents_insurance/"
+      }
+    ],
+    "sentiment_distribution": {
+      "bullish": 100.0,
+      "bearish": 0.0,
+      "neutral": 0.0
+    },
+    "subreddit_breakdown": {
+      "AusFinance": {
+        "count": 1,
+        "avg_sentiment": 0.11016798418972336
+      }
+    }
+  },
+  "significant_events": {
+    "dividend_announcement": false,
+    "earnings_report": true,
+    "management_change": true,
+    "regulatory_news": false,
+    "merger_acquisition": true,
+    "scandal_investigation": false,
+    "rating_change": true,
+    "capital_raising": false,
+    "branch_closure": false,
+    "product_launch": false,
+    "partnership_deal": false,
+    "legal_action": false,
+    "events_detected": [
+      {
+        "type": "management_change",
+        "headline": "QBE chairman wants states to cut insurance taxes for premium relief",
+        "date": "2025-07-21T07:59:14.009035",
+        "source": "Google News",
+        "relevance": "medium",
+        "sentiment_impact": -0.05
+      },
+      {
+        "type": "earnings_report",
+        "headline": "QBE Insurance slated for earnings improvement \u2013 S&P Global Ratings",
+        "date": "2025-07-21T07:59:14.009108",
+        "source": "Google News",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "rating_change",
+        "headline": "QBE Insurance slated for earnings improvement \u2013 S&P Global Ratings",
+        "date": "2025-07-21T07:59:14.009108",
+        "source": "Google News",
+        "relevance": "medium",
+        "sentiment_impact": 0.15
+      },
+      {
+        "type": "merger_acquisition",
+        "headline": "QBE denies Allianz takeover bid",
+        "date": "2025-07-21T07:59:14.009224",
+        "source": "Google News",
+        "relevance": "medium",
+        "sentiment_impact": 0.0
+      },
+      {
+        "type": "management_change",
+        "headline": "BRIEF-QBE Insurance Group Says Sue Houghton Appointed CEO, Australia & Pacific",
+        "date": "2025-07-21T07:59:24.002152",
+        "source": "Investing.com Australia",
+        "relevance": "high",
+        "sentiment_impact": 0.05
+      },
+      {
+        "type": "management_change",
+        "headline": "BRIEF-QBE Insurance Group Says Sue Houghton Appointed CEO, Australia & Pacific",
+        "date": "2025-07-21T07:59:35.999968",
+        "source": "Investing.com Australia",
+        "relevance": "high",
+        "sentiment_impact": 0.05
+      }
+    ]
+  },
+  "overall_sentiment": 0.008891194260500302,
+  "sentiment_components": {
+    "news": -0.009423318797337616,
+    "reddit": 0.007306116391065572,
+    "events": 0.012186505079545319,
+    "volume": -0.0,
+    "momentum": 0.0,
+    "ml_trading": 0.0
+  },
+  "confidence": 0.6100000000000001,
+  "recent_headlines": [
+    "",
+    "",
+    "",
+    "",
+    ""
+  ]
+}

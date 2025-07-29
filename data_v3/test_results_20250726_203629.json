@@ -1,0 +1,157 @@
+{
+  "suite_timestamp": "2025-07-26T20:36:29.140397",
+  "symbols_tested": [
+    "CBA.AX",
+    "WBC.AX"
+  ],
+  "scenarios_created": 2,
+  "tests_passed": 1,
+  "tests_failed": 1,
+  "detailed_results": [
+    {
+      "symbol": "CBA.AX",
+      "scenario_id": 5,
+      "test_results": {
+        "scenario_id": 5,
+        "symbol": "CBA.AX",
+        "news_articles_analyzed": 10,
+        "market_data_points": 100,
+        "sentiment_analysis": {
+          "overall_sentiment": -0.074,
+          "confidence": 0.274,
+          "news_count": 10,
+          "sentiment_distribution": {
+            "positive": 4,
+            "neutral": 1,
+            "negative": 5
+          }
+        },
+        "technical_analysis": {
+          "rsi": 71.9,
+          "trend": "BULLISH",
+          "volatility": 0.325,
+          "price_change_pct": 2.58,
+          "data_points_analyzed": 20
+        },
+        "ml_prediction": {
+          "direction_predictions": {
+            "1h": "UP",
+            "4h": "DOWN",
+            "1d": "UP"
+          },
+          "magnitude_predictions": {
+            "1h": 0.42,
+            "4h": 2.6,
+            "1d": -1.69
+          },
+          "optimal_action": "HOLD",
+          "confidence_scores": {
+            "direction": 0.622,
+            "magnitude": 0.498,
+            "average": 0.56
+          },
+          "features_used": 55,
+          "model_version": "enhanced_test_v1.0"
+        },
+        "test_timestamp": "2025-07-26T20:36:29.812823"
+      },
+      "validation": {
+        "test_timestamp": "2025-07-26T20:36:29.812823",
+        "symbol": "CBA.AX",
+        "prediction_quality": {
+          "confidence_adequate": true,
+          "features_complete": true,
+          "predictions_consistent": false,
+          "prediction_score": 0.65
+        },
+        "sentiment_accuracy": {
+          "confidence_adequate": false,
+          "news_coverage_sufficient": true,
+          "sentiment_score": 0.6
+        },
+        "technical_accuracy": {
+          "data_sufficient": true,
+          "rsi_realistic": true,
+          "technical_score": 0.9
+        },
+        "overall_score": 0.71,
+        "validation_passed": false
+      }
+    },
+    {
+      "symbol": "WBC.AX",
+      "scenario_id": 6,
+      "test_results": {
+        "scenario_id": 6,
+        "symbol": "WBC.AX",
+        "news_articles_analyzed": 10,
+        "market_data_points": 100,
+        "sentiment_analysis": {
+          "overall_sentiment": 0.437,
+          "confidence": 0.637,
+          "news_count": 10,
+          "sentiment_distribution": {
+            "positive": 8,
+            "neutral": 1,
+            "negative": 1
+          }
+        },
+        "technical_analysis": {
+          "rsi": 74.25,
+          "trend": "BULLISH",
+          "volatility": 0.0487,
+          "price_change_pct": 2.46,
+          "data_points_analyzed": 20
+        },
+        "ml_prediction": {
+          "direction_predictions": {
+            "1h": "DOWN",
+            "4h": "UP",
+            "1d": "DOWN"
+          },
+          "magnitude_predictions": {
+            "1h": -0.76,
+            "4h": -0.8,
+            "1d": -1.48
+          },
+          "optimal_action": "SELL",
+          "confidence_scores": {
+            "direction": 0.606,
+            "magnitude": 0.485,
+            "average": 0.545
+          },
+          "features_used": 55,
+          "model_version": "enhanced_test_v1.0"
+        },
+        "test_timestamp": "2025-07-26T20:36:29.974323"
+      },
+      "validation": {
+        "test_timestamp": "2025-07-26T20:36:29.974323",
+        "symbol": "WBC.AX",
+        "prediction_quality": {
+          "confidence_adequate": true,
+          "features_complete": true,
+          "predictions_consistent": false,
+          "prediction_score": 0.65
+        },
+        "sentiment_accuracy": {
+          "confidence_adequate": true,
+          "news_coverage_sufficient": true,
+          "sentiment_score": 0.8
+        },
+        "technical_accuracy": {
+          "data_sufficient": true,
+          "rsi_realistic": true,
+          "technical_score": 0.9
+        },
+        "overall_score": 0.77,
+        "validation_passed": true
+      }
+    }
+  ],
+  "summary": {
+    "total_tests": 2,
+    "pass_rate": 0.5,
+    "overall_success": false
+  }
+}

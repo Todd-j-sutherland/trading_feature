@@ -1,0 +1,67 @@
+[
+  {
+    "timestamp": "2025-07-22T10:33:57.724653",
+    "model_type": "ensemble",
+    "training_time": 76.1,
+    "samples_processed": 92,
+    "validation_score": 0.872,
+    "cross_validation_mean": 0.754,
+    "feature_importance": {
+      "sentiment": 0.4,
+      "volume": 0.3,
+      "technical": 0.3
+    }
+  },
+  {
+    "timestamp": "2025-07-22T04:33:57.724674",
+    "model_type": "ensemble",
+    "training_time": 37.4,
+    "samples_processed": 120,
+    "validation_score": 0.784,
+    "cross_validation_mean": 0.792,
+    "feature_importance": {
+      "sentiment": 0.4,
+      "volume": 0.3,
+      "technical": 0.3
+    }
+  },
+  {
+    "timestamp": "2025-07-21T22:33:57.724686",
+    "model_type": "ensemble",
+    "training_time": 31.0,
+    "samples_processed": 86,
+    "validation_score": 0.897,
+    "cross_validation_mean": 0.855,
+    "feature_importance": {
+      "sentiment": 0.4,
+      "volume": 0.3,
+      "technical": 0.3
+    }
+  },
+  {
+    "timestamp": "2025-07-21T16:33:57.724694",
+    "model_type": "ensemble",
+    "training_time": 46.4,
+    "samples_processed": 150,
+    "validation_score": 0.832,
+    "cross_validation_mean": 0.83,
+    "feature_importance": {
+      "sentiment": 0.4,
+      "volume": 0.3,
+      "technical": 0.3
+    }
+  },
+  {
+    "timestamp": "2025-07-21T10:33:57.724700",
+    "model_type": "ensemble",
+    "training_time": 70.1,
+    "samples_processed": 121,
+    "validation_score": 0.77,
+    "cross_validation_mean": 0.807,
+    "feature_importance": {
+      "sentiment": 0.4,
+      "volume": 0.3,
+      "technical": 0.3
+    }
+  }
+]

@@ -1,0 +1,164 @@
+{
+  "symbol": "NAB.AX",
+  "timestamp": "2025-07-21T07:56:45.859353",
+  "news_count": 18,
+  "sentiment_scores": {
+    "average_sentiment": -0.1919620265151515,
+    "positive_count": 0,
+    "negative_count": 6,
+    "neutral_count": 2,
+    "sentiment_distribution": {
+      "very_positive": 0,
+      "positive": 0,
+      "neutral": 2,
+      "negative": 5,
+      "very_negative": 1
+    },
+    "strongest_sentiment": -0.5141545454545455
+  },
+  "reddit_sentiment": {
+    "posts_analyzed": 36,
+    "average_sentiment": 0.15502895709287212,
+    "bullish_count": 21,
+    "bearish_count": 2,
+    "neutral_count": 13,
+    "top_posts": [
+      {
+        "title": "Is it just me, or are Australian home loans intentionally designed to confuse the hell out of us?",
+        "score": 258,
+        "sentiment": 0.24285714285714285,
+        "category": "bullish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m0g0j7/is_it_just_me_or_are_australian_home_loans/"
+      },
+      {
+        "title": "Ubank dropping the top ongoing bonus rate on its Save account to 4.60% p.a.",
+        "score": 258,
+        "sentiment": 0.5,
+        "category": "bullish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m01gy3/ubank_dropping_the_top_ongoing_bonus_rate_on_its/"
+      },
+      {
+        "title": "Cutting income taxes, lifting the GST, wealth taxes: CBA\u2019s pitch to Chalmers on reform",
+        "score": 256,
+        "sentiment": -0.021333333333333333,
+        "category": "neutral",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1lzi0wy/cutting_income_taxes_lifting_the_gst_wealth_taxes/"
+      },
+      {
+        "title": "My fiance (30M) thinks having 6 months of expenses in an emergency fund is a waste.",
+        "score": 253,
+        "sentiment": 0.1550662878787879,
+        "category": "bullish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m3n0q0/my_fiance_30m_thinks_having_6_months_of_expenses/"
+      },
+      {
+        "title": "UBank changing their interest structure",
+        "score": 200,
+        "sentiment": 0.08019480519480522,
+        "category": "neutral",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m05w33/ubank_changing_their_interest_structure/"
+      }
+    ],
+    "sentiment_distribution": {
+      "bullish": 58.333333333333336,
+      "bearish": 5.555555555555555,
+      "neutral": 36.11111111111111
+    },
+    "subreddit_breakdown": {
+      "ASX_Bets": {
+        "count": 2,
+        "avg_sentiment": 0.087995472995473
+      },
+      "AusFinance": {
+        "count": 27,
+        "avg_sentiment": 0.14974650592976524
+      },
+      "fiaustralia": {
+        "count": 6,
+        "avg_sentiment": 0.22698264154146508
+      },
+      "ASX": {
+        "count": 1,
+        "avg_sentiment": 0.0
+      }
+    }
+  },
+  "significant_events": {
+    "dividend_announcement": false,
+    "earnings_report": true,
+    "management_change": false,
+    "regulatory_news": false,
+    "merger_acquisition": false,
+    "scandal_investigation": false,
+    "rating_change": false,
+    "capital_raising": false,
+    "branch_closure": false,
+    "product_launch": true,
+    "partnership_deal": true,
+    "legal_action": false,
+    "events_detected": [
+      {
+        "type": "earnings_report",
+        "headline": "Barnaby\u2019s big call after \u2018brutal\u2019 poll",
+        "date": "2025-07-21T07:55:32.765058",
+        "source": "news_com_au",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "product_launch",
+        "headline": "BRIEF-NAB Launches First No Interest Credit Card",
+        "date": "2025-07-21T07:56:05.263831",
+        "source": "Investing.com Australia",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "partnership_deal",
+        "headline": "BRIEF-NAB To No Longer Deal With Unlicensed, Fee-Charging Debt Management Providers",
+        "date": "2025-07-21T07:56:05.263959",
+        "source": "Investing.com Australia",
+        "relevance": "low",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "product_launch",
+        "headline": "BRIEF-NAB Launches First No Interest Credit Card",
+        "date": "2025-07-21T07:56:17.758430",
+        "source": "Investing.com Australia",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "partnership_deal",
+        "headline": "BRIEF-NAB To No Longer Deal With Unlicensed, Fee-Charging Debt Management Providers",
+        "date": "2025-07-21T07:56:17.758518",
+        "source": "Investing.com Australia",
+        "relevance": "low",
+        "sentiment_impact": 0.1
+      }
+    ]
+  },
+  "overall_sentiment": 0.00831990159056122,
+  "sentiment_components": {
+    "news": -0.03452178133514986,
+    "reddit": 0.030921306973292206,
+    "events": 0.012565885558583107,
+    "volume": -0.0,
+    "momentum": 0.0,
+    "ml_trading": 0.0
+  },
+  "confidence": 0.76,
+  "recent_headlines": [
+    "Australian shares come off the boil as financials cool",
+    "Barnaby\u2019s big call after \u2018brutal\u2019 poll",
+    "",
+    "",
+    ""
+  ]
+}

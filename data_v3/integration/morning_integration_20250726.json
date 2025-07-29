@@ -1,0 +1,30 @@
+{
+  "integration_attempted": true,
+  "integration_successful": true,
+  "enhanced_analysis": {
+    "timestamp": "2025-07-26T12:24:01.726417",
+    "analysis_type": "basic_fallback",
+    "market_hours": false,
+    "message": "Enhanced ML components not available - install required dependencies",
+    "banks_analyzed": [
+      "CBA.AX",
+      "WBC.AX",
+      "ANZ.AX",
+      "NAB.AX",
+      "MQG.AX",
+      "SUN.AX",
+      "QBE.AX"
+    ],
+    "recommendations": {
+      "status": "Basic analysis only"
+    }
+  },
+  "fallback_used": false,
+  "integration_details": {
+    "total_predictions": 0,
+    "avg_confidence": 0.0,
+    "market_sentiment": "NEUTRAL",
+    "high_confidence_count": 0,
+    "timestamp": "2025-07-26T12:24:01.726417"
+  }
+}

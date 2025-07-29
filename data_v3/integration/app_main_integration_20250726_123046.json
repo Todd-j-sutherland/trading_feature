@@ -1,0 +1,31 @@
+{
+  "timestamp": "2025-07-26T12:28:43.204556",
+  "python_executable": "/Users/toddsutherland/Repos/trading_feature/dashboard_env/bin/python",
+  "morning_test": {
+    "success": false,
+    "output": "Command timed out after 60 seconds",
+    "enhanced_detected": false
+  },
+  "evening_test": {
+    "success": false,
+    "output": "Command timed out after 60 seconds",
+    "enhanced_detected": false
+  },
+  "dependencies_check": {
+    "success": false,
+    "missing": [
+      "scikit-learn"
+    ],
+    "available": [
+      "pandas",
+      "numpy",
+      "yfinance",
+      "transformers",
+      "textblob",
+      "vaderSentiment",
+      "feedparser",
+      "praw"
+    ]
+  },
+  "overall_status": "FAILED"
+}

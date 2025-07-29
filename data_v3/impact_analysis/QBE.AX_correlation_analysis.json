@@ -1,0 +1,79 @@
+{
+  "symbol": "QBE.AX",
+  "analysis_period_days": 14,
+  "data_points": 67,
+  "correlations": {
+    "sentiment_vs_price": {
+      "pearson": -0.020172866559866234,
+      "pearson_p_value": 0.8712814030998577,
+      "spearman": 0.3619424857590505,
+      "spearman_p_value": 0.0026156899917127866,
+      "significance": "not_significant"
+    },
+    "sentiment_vs_volatility": {
+      "pearson": 0.6305655837413587,
+      "interpretation": "strong_positive"
+    },
+    "sentiment_vs_volume": {
+      "pearson": 0.35197024189987414,
+      "interpretation": "weak_positive"
+    },
+    "lagged_correlations": {
+      "1_day": -0.17582594417872527,
+      "2_day": -0.15796201323939968,
+      "3_day": -0.22716310282891472
+    },
+    "data_quality": {
+      "total_points": 67,
+      "valid_points": 67,
+      "data_completeness": 1.0
+    }
+  },
+  "event_impact": {
+    "event_type_impacts": {},
+    "summary": {
+      "highest_impact_positive": null,
+      "highest_impact_negative": null,
+      "most_frequent_event": null,
+      "average_impact": 0
+    }
+  },
+  "predictive_metrics": {
+    "prediction_accuracy": 0.9402985074626866,
+    "confusion_matrix": {
+      "positive_sentiment": {
+        "up": 0,
+        "down": 0,
+        "flat": 0
+      },
+      "negative_sentiment": {
+        "up": 0,
+        "down": 0,
+        "flat": 0
+      },
+      "neutral_sentiment": {
+        "up": 0,
+        "down": 4,
+        "flat": 63
+      }
+    },
+    "total_predictions": 67,
+    "correct_predictions": 63,
+    "sentiment_distribution": {
+      "positive": 0,
+      "negative": 0,
+      "neutral": 67
+    },
+    "price_distribution": {
+      "up": 0,
+      "down": 4,
+      "flat": 63
+    }
+  },
+  "summary": "Sentiment-price correlation: -0.020 (not_significant). Weak correlation suggests other factors dominate price movements. ",
+  "recommendations": [
+    "No significant sentiment-price correlation. Focus on technical/fundamental analysis."
+  ],
+  "analysis_timestamp": "2025-07-27T20:50:59.784897",
+  "analysis_version": "1.0"
+}

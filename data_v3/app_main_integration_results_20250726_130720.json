@@ -1,0 +1,18 @@
+{
+  "test_timestamp": "2025-07-26T13:07:20.244499",
+  "total_tests": 4,
+  "passed_tests": 1,
+  "success_rate": 0.25,
+  "assessment": "NEEDS_IMPROVEMENT",
+  "test_results": {
+    "component_detection": true,
+    "feature_extraction": false,
+    "morning_integration": false,
+    "evening_integration": false
+  },
+  "component_detection": {
+    "enhanced_morning_analyzer": true,
+    "enhanced_evening_analyzer": true,
+    "enhanced_ml_pipeline": true
+  }
+}

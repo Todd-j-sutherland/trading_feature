@@ -1,0 +1,164 @@
+{
+  "symbol": "SUN.AX",
+  "timestamp": "2025-07-21T07:58:58.529096",
+  "news_count": 23,
+  "sentiment_scores": {
+    "average_sentiment": 0.11499358974358974,
+    "positive_count": 5,
+    "negative_count": 4,
+    "neutral_count": 4,
+    "sentiment_distribution": {
+      "very_positive": 1,
+      "positive": 4,
+      "neutral": 4,
+      "negative": 4,
+      "very_negative": 0
+    },
+    "strongest_sentiment": 0.50595
+  },
+  "reddit_sentiment": {
+    "posts_analyzed": 6,
+    "average_sentiment": 0.2151646424563091,
+    "bullish_count": 6,
+    "bearish_count": 0,
+    "neutral_count": 0,
+    "top_posts": [
+      {
+        "title": "Would there be any alarms setting up ABN and depositing $1000-1500 per week",
+        "score": 123,
+        "sentiment": 0.24166666666666667,
+        "category": "bullish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m0ebcu/would_there_be_any_alarms_setting_up_abn_and/"
+      },
+      {
+        "title": "Investment property rate",
+        "score": 6,
+        "sentiment": 0.3281818181818182,
+        "category": "bullish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m220j5/investment_property_rate/"
+      },
+      {
+        "title": "Tax return from a side gig that ended in loss",
+        "score": 1,
+        "sentiment": 0.19999999999999996,
+        "category": "bullish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m50mog/tax_return_from_a_side_gig_that_ended_in_loss/"
+      },
+      {
+        "title": "Jane Street accused of manipulating Indian stock market",
+        "score": 0,
+        "sentiment": 0.14579545454545453,
+        "category": "bullish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m2pt7i/jane_street_accused_of_manipulating_indian_stock/"
+      },
+      {
+        "title": "36m, earn 800k a year working as a doctor in regional australia, only have 12 more months there, 2.1m liquid assets, want to buy a 3.5m house",
+        "score": 0,
+        "sentiment": 0.14999999999999997,
+        "category": "bullish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m51huo/36m_earn_800k_a_year_working_as_a_doctor_in/"
+      }
+    ],
+    "sentiment_distribution": {
+      "bullish": 100.0,
+      "bearish": 0.0,
+      "neutral": 0.0
+    },
+    "subreddit_breakdown": {
+      "AusFinance": {
+        "count": 5,
+        "avg_sentiment": 0.21312878787878783
+      },
+      "investing": {
+        "count": 1,
+        "avg_sentiment": 0.22534391534391537
+      }
+    }
+  },
+  "significant_events": {
+    "dividend_announcement": false,
+    "earnings_report": false,
+    "management_change": true,
+    "regulatory_news": false,
+    "merger_acquisition": false,
+    "scandal_investigation": false,
+    "rating_change": false,
+    "capital_raising": false,
+    "branch_closure": false,
+    "product_launch": true,
+    "partnership_deal": false,
+    "legal_action": false,
+    "events_detected": [
+      {
+        "type": "product_launch",
+        "headline": "The mis-kick that launched AFLW season 10; Hawks could regain Will Day to face Blues",
+        "date": "2025-07-21T07:39:17",
+        "source": "smh_main",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "product_launch",
+        "headline": "The mis-kick that launched AFLW season 10; Hawks could regain Will Day to face Blues",
+        "date": "2025-07-21T07:39:17",
+        "source": "the_age",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "product_launch",
+        "headline": "The mis-kick that launched AFLW season 10; Hawks could regain Will Day to face Blues",
+        "date": "2025-07-21T07:39:17",
+        "source": "brisbane_times",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "product_launch",
+        "headline": "The mis-kick that launched AFLW season 10; Hawks could regain Will Day to face Blues",
+        "date": "2025-07-21T07:39:17",
+        "source": "wa_today",
+        "relevance": "medium",
+        "sentiment_impact": 0.1
+      },
+      {
+        "type": "management_change",
+        "headline": "BRIEF-Suncorp Group Appoints Steve Johnston As Group CEO",
+        "date": "2025-07-21T07:58:18.673590",
+        "source": "Investing.com Australia",
+        "relevance": "high",
+        "sentiment_impact": -0.05
+      },
+      {
+        "type": "management_change",
+        "headline": "BRIEF-Suncorp Group Appoints Steve Johnston As Group CEO",
+        "date": "2025-07-21T07:58:30.838133",
+        "source": "Investing.com Australia",
+        "relevance": "high",
+        "sentiment_impact": -0.05
+      }
+    ]
+  },
+  "overall_sentiment": 0.06674489920858936,
+  "sentiment_components": {
+    "news": 0.02068004611192622,
+    "reddit": 0.04291567255531833,
+    "events": 0.00950931880108992,
+    "volume": 0.0,
+    "momentum": 0.0,
+    "ml_trading": 0.0
+  },
+  "confidence": 0.71,
+  "recent_headlines": [
+    "The mis-kick that launched AFLW season 10; Hawks could regain Will Day to face Blues",
+    "The mis-kick that launched AFLW season 10; Hawks could regain Will Day to face Blues",
+    "The mis-kick that launched AFLW season 10; Hawks could regain Will Day to face Blues",
+    "Car crashes into barn roof in Germany, seriously injuring two people",
+    "Nicole Scherzinger bows out of Sunset Boulevard"
+  ]
+}

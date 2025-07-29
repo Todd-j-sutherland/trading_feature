@@ -1,0 +1,332 @@
+{
+  "CBA.AX_20250723_042124": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T04:21:24.710410",
+    "signal_type": "BUY",
+    "sentiment_score": 0.11761602373369959,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.7972308145092499,
+      "ml_score": -0.7972308145092499
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_044406": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T04:44:06.252401",
+    "signal_type": "BUY",
+    "sentiment_score": 0.11761602373369959,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.7972308145092499,
+      "ml_score": -0.7972308145092499
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_051740": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T05:17:40.990131",
+    "signal_type": "BUY",
+    "sentiment_score": 0.11761602373369959,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.8026860178236412,
+      "ml_score": -0.8026860178236412
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_055053": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T05:50:53.594608",
+    "signal_type": "BUY",
+    "sentiment_score": 0.11761602373369959,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.8026860178236412,
+      "ml_score": -0.8026860178236412
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_062402": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T06:24:02.937181",
+    "signal_type": "BUY",
+    "sentiment_score": 0.10970976548127472,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.8226170318243768,
+      "ml_score": -0.8226170318243768
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_065732": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T06:57:32.714434",
+    "signal_type": "BUY",
+    "sentiment_score": 0.10970976548127472,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.8226170318243768,
+      "ml_score": -0.8226170318243768
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_073042": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T07:30:42.923651",
+    "signal_type": "BUY",
+    "sentiment_score": 0.10970976548127472,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.8275370037775809,
+      "ml_score": -0.8275370037775809
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_080346": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T08:03:46.527818",
+    "signal_type": "BUY",
+    "sentiment_score": 0.10182143631929177,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.8183460296800367,
+      "ml_score": -0.8183460296800367
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_083648": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T08:36:48.665362",
+    "signal_type": "BUY",
+    "sentiment_score": 0.10182143631929177,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.8183460296800367,
+      "ml_score": -0.8183460296800367
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_091016": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T09:10:16.663554",
+    "signal_type": "BUY",
+    "sentiment_score": 0.10182143631929177,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.8233590265358106,
+      "ml_score": -0.8233590265358106
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_094450": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T09:44:50.236517",
+    "signal_type": "BUY",
+    "sentiment_score": 0.10182143631929177,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.8233590265358106,
+      "ml_score": -0.8233590265358106
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_101827": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T10:18:27.138199",
+    "signal_type": "BUY",
+    "sentiment_score": 0.10182143631929177,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.6911648236520063,
+      "ml_score": -0.6911648236520063
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_105150": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T10:51:50.640734",
+    "signal_type": "BUY",
+    "sentiment_score": 0.10182143631929177,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.6911648236520063,
+      "ml_score": -0.6911648236520063
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_112504": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T11:25:04.870073",
+    "signal_type": "BUY",
+    "sentiment_score": 0.1075205989471478,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.6560303664719017,
+      "ml_score": -0.6560303664719017
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_115824": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T11:58:24.107053",
+    "signal_type": "BUY",
+    "sentiment_score": 0.1075205989471478,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.6560303664719017,
+      "ml_score": -0.6560303664719017
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_123142": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T12:31:42.825156",
+    "signal_type": "BUY",
+    "sentiment_score": 0.1075205989471478,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.6636818087151921,
+      "ml_score": -0.6636818087151921
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250723_130500": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-23T13:05:00.391329",
+    "signal_type": "BUY",
+    "sentiment_score": 0.10182143631929177,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "SELL",
+      "confidence": 0.7125589531369089,
+      "ml_score": -0.7125589531369089
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250726_134332": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-26T13:43:32.206260",
+    "signal_type": "BUY",
+    "sentiment_score": 0.10879908348707959,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "HOLD",
+      "confidence": 0.0,
+      "error": "X has 5 features, but RandomForestClassifier is expecting 20 features as input."
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250726_192528": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-26T19:25:28.743340",
+    "signal_type": "BUY",
+    "sentiment_score": 0.1037708414643817,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "HOLD",
+      "confidence": 0.0,
+      "error": "X has 5 features, but RandomForestClassifier is expecting 20 features as input."
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250726_201058": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-26T20:10:58.822283",
+    "signal_type": "BUY",
+    "sentiment_score": 0.1037708414643817,
+    "confidence": 0.6100000000000001,
+    "ml_prediction": {
+      "prediction": "BUY",
+      "confidence": 0.97,
+      "ml_score": 0.97
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250726_201938": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-26T20:19:38.133407",
+    "signal_type": "BUY",
+    "sentiment_score": 0.10401481458655616,
+    "confidence": 0.6169200000000001,
+    "ml_prediction": {
+      "prediction": "BUY",
+      "confidence": 0.97,
+      "ml_score": 0.97
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  },
+  "CBA.AX_20250726_204643": {
+    "symbol": "CBA.AX",
+    "signal_timestamp": "2025-07-26T20:46:43.615190",
+    "signal_type": "BUY",
+    "sentiment_score": 0.10383218730724059,
+    "confidence": 0.6117400000000001,
+    "ml_prediction": {
+      "prediction": "BUY",
+      "confidence": 0.97,
+      "ml_score": 0.97
+    },
+    "feature_id": null,
+    "entry_price": null,
+    "executed": false
+  }
+}

@@ -1,0 +1,1001 @@
+[
+  {
+    "date": "2025-06-20",
+    "timestamp": "2025-06-20T02:32:32.201639",
+    "performance": {
+      "successful_trades": 3,
+      "total_trades": 3,
+      "average_confidence": 0.559999371211943
+    },
+    "predictions_made": 3,
+    "accuracy_metrics": {
+      "accuracy": 1.0,
+      "total_predictions": 3,
+      "successful_predictions": 3
+    },
+    "model_confidence": 0.8662791364819462,
+    "successful_trades": 3,
+    "total_trades": 3
+  },
+  {
+    "date": "2025-06-21",
+    "timestamp": "2025-06-21T02:32:32.202690",
+    "performance": {
+      "successful_trades": 3,
+      "total_trades": 4,
+      "average_confidence": 0.4098800674344437
+    },
+    "predictions_made": 4,
+    "accuracy_metrics": {
+      "accuracy": 0.75,
+      "total_predictions": 4,
+      "successful_predictions": 3
+    },
+    "model_confidence": 0.8460221357570707,
+    "successful_trades": 3,
+    "total_trades": 4
+  },
+  {
+    "date": "2025-06-22",
+    "timestamp": "2025-06-22T02:32:32.203101",
+    "performance": {
+      "successful_trades": 3,
+      "total_trades": 5,
+      "average_confidence": 0.4504245314480726
+    },
+    "predictions_made": 5,
+    "accuracy_metrics": {
+      "accuracy": 0.6,
+      "total_predictions": 5,
+      "successful_predictions": 3
+    },
+    "model_confidence": 0.8864233792761798,
+    "successful_trades": 3,
+    "total_trades": 5
+  },
+  {
+    "date": "2025-06-23",
+    "timestamp": "2025-06-23T02:32:32.203584",
+    "performance": {
+      "successful_trades": 2,
+      "total_trades": 3,
+      "average_confidence": 0.5701684372636849
+    },
+    "predictions_made": 3,
+    "accuracy_metrics": {
+      "accuracy": 0.6666666666666666,
+      "total_predictions": 3,
+      "successful_predictions": 2
+    },
+    "model_confidence": 0.8153299134183992,
+    "successful_trades": 2,
+    "total_trades": 3
+  },
+  {
+    "date": "2025-06-24",
+    "timestamp": "2025-06-24T02:32:32.203953",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 7,
+      "average_confidence": 0.5771550246434998
+    },
+    "predictions_made": 7,
+    "accuracy_metrics": {
+      "accuracy": 0.5714285714285714,
+      "total_predictions": 7,
+      "successful_predictions": 4
+    },
+    "model_confidence": 0.8110042689572299,
+    "successful_trades": 4,
+    "total_trades": 7
+  },
+  {
+    "date": "2025-06-25",
+    "timestamp": "2025-06-25T02:32:32.204606",
+    "performance": {
+      "successful_trades": 1,
+      "total_trades": 3,
+      "average_confidence": 0.3663601656500648
+    },
+    "predictions_made": 3,
+    "accuracy_metrics": {
+      "accuracy": 0.3333333333333333,
+      "total_predictions": 3,
+      "successful_predictions": 1
+    },
+    "model_confidence": 0.757094041932717,
+    "successful_trades": 1,
+    "total_trades": 3
+  },
+  {
+    "date": "2025-06-26",
+    "timestamp": "2025-06-26T02:32:32.204968",
+    "performance": {
+      "successful_trades": 2,
+      "total_trades": 4,
+      "average_confidence": 0.45661437225048773
+    },
+    "predictions_made": 4,
+    "accuracy_metrics": {
+      "accuracy": 0.5,
+      "total_predictions": 4,
+      "successful_predictions": 2
+    },
+    "model_confidence": 0.8145758809383116,
+    "successful_trades": 2,
+    "total_trades": 4
+  },
+  {
+    "date": "2025-06-27",
+    "timestamp": "2025-06-27T02:32:32.205482",
+    "performance": {
+      "successful_trades": 3,
+      "total_trades": 6,
+      "average_confidence": 0.5392657350304444
+    },
+    "predictions_made": 6,
+    "accuracy_metrics": {
+      "accuracy": 0.5,
+      "total_predictions": 6,
+      "successful_predictions": 3
+    },
+    "model_confidence": 0.7633575121448493,
+    "successful_trades": 3,
+    "total_trades": 6
+  },
+  {
+    "date": "2025-06-28",
+    "timestamp": "2025-06-28T02:32:32.206234",
+    "performance": {
+      "successful_trades": 1,
+      "total_trades": 3,
+      "average_confidence": 0.7400398861152276
+    },
+    "predictions_made": 3,
+    "accuracy_metrics": {
+      "accuracy": 0.3333333333333333,
+      "total_predictions": 3,
+      "successful_predictions": 1
+    },
+    "model_confidence": 0.7417151528519258,
+    "successful_trades": 1,
+    "total_trades": 3
+  },
+  {
+    "date": "2025-06-29",
+    "timestamp": "2025-06-29T02:32:32.206670",
+    "performance": {
+      "successful_trades": 3,
+      "total_trades": 6,
+      "average_confidence": 0.4072861385057294
+    },
+    "predictions_made": 6,
+    "accuracy_metrics": {
+      "accuracy": 0.5,
+      "total_predictions": 6,
+      "successful_predictions": 3
+    },
+    "model_confidence": 0.7101892848328683,
+    "successful_trades": 3,
+    "total_trades": 6
+  },
+  {
+    "date": "2025-06-30",
+    "timestamp": "2025-06-30T02:32:32.207367",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 5,
+      "average_confidence": 0.3292995250883293
+    },
+    "predictions_made": 5,
+    "accuracy_metrics": {
+      "accuracy": 0.8,
+      "total_predictions": 5,
+      "successful_predictions": 4
+    },
+    "model_confidence": 0.8457283965450456,
+    "successful_trades": 4,
+    "total_trades": 5
+  },
+  {
+    "date": "2025-07-01",
+    "timestamp": "2025-07-01T02:32:32.207963",
+    "performance": {
+      "successful_trades": 3,
+      "total_trades": 3,
+      "average_confidence": 0.3720302580436668
+    },
+    "predictions_made": 3,
+    "accuracy_metrics": {
+      "accuracy": 1.0,
+      "total_predictions": 3,
+      "successful_predictions": 3
+    },
+    "model_confidence": 0.8394683821482762,
+    "successful_trades": 3,
+    "total_trades": 3
+  },
+  {
+    "date": "2025-07-02",
+    "timestamp": "2025-07-02T02:32:32.208380",
+    "performance": {
+      "successful_trades": 6,
+      "total_trades": 7,
+      "average_confidence": 0.4855553167295339
+    },
+    "predictions_made": 7,
+    "accuracy_metrics": {
+      "accuracy": 0.8571428571428571,
+      "total_predictions": 7,
+      "successful_predictions": 6
+    },
+    "model_confidence": 0.7072607305761023,
+    "successful_trades": 6,
+    "total_trades": 7
+  },
+  {
+    "date": "2025-07-03",
+    "timestamp": "2025-07-03T02:32:32.209157",
+    "performance": {
+      "successful_trades": 3,
+      "total_trades": 5,
+      "average_confidence": 0.5513639120735447
+    },
+    "predictions_made": 5,
+    "accuracy_metrics": {
+      "accuracy": 0.6,
+      "total_predictions": 5,
+      "successful_predictions": 3
+    },
+    "model_confidence": 0.8862897580421961,
+    "successful_trades": 3,
+    "total_trades": 5
+  },
+  {
+    "date": "2025-07-04",
+    "timestamp": "2025-07-04T02:32:32.210040",
+    "performance": {
+      "successful_trades": 6,
+      "total_trades": 6,
+      "average_confidence": 0.5019932188722743
+    },
+    "predictions_made": 6,
+    "accuracy_metrics": {
+      "accuracy": 1.0,
+      "total_predictions": 6,
+      "successful_predictions": 6
+    },
+    "model_confidence": 0.7687530753110485,
+    "successful_trades": 6,
+    "total_trades": 6
+  },
+  {
+    "date": "2025-07-05",
+    "timestamp": "2025-07-05T02:32:32.210917",
+    "performance": {
+      "successful_trades": 3,
+      "total_trades": 3,
+      "average_confidence": 0.422830733152945
+    },
+    "predictions_made": 3,
+    "accuracy_metrics": {
+      "accuracy": 1.0,
+      "total_predictions": 3,
+      "successful_predictions": 3
+    },
+    "model_confidence": 0.7042504678916368,
+    "successful_trades": 3,
+    "total_trades": 3
+  },
+  {
+    "date": "2025-07-06",
+    "timestamp": "2025-07-06T02:32:32.211518",
+    "performance": {
+      "successful_trades": 3,
+      "total_trades": 4,
+      "average_confidence": 0.5951970085433329
+    },
+    "predictions_made": 4,
+    "accuracy_metrics": {
+      "accuracy": 0.75,
+      "total_predictions": 4,
+      "successful_predictions": 3
+    },
+    "model_confidence": 0.8441776930341371,
+    "successful_trades": 3,
+    "total_trades": 4
+  },
+  {
+    "date": "2025-07-07",
+    "timestamp": "2025-07-07T02:32:32.212737",
+    "performance": {
+      "successful_trades": 5,
+      "total_trades": 7,
+      "average_confidence": 0.5670409752718926
+    },
+    "predictions_made": 7,
+    "accuracy_metrics": {
+      "accuracy": 0.7142857142857143,
+      "total_predictions": 7,
+      "successful_predictions": 5
+    },
+    "model_confidence": 0.8451895878280004,
+    "successful_trades": 5,
+    "total_trades": 7
+  },
+  {
+    "date": "2025-07-08",
+    "timestamp": "2025-07-08T02:32:32.213606",
+    "performance": {
+      "successful_trades": 5,
+      "total_trades": 5,
+      "average_confidence": 0.40101302701332775
+    },
+    "predictions_made": 5,
+    "accuracy_metrics": {
+      "accuracy": 1.0,
+      "total_predictions": 5,
+      "successful_predictions": 5
+    },
+    "model_confidence": 0.8904456019673949,
+    "successful_trades": 5,
+    "total_trades": 5
+  },
+  {
+    "date": "2025-07-09",
+    "timestamp": "2025-07-09T02:32:32.214377",
+    "performance": {
+      "successful_trades": 6,
+      "total_trades": 7,
+      "average_confidence": 0.4495826689872508
+    },
+    "predictions_made": 7,
+    "accuracy_metrics": {
+      "accuracy": 0.8571428571428571,
+      "total_predictions": 7,
+      "successful_predictions": 6
+    },
+    "model_confidence": 0.7790071620248106,
+    "successful_trades": 6,
+    "total_trades": 7
+  },
+  {
+    "date": "2025-07-10",
+    "timestamp": "2025-07-10T02:32:32.215292",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 6,
+      "average_confidence": 0.5653733259589929
+    },
+    "predictions_made": 6,
+    "accuracy_metrics": {
+      "accuracy": 0.6666666666666666,
+      "total_predictions": 6,
+      "successful_predictions": 4
+    },
+    "model_confidence": 0.8325477243495532,
+    "successful_trades": 4,
+    "total_trades": 6
+  },
+  {
+    "date": "2025-07-11",
+    "timestamp": "2025-07-11T02:32:32.216088",
+    "performance": {
+      "successful_trades": 5,
+      "total_trades": 5,
+      "average_confidence": 0.48181021750254605
+    },
+    "predictions_made": 5,
+    "accuracy_metrics": {
+      "accuracy": 1.0,
+      "total_predictions": 5,
+      "successful_predictions": 5
+    },
+    "model_confidence": 0.8846791386222836,
+    "successful_trades": 5,
+    "total_trades": 5
+  },
+  {
+    "date": "2025-07-12",
+    "timestamp": "2025-07-12T02:32:32.216928",
+    "performance": {
+      "successful_trades": 1,
+      "total_trades": 3,
+      "average_confidence": 0.4028745868201145
+    },
+    "predictions_made": 3,
+    "accuracy_metrics": {
+      "accuracy": 0.3333333333333333,
+      "total_predictions": 3,
+      "successful_predictions": 1
+    },
+    "model_confidence": 0.7538944757448118,
+    "successful_trades": 1,
+    "total_trades": 3
+  },
+  {
+    "date": "2025-07-13",
+    "timestamp": "2025-07-13T02:32:32.217487",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 7,
+      "average_confidence": 0.596312686790788
+    },
+    "predictions_made": 7,
+    "accuracy_metrics": {
+      "accuracy": 0.5714285714285714,
+      "total_predictions": 7,
+      "successful_predictions": 4
+    },
+    "model_confidence": 0.785111102210263,
+    "successful_trades": 4,
+    "total_trades": 7
+  },
+  {
+    "date": "2025-07-14",
+    "timestamp": "2025-07-14T02:32:32.218418",
+    "performance": {
+      "successful_trades": 3,
+      "total_trades": 6,
+      "average_confidence": 0.3510884381357024
+    },
+    "predictions_made": 6,
+    "accuracy_metrics": {
+      "accuracy": 0.5,
+      "total_predictions": 6,
+      "successful_predictions": 3
+    },
+    "model_confidence": 0.7522983611312383,
+    "successful_trades": 3,
+    "total_trades": 6
+  },
+  {
+    "date": "2025-07-15",
+    "timestamp": "2025-07-15T02:32:32.219280",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 6,
+      "average_confidence": 0.5272749088032654
+    },
+    "predictions_made": 6,
+    "accuracy_metrics": {
+      "accuracy": 0.6666666666666666,
+      "total_predictions": 6,
+      "successful_predictions": 4
+    },
+    "model_confidence": 0.7205803951330344,
+    "successful_trades": 4,
+    "total_trades": 6
+  },
+  {
+    "date": "2025-07-16",
+    "timestamp": "2025-07-16T02:32:32.220389",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 4,
+      "average_confidence": 0.5428799397967865
+    },
+    "predictions_made": 4,
+    "accuracy_metrics": {
+      "accuracy": 1.0,
+      "total_predictions": 4,
+      "successful_predictions": 4
+    },
+    "model_confidence": 0.7735803615356758,
+    "successful_trades": 4,
+    "total_trades": 4
+  },
+  {
+    "date": "2025-07-17",
+    "timestamp": "2025-07-17T02:32:32.221108",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 4,
+      "average_confidence": 0.4527056070544785
+    },
+    "predictions_made": 4,
+    "accuracy_metrics": {
+      "accuracy": 1.0,
+      "total_predictions": 4,
+      "successful_predictions": 4
+    },
+    "model_confidence": 0.8348120889445535,
+    "successful_trades": 4,
+    "total_trades": 4
+  },
+  {
+    "date": "2025-07-18",
+    "timestamp": "2025-07-18T02:32:32.222041",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 5,
+      "average_confidence": 0.3862223699754667
+    },
+    "predictions_made": 5,
+    "accuracy_metrics": {
+      "accuracy": 0.8,
+      "total_predictions": 5,
+      "successful_predictions": 4
+    },
+    "model_confidence": 0.7327700678247335,
+    "successful_trades": 4,
+    "total_trades": 5
+  },
+  {
+    "date": "2025-07-19",
+    "timestamp": "2025-07-19T02:32:32.223006",
+    "performance": {
+      "successful_trades": 2,
+      "total_trades": 5,
+      "average_confidence": 0.3265291569424373
+    },
+    "predictions_made": 5,
+    "accuracy_metrics": {
+      "accuracy": 0.4,
+      "total_predictions": 5,
+      "successful_predictions": 2
+    },
+    "model_confidence": 0.8805481240122985,
+    "successful_trades": 2,
+    "total_trades": 5
+  },
+  {
+    "date": "2025-07-22",
+    "timestamp": "2025-07-22T11:06:43.923180",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 7,
+      "average_confidence": 0.78,
+      "predictions_made": 7
+    },
+    "predictions_made": 0,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.78,
+    "successful_trades": 4,
+    "total_trades": 7
+  },
+  {
+    "date": "2025-07-22",
+    "timestamp": "2025-07-22T11:20:05.332619",
+    "performance": {
+      "successful_trades": 6,
+      "total_trades": 7,
+      "average_confidence": 0.705,
+      "predictions_made": 7
+    },
+    "predictions_made": 2,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.705,
+    "successful_trades": 6,
+    "total_trades": 7
+  },
+  {
+    "date": "2025-07-22",
+    "timestamp": "2025-07-22T11:38:47.703114",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 7,
+      "average_confidence": 0.607,
+      "predictions_made": 7
+    },
+    "predictions_made": 11,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.607,
+    "successful_trades": 4,
+    "total_trades": 7
+  },
+  {
+    "date": "2025-07-22",
+    "timestamp": "2025-07-22T12:00:28.714115",
+    "performance": {
+      "successful_trades": 1,
+      "total_trades": 3,
+      "average_confidence": 0.61,
+      "predictions_made": 3
+    },
+    "predictions_made": 14,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.61,
+    "successful_trades": 1,
+    "total_trades": 3
+  },
+  {
+    "date": "2025-07-22",
+    "timestamp": "2025-07-22T12:02:02.219260",
+    "performance": {
+      "successful_trades": 1,
+      "total_trades": 2,
+      "average_confidence": 0.61,
+      "predictions_made": 2
+    },
+    "predictions_made": 16,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.61,
+    "successful_trades": 1,
+    "total_trades": 2
+  },
+  {
+    "date": "2025-07-22",
+    "timestamp": "2025-07-22T12:04:17.565970",
+    "performance": {
+      "successful_trades": 1,
+      "total_trades": 2,
+      "average_confidence": 0.61,
+      "predictions_made": 2
+    },
+    "predictions_made": 18,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.61,
+    "successful_trades": 1,
+    "total_trades": 2
+  },
+  {
+    "date": "2025-07-22",
+    "timestamp": "2025-07-22T12:05:57.533868",
+    "performance": {
+      "successful_trades": 1,
+      "total_trades": 2,
+      "average_confidence": 0.61,
+      "predictions_made": 2
+    },
+    "predictions_made": 20,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.61,
+    "successful_trades": 1,
+    "total_trades": 2
+  },
+  {
+    "date": "2025-07-22",
+    "timestamp": "2025-07-22T12:07:34.469759",
+    "performance": {
+      "successful_trades": 1,
+      "total_trades": 2,
+      "average_confidence": 0.61,
+      "predictions_made": 2
+    },
+    "predictions_made": 22,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.61,
+    "successful_trades": 1,
+    "total_trades": 2
+  },
+  {
+    "date": "2025-07-22",
+    "timestamp": "2025-07-22T12:08:36.937451",
+    "performance": {
+      "successful_trades": 0,
+      "total_trades": 1,
+      "average_confidence": 0.61,
+      "predictions_made": 1
+    },
+    "predictions_made": 23,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.61,
+    "successful_trades": 0,
+    "total_trades": 1
+  },
+  {
+    "date": "2025-07-22",
+    "timestamp": "2025-07-22T12:11:03.219885",
+    "performance": {
+      "successful_trades": 0,
+      "total_trades": 1,
+      "average_confidence": 0.61,
+      "predictions_made": 1
+    },
+    "predictions_made": 24,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.61,
+    "successful_trades": 0,
+    "total_trades": 1
+  },
+  {
+    "date": "2025-07-22",
+    "timestamp": "2025-07-22T12:12:23.556474",
+    "performance": {
+      "successful_trades": 0,
+      "total_trades": 1,
+      "average_confidence": 0.61,
+      "predictions_made": 1
+    },
+    "predictions_made": 25,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.61,
+    "successful_trades": 0,
+    "total_trades": 1
+  },
+  {
+    "date": "2025-07-22",
+    "timestamp": "2025-07-22T12:14:33.679580",
+    "performance": {
+      "successful_trades": 1,
+      "total_trades": 2,
+      "average_confidence": 0.61,
+      "predictions_made": 2
+    },
+    "predictions_made": 27,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.61,
+    "successful_trades": 1,
+    "total_trades": 2
+  },
+  {
+    "date": "2025-07-23",
+    "timestamp": "2025-07-23T08:43:27.787242",
+    "performance": {
+      "successful_trades": 3,
+      "total_trades": 8,
+      "average_confidence": 0.817,
+      "predictions_made": 5
+    },
+    "predictions_made": 0,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.817,
+    "successful_trades": 3,
+    "total_trades": 8
+  },
+  {
+    "date": "2025-07-23",
+    "timestamp": "2025-07-23T09:45:39.717905",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 7,
+      "average_confidence": 0.596,
+      "predictions_made": 7
+    },
+    "predictions_made": 11,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.596,
+    "successful_trades": 4,
+    "total_trades": 7
+  },
+  {
+    "date": "2025-07-23",
+    "timestamp": "2025-07-23T10:25:27.865287",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 7,
+      "average_confidence": 0.596,
+      "predictions_made": 7
+    },
+    "predictions_made": 18,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.596,
+    "successful_trades": 4,
+    "total_trades": 7
+  },
+  {
+    "date": "2025-07-23",
+    "timestamp": "2025-07-23T10:42:50.798267",
+    "performance": {
+      "successful_trades": 3,
+      "total_trades": 7,
+      "average_confidence": 0.667,
+      "predictions_made": 6
+    },
+    "predictions_made": 18,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.667,
+    "successful_trades": 3,
+    "total_trades": 7
+  },
+  {
+    "date": "2025-07-23",
+    "timestamp": "2025-07-23T11:24:28.788980",
+    "performance": {
+      "successful_trades": 6,
+      "total_trades": 6,
+      "average_confidence": 0.685,
+      "predictions_made": 7
+    },
+    "predictions_made": 22,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.685,
+    "successful_trades": 6,
+    "total_trades": 6
+  },
+  {
+    "date": "2025-07-23",
+    "timestamp": "2025-07-23T12:21:19.577728",
+    "performance": {
+      "successful_trades": 3,
+      "total_trades": 5,
+      "average_confidence": 0.812,
+      "predictions_made": 7
+    },
+    "predictions_made": 26,
+    "accuracy_metrics": {
+      "accuracy": 1.0,
+      "total_predictions": 26,
+      "successful_predictions": 26,
+      "period_days": 1
+    },
+    "model_confidence": 0.812,
+    "successful_trades": 3,
+    "total_trades": 5
+  },
+  {
+    "date": "2025-07-23",
+    "timestamp": "2025-07-23T12:48:07.492715",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 8,
+      "average_confidence": 0.825,
+      "predictions_made": 5
+    },
+    "predictions_made": 30,
+    "accuracy_metrics": {
+      "accuracy": 1.0,
+      "total_predictions": 26,
+      "successful_predictions": 26,
+      "period_days": 1
+    },
+    "model_confidence": 0.825,
+    "successful_trades": 4,
+    "total_trades": 8
+  },
+  {
+    "date": "2025-07-23",
+    "timestamp": "2025-07-23T13:00:27.502403",
+    "performance": {
+      "successful_trades": 6,
+      "total_trades": 8,
+      "average_confidence": 0.807,
+      "predictions_made": 8
+    },
+    "predictions_made": 34,
+    "accuracy_metrics": {
+      "accuracy": 1.0,
+      "total_predictions": 30,
+      "successful_predictions": 30,
+      "period_days": 1
+    },
+    "model_confidence": 0.807,
+    "successful_trades": 6,
+    "total_trades": 8
+  },
+  {
+    "date": "2025-07-26",
+    "timestamp": "2025-07-26T19:28:24.422542",
+    "performance": {
+      "successful_trades": 5,
+      "total_trades": 5,
+      "average_confidence": 0.729,
+      "predictions_made": 7
+    },
+    "predictions_made": 0,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.729,
+    "successful_trades": 5,
+    "total_trades": 5
+  },
+  {
+    "date": "2025-07-26",
+    "timestamp": "2025-07-26T20:13:42.120796",
+    "performance": {
+      "successful_trades": 6,
+      "total_trades": 6,
+      "average_confidence": 0.733,
+      "predictions_made": 5
+    },
+    "predictions_made": 4,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.733,
+    "successful_trades": 6,
+    "total_trades": 6
+  },
+  {
+    "date": "2025-07-26",
+    "timestamp": "2025-07-26T20:22:31.658482",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 8,
+      "average_confidence": 0.84,
+      "predictions_made": 8
+    },
+    "predictions_made": 8,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.84,
+    "successful_trades": 4,
+    "total_trades": 8
+  },
+  {
+    "date": "2025-07-26",
+    "timestamp": "2025-07-26T20:49:22.039722",
+    "performance": {
+      "successful_trades": 4,
+      "total_trades": 6,
+      "average_confidence": 0.827,
+      "predictions_made": 5
+    },
+    "predictions_made": 9,
+    "accuracy_metrics": {
+      "accuracy": 0,
+      "total_predictions": 0,
+      "successful_predictions": 0
+    },
+    "model_confidence": 0.827,
+    "successful_trades": 4,
+    "total_trades": 6
+  }
+]

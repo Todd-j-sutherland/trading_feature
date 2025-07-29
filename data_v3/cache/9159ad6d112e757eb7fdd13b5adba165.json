@@ -1,0 +1,119 @@
+{
+  "symbol": "CBA.AX",
+  "timestamp": "2025-07-21T08:03:27.002724",
+  "news_count": 22,
+  "sentiment_scores": {
+    "average_sentiment": 0.03425416666666666,
+    "positive_count": 5,
+    "negative_count": 1,
+    "neutral_count": 6,
+    "sentiment_distribution": {
+      "very_positive": 0,
+      "positive": 5,
+      "neutral": 6,
+      "negative": 0,
+      "very_negative": 1
+    },
+    "strongest_sentiment": -0.7294
+  },
+  "reddit_sentiment": {
+    "posts_analyzed": 32,
+    "average_sentiment": 0.08810200332015669,
+    "bullish_count": 16,
+    "bearish_count": 1,
+    "neutral_count": 15,
+    "top_posts": [
+      {
+        "title": "Former Treasury boss knows why you are $500k worse off",
+        "score": 395,
+        "sentiment": -0.12222222222222223,
+        "category": "bearish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m1v3pd/former_treasury_boss_knows_why_you_are_500k_worse/"
+      },
+      {
+        "title": "Im a bit annoyed with cba offshoring workers.",
+        "score": 285,
+        "sentiment": 0.16666666666666666,
+        "category": "bullish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m3g0s3/im_a_bit_annoyed_with_cba_offshoring_workers/"
+      },
+      {
+        "title": "Im a bit annoyed with cba offshoring workers.",
+        "score": 282,
+        "sentiment": 0.16666666666666666,
+        "category": "bullish",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1m3g0s3/im_a_bit_annoyed_with_cba_offshoring_workers/"
+      },
+      {
+        "title": "Cutting income taxes, lifting the GST, wealth taxes: CBA\u2019s pitch to Chalmers on reform",
+        "score": 261,
+        "sentiment": -0.021333333333333333,
+        "category": "neutral",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1lzi0wy/cutting_income_taxes_lifting_the_gst_wealth_taxes/"
+      },
+      {
+        "title": "Cutting income taxes, lifting the GST, wealth taxes: CBA\u2019s pitch to Chalmers on reform",
+        "score": 259,
+        "sentiment": -0.021333333333333333,
+        "category": "neutral",
+        "subreddit": "AusFinance",
+        "url": "https://reddit.com/r/AusFinance/comments/1lzi0wy/cutting_income_taxes_lifting_the_gst_wealth_taxes/"
+      }
+    ],
+    "sentiment_distribution": {
+      "bullish": 50.0,
+      "bearish": 3.125,
+      "neutral": 46.875
+    },
+    "subreddit_breakdown": {
+      "AusFinance": {
+        "count": 29,
+        "avg_sentiment": 0.0823343268549667
+      },
+      "fiaustralia": {
+        "count": 2,
+        "avg_sentiment": 0.21578431372549017
+      },
+      "ASX": {
+        "count": 1,
+        "avg_sentiment": 0.0
+      }
+    }
+  },
+  "significant_events": {
+    "dividend_announcement": false,
+    "earnings_report": false,
+    "management_change": false,
+    "regulatory_news": false,
+    "merger_acquisition": false,
+    "scandal_investigation": false,
+    "rating_change": false,
+    "capital_raising": false,
+    "branch_closure": false,
+    "product_launch": false,
+    "partnership_deal": false,
+    "legal_action": false,
+    "events_detected": []
+  },
+  "overall_sentiment": 0.021667807684172705,
+  "sentiment_components": {
+    "news": 0.006160149863760217,
+    "reddit": 0.01757238867312117,
+    "events": 0.0,
+    "volume": 0.0,
+    "momentum": 0.0,
+    "ml_trading": 0.0
+  },
+  "confidence": 0.71,
+  "recent_headlines": [
+    "",
+    "",
+    "",
+    "",
+    ""
+  ]
+}
