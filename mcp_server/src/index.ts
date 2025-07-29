@@ -43,7 +43,8 @@ const SYSTEM_ARCHITECTURE = {
   core_components: {
     "app/main.py": "Main entry point with CLI commands (status, morning, evening, dashboard, news)",
     "app/core/sentiment/": "Two-stage sentiment analysis engine (Stage 1: lightweight, Stage 2: FinBERT)",
-    "app/dashboard/": "Web interface with React frontend and ML dashboards",
+    "dashboard.py": "PRIMARY DASHBOARD - Streamlit-based trading sentiment analysis with ML performance metrics",
+    "app/dashboard/": "Legacy web interface - superseded by root dashboard.py",
     "app/services/": "Business logic orchestration and daily management",
     "enhanced_ml_system/": "Enhanced ML pipeline with 54+ features and ensemble models",
     "frontend/": "React application with interactive charts (Port 3002)",
@@ -62,6 +63,13 @@ const SYSTEM_ARCHITECTURE = {
     ml_pipeline: "75+ features → Ensemble models → Real-time predictions with caching"
   },
 
+  project_organization: {
+    core_files: "Essential system files kept in root (~25 files)",
+    archive: "Legacy files and historical documentation moved to archive/ (~50 files)",
+    helpers: "Utility scripts for monitoring, testing, and management moved to helpers/ (~40 files)",
+    description: "Organized structure reduces root clutter while preserving functionality"
+  },
+
   remote_deployment: {
     server: "170.64.199.151",
     location: "/root/test/",
@@ -77,12 +85,28 @@ const QUICK_REFERENCES: Record<string, any> = {
     daily_operations: {
       morning: "python -m app.main morning",
       evening: "python -m app.main evening", 
-      dashboard: "python -m app.main dashboard",
+      dashboard: "source dashboard_venv/bin/activate && streamlit run dashboard.py  # PRIMARY DASHBOARD (uses dashboard_venv Python 3.12)",
+      dashboard_legacy: "python -m app.main dashboard  # Legacy dashboard via app/",
       status: "python -m app.main status"
+    },
+    environments: {
+      local_dashboard: "dashboard_venv (Python 3.12.7) - Use for dashboard.py locally",
+      local_general: "venv (Python 3.13) - General development environment", 
+      remote: "trading_venv - Use on remote server 170.64.199.151",
+      activation: {
+        dashboard_local: "source dashboard_venv/bin/activate",
+        general_local: "source venv/bin/activate",
+        remote: "source trading_venv/bin/activate  # On remote server"
+      }
     },
     data_check: {
       training_data: "ssh root@170.64.199.151 'cd /root/test && python -c \"import sqlite3; conn = sqlite3.connect('data/ml_models/enhanced_training_data.db'); cursor = conn.cursor(); cursor.execute('SELECT COUNT(*) FROM enhanced_features'); print(f'Features: {cursor.fetchone()[0]}'); cursor.execute('SELECT COUNT(*) FROM enhanced_outcomes WHERE price_direction_1h IS NOT NULL'); print(f'Outcomes: {cursor.fetchone()[0]}')\"'",
       system_health: "curl -s http://localhost:8000/api/cache/status && curl -s http://localhost:8001/api/market-summary"
+    },
+    project_organization: {
+      cleanup_legacy: "Move files according to PROJECT_ORGANIZATION_PLAN.md",
+      archive_old: "mv legacy_files archive/",
+      organize_helpers: "mv utility_scripts helpers/"
     }
   },
 
@@ -96,6 +120,11 @@ const QUICK_REFERENCES: Record<string, any> = {
       minimum: "50+ features for basic training",
       recommended: "100+ features for reliable models", 
       optimal: "200+ features for high-quality predictions"
+    },
+    dashboards: {
+      primary: "dashboard.py - Streamlit-based, latest implementation with ML performance metrics",
+      legacy: "app/dashboard/enhanced_main.py - Superseded by root dashboard.py",
+      frontend: "frontend/ - React application on Port 3002"
     }
   },
 
@@ -110,7 +139,8 @@ const QUICK_REFERENCES: Record<string, any> = {
     weekly: "python -m app.main status",
     monthly_cleanup: "find logs/ -name '*.log' -mtime +30 -delete",
     model_backup: "cp -r data/ml_models/ data/ml_models_backup_$(date +%Y%m%d)/",
-    remote_monitoring: "./monitor_remote.sh"
+    remote_monitoring: "./monitor_remote.sh",
+    project_organization: "Follow PROJECT_ORGANIZATION_PLAN.md for file cleanup"
   }
 };
 
@@ -118,7 +148,8 @@ const FILE_PURPOSES: Record<string, string> = {
   // Core Application
   "app/main.py": "CLI entry point with commands: status, morning, evening, dashboard, news",
   "app/core/sentiment/two_stage_analyzer.py": "Advanced sentiment engine with Stage 1 (lightweight) and Stage 2 (FinBERT)",
-  "app/dashboard/enhanced_main.py": "Web dashboard with ML integration and real-time updates",
+  "app/dashboard/enhanced_main.py": "Legacy dashboard - superseded by root dashboard.py",
+  "dashboard.py": "PRIMARY DASHBOARD - Latest Streamlit-based trading sentiment analysis dashboard with ML performance metrics",
   "enhanced_ml_system/": "Complete ML pipeline with 54+ features, ensemble models, and caching",
   
   // API Servers
@@ -139,10 +170,16 @@ const FILE_PURPOSES: Record<string, string> = {
   "monitor_remote.sh": "Remote system monitoring",
   "export_and_validate_metrics.py": "Data validation and metrics export",
   
+  // System Organization
+  "archive/": "Legacy files and historical documentation",
+  "helpers/": "Utility scripts for monitoring, testing, and system management",
+  
   // Documentation
   "GOLDEN_STANDARD_DOCUMENTATION.md": "Authoritative technical reference and operations guide",
   "README.md": "Project overview with architecture and commands",
-  "ML_INTEGRATION_SUCCESS.md": "ML system implementation documentation"
+  "ML_INTEGRATION_SUCCESS.md": "ML system implementation documentation",
+  "MCP_SERVER_IMPLEMENTATION_COMPLETE.md": "Model Context Protocol server documentation",
+  "PROJECT_ORGANIZATION_PLAN.md": "Project file organization and cleanup plan"
 };
 
 class TradingSystemMCPServer {
@@ -583,6 +620,12 @@ class TradingSystemMCPServer {
   }
 
   private getUsageNotes(filepath: string): string {
+    if (filepath === "dashboard.py") {
+      return "PRIMARY DASHBOARD - Latest Streamlit-based trading sentiment analysis dashboard. Use: streamlit run dashboard.py";
+    }
+    if (filepath === "app/dashboard/enhanced_main.py") {
+      return "Legacy dashboard - superseded by root dashboard.py. Use dashboard.py instead.";
+    }
     if (filepath === "app/main.py") {
       return "CLI entry point. Use 'python -m app.main <command>' where command is: status, morning, evening, dashboard, news";
     }
