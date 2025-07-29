@@ -43,6 +43,7 @@ python -m app.main status      # Health check
 python -m app.main morning     # Morning analysis
 python -m app.main evening     # Evening summary
 python -m app.main dashboard   # Web interface
+export PYTHONPATH=/root/test
 streamlit run app/dashboard/main.py
 
 # Testing commands

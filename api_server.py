@@ -393,7 +393,7 @@ async def get_real_ml_predictions(symbol: str, price_data, sentiment_data):
                             "newsImpact": row_news_count * 0.1,
                             "technicalScore": row_technical,
                             "eventImpact": row_sentiment * 0.5,
-                            "redditSentiment": float(sentiment_row.get('reddit_sentiment', 0) or 0),
+                            "redditSentiment": float(sentiment_row['reddit_sentiment'] if sentiment_row['reddit_sentiment'] else 0),
                             "mlSignalStrength": float(abs(row_prediction - 0.5) * 2)
                         }
                     })
@@ -1146,45 +1146,136 @@ async def run_ml_prediction(request: LivePriceRequest):
             'impact_score': 0.0,     # Will be calculated
         }
         
-        # Use ML model if available, otherwise fallback
-        if symbol in ml_models_cache and joblib is not None:
-            try:
-                model = ml_models_cache[symbol]
+        # Use Enhanced ML system first (54+ features), then fallback to simple model
+        try:
+            # Try Enhanced ML System first
+            from app.core.ml.enhanced_training_pipeline import EnhancedMLTrainingPipeline
+            enhanced_pipeline = EnhancedMLTrainingPipeline()
+            
+            # Prepare sentiment data for enhanced prediction
+            sentiment_data = {
+                'sentiment_score': 0.0,  # Default, will be calculated
+                'confidence': 0.5,
+                'news_count': 0,
+                'reddit_sentiment': 0.0,
+                'event_score': 0.0
+            }
+            
+            # Use enhanced prediction with full feature set
+            enhanced_prediction = enhanced_pipeline.predict_enhanced(sentiment_data, symbol)
+            
+            # Defensive handling - convert any return value to a workable format
+            if enhanced_prediction is None:
+                print(f"Enhanced prediction returned None for {symbol}")
+                raise Exception("Enhanced ML prediction returned None")
+            elif isinstance(enhanced_prediction, (int, float)):
+                # If it returns a scalar, convert to expected format
+                sentiment_score = float(enhanced_prediction)
+                confidence = 0.5  # Default confidence
+                print(f"✅ Enhanced ML prediction (scalar) for {symbol}: sentiment={sentiment_score:.3f}, confidence={confidence:.3f}")
+            elif isinstance(enhanced_prediction, dict):
+                # Check if it's an error response
+                if 'error' in enhanced_prediction:
+                    error_msg = enhanced_prediction['error']
+                    print(f"Enhanced prediction error for {symbol}: {error_msg}")
+                    raise Exception(f"Enhanced ML prediction failed: {error_msg}")
                 
-                # Prepare feature vector in the exact order the model expects (20 features)
-                feature_order = [
-                    'current_price', 'price_change_pct', 'volume', 'volatility',
-                    'rsi', 'macd', 'moving_avg_20', 'moving_avg_50',
-                    'bollinger_upper', 'bollinger_lower', 'stochastic_k', 'williams_r',
-                    'volume_ratio', 'price_momentum', 'volume_sma_ratio', 'price_position',
-                    'sentiment_score', 'confidence', 'news_count', 'impact_score'
-                ]
+                # Extract prediction values with multiple fallback options
+                prediction_value = None
+                confidence_value = 0.5
                 
-                # Create feature vector ensuring we have exactly 20 features
-                feature_vector = [ml_features.get(feature, 0.0) for feature in feature_order]
+                # Try various possible keys for prediction value
+                for key in ['predicted_direction', 'direction', 'prediction', 'sentiment_score']:
+                    if key in enhanced_prediction:
+                        prediction_value = enhanced_prediction[key]
+                        break
                 
-                # Ensure we have exactly 20 features
-                while len(feature_vector) < 20:
-                    feature_vector.append(0.0)
-                feature_vector = feature_vector[:20]  # Truncate if too many
+                # If no direct prediction, try direction_predictions
+                if prediction_value is None:
+                    direction_predictions = enhanced_prediction.get('direction_predictions', {})
+                    if direction_predictions:
+                        prediction_value = direction_predictions.get('1h', direction_predictions.get('1d', 0))
                 
-                # Convert to numpy array for prediction
-                feature_array = np.array(feature_vector).reshape(1, -1)
+                # If still no prediction, use fallback
+                if prediction_value is None:
+                    prediction_value = 0.0
                 
-                # Make prediction
-                prediction = model.predict(feature_array)[0]
-                confidence = max(model.predict_proba(feature_array)[0])
+                # Extract confidence with fallback options
+                for key in ['confidence', 'avg_confidence', 'overall_confidence']:
+                    if key in enhanced_prediction:
+                        confidence_value = enhanced_prediction[key]
+                        break
                 
-                # Convert prediction to sentiment score
-                sentiment_score = float(prediction) if isinstance(prediction, (int, float)) else 0.0
-                confidence = float(confidence)
+                # If no direct confidence, try confidence_scores
+                if confidence_value == 0.5:
+                    confidence_scores = enhanced_prediction.get('confidence_scores', {})
+                    if confidence_scores:
+                        confidence_value = confidence_scores.get('1h', confidence_scores.get('1d', 0.5))
                 
-            except Exception as model_error:
-                print(f"ML model error for {symbol}: {model_error}, using fallback")
+                sentiment_score = float(prediction_value) if isinstance(prediction_value, (int, float)) else 0.0
+                confidence = float(confidence_value) if isinstance(confidence_value, (int, float)) else 0.5
+                
+                print(f"✅ Enhanced ML prediction (dict) for {symbol}: sentiment={sentiment_score:.3f}, confidence={confidence:.3f}")
+            else:
+                # Unexpected type
+                print(f"Enhanced prediction unexpected type for {symbol}: {type(enhanced_prediction)}")
+                raise Exception(f"Enhanced ML prediction returned unexpected type: {type(enhanced_prediction)}")
+                
+        except Exception as enhanced_error:
+            print(f"Enhanced ML not available for {symbol}: {enhanced_error}, falling back to simple model")
+            
+            # Fallback to simple model if enhanced system fails
+            if symbol in ml_models_cache and joblib is not None:
+                try:
+                    model = ml_models_cache[symbol]
+                    
+                    # Check if we have metadata to determine expected features
+                    metadata_path = "data/ml_models/current_metadata.json"
+                    expected_features = 5  # Default to 5 features (from our fixed metadata)
+                    feature_names = None
+                    
+                    if os.path.exists(metadata_path):
+                        try:
+                            with open(metadata_path, 'r') as f:
+                                metadata = json.load(f)
+                            expected_features = metadata.get('n_features', 5)
+                            feature_names = metadata.get('feature_columns', metadata.get('features', []))
+                        except:
+                            pass
+                    
+                    print(f"Simple model expects {expected_features} features for {symbol}")
+                    
+                    # Always prepare 5-feature vector for simple model (based on our metadata fix)
+                    feature_vector = [
+                        0.0,  # sentiment (will be calculated from confidence)
+                        (ml_features.get('rsi', 50) / 100.0 +  # technical (normalized average)
+                         ml_features.get('macd', 0) / 10.0 +
+                         (ml_features.get('moving_avg_20', ml_features.get('current_price', 100)) / 
+                          ml_features.get('current_price', 100) - 1.0)) / 3.0,
+                        min(ml_features.get('volume_ratio', 1.0), 5.0) / 5.0,  # volume (normalized)
+                        min(ml_features.get('volatility', 0.02), 0.1) / 0.1,    # volatility (normalized)
+                        ml_features.get('price_momentum', 0) / 100.0             # momentum (normalized)
+                    ]
+                    
+                    # Convert to numpy array for prediction
+                    feature_array = np.array(feature_vector).reshape(1, -1)
+                    
+                    # Make prediction
+                    prediction = model.predict(feature_array)[0]
+                    confidence = max(model.predict_proba(feature_array)[0])
+                    
+                    # Convert prediction to sentiment score
+                    sentiment_score = float(prediction) if isinstance(prediction, (int, float)) else 0.0
+                    confidence = float(confidence)
+                    
+                    print(f"Simple ML prediction for {symbol}: sentiment={sentiment_score:.3f}, confidence={confidence:.3f}")
+                    
+                except Exception as model_error:
+                    print(f"Simple ML model error for {symbol}: {model_error}, using fallback")
+                    sentiment_score, confidence = fallback_prediction(ml_features)
+            else:
+                print(f"No ML model available for {symbol}, using fallback prediction")
                 sentiment_score, confidence = fallback_prediction(ml_features)
-        else:
-            print(f"No ML model for {symbol}, using fallback prediction")
-            sentiment_score, confidence = fallback_prediction(ml_features)
         
         # Generate trading signal
         signal = generate_trading_signal(sentiment_score, confidence, ml_features)

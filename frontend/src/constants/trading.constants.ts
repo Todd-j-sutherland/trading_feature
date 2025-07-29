@@ -32,12 +32,48 @@ export const CHART_COLORS = {
 
 // Environment-based API configuration
 const getApiBaseUrl = () => {
-  // Always use backend port 8000 for API calls
+  // Check if we're in browser environment
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    
+    // If accessing via remote server IP, use that IP for API calls
+    if (hostname === '170.64.199.151' || hostname.includes('170.64.199.151')) {
+      return 'http://170.64.199.151:8000/api';
+    }
+    // If accessing via localhost, use localhost
+    else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:8000/api';
+    }
+    // For any other hostname, use the same hostname with port 8000
+    else {
+      return `http://${hostname}:8000/api`;
+    }
+  }
+  
+  // Fallback for server-side rendering
   return 'http://localhost:8000/api';
 };
 
 const getMLApiBaseUrl = () => {
-  // Always use backend port 8001 for ML API calls
+  // Check if we're in browser environment
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    
+    // If accessing via remote server IP, use that IP for ML API calls
+    if (hostname === '170.64.199.151' || hostname.includes('170.64.199.151')) {
+      return 'http://170.64.199.151:8001';
+    }
+    // If accessing via localhost, use localhost
+    else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:8001';
+    }
+    // For any other hostname, use the same hostname with port 8001
+    else {
+      return `http://${hostname}:8001`;
+    }
+  }
+  
+  // Fallback for server-side rendering
   return 'http://localhost:8001';
 };
 

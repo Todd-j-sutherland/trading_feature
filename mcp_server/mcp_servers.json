@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "asx-trading-system": {
+      "command": "node",
+      "args": ["mcp_server/dist/index.js"],
+      "cwd": "/Users/toddsutherland/Repos/trading_feature",
+      "env": {}
+    }
+  }
+}

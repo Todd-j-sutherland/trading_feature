@@ -378,6 +378,21 @@ trading_analysis/                              # 🏠 Project root
 | **Stage 2 Enhanced** | ~800MB | 85-95% accuracy | `export USE_TWO_STAGE_ANALYSIS=1 && export SKIP_TRANSFORMERS=0 && python -m app.main evening` |
 | **Memory Optimized** | Auto-detect | Adaptive | `export USE_TWO_STAGE_ANALYSIS=1 && python -m app.main evening` |
 
+## 🤖 AI-Assisted Development
+
+The system includes a Model Context Protocol (MCP) server for enhanced AI assistance:
+
+```bash
+# Setup MCP server for VS Code Copilot context
+cd mcp_server && ./setup.sh
+```
+
+**MCP Features:**
+- **Comprehensive Context**: AI understands your entire system architecture
+- **File Navigation**: Know the purpose of every file and component
+- **Operations Guide**: Access to commands, troubleshooting, and procedures
+- **Smart Assistance**: Copilot can provide accurate help based on actual system state
+
 ## 📊 Dashboard Features
 
 The professional dashboard provides:

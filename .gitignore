@@ -165,3 +165,4 @@ credentials.json
 !requirements*.txt
 
 dashboard_env/
+dashboard_venv/

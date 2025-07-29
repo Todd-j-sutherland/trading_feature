@@ -1,7 +1,7 @@
 // Custom hook for individual bank ML sentiment data
 // Used by the main dashboard's sentiment panel
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '../constants/trading.constants';
 
 export interface BankMLSentiment {
@@ -82,13 +82,36 @@ export const useBankMLSentiment = (symbol: string) => {
     setError(null);
 
     try {
-      // Try the new ML prediction endpoint first
+      // First get current price data
+      const priceResponse = await fetch(`${API_BASE_URL}/live/price/${symbol}`);
+      if (!priceResponse.ok) {
+        throw new Error('Failed to fetch price data');
+      }
+      const priceData = await priceResponse.json();
+      
+      if (!priceData.success) {
+        throw new Error('Price data not available');
+      }
+
+      // Then get technical indicators
+      const techResponse = await fetch(`${API_BASE_URL}/live/technical/${symbol}`);
+      if (!techResponse.ok) {
+        throw new Error('Failed to fetch technical data');
+      }
+      const techData = await techResponse.json();
+      
+      if (!techData.success) {
+        throw new Error('Technical data not available');
+      }
+
+      // Now make the ML prediction with complete data
       const mlResponse = await fetch(`${API_BASE_URL}/live/ml-predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          symbol, 
-          timeframe: '1d',
+          symbol,
+          priceData: priceData.data,
+          technicalFeatures: techData.indicators,
           timestamp: Date.now()
         })
       });
@@ -100,12 +123,12 @@ export const useBankMLSentiment = (symbol: string) => {
           
           setSentiment({
             symbol,
-            current_signal: pred.action || 'HOLD',
+            current_signal: pred.signal || 'HOLD',
             confidence: pred.confidence || 0.5,
-            sentiment_score: pred.sentiment_score || 0,
+            sentiment_score: pred.sentimentScore || 0,
             market_status: getMarketStatus(),
-            signal_description: getSignalDescription(pred.action || 'HOLD', pred.confidence || 0.5),
-            sentiment_description: getSentimentDescription(pred.sentiment_score || 0),
+            signal_description: getSignalDescription(pred.signal || 'HOLD', pred.confidence || 0.5),
+            sentiment_description: getSentimentDescription(pred.sentimentScore || 0),
             last_updated: new Date().toISOString()
           });
           setIsLoading(false);

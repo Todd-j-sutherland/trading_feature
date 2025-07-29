@@ -1771,6 +1771,25 @@ This ASX Trading System provides:
 ✅ **Automated Workflows**: Morning analysis, evening training, validation metrics  
 ✅ **Process Management**: Clean startup/shutdown, port management, zombie process handling  
 ✅ **Production Ready**: Error handling, fallbacks, monitoring, comprehensive documentation  
+✅ **AI-Assisted Development**: MCP server for VS Code Copilot context and assistance  
+
+## 🤖 **MCP Server for AI Development**
+
+The project includes a Model Context Protocol (MCP) server that provides comprehensive context to VS Code Copilot and AI agents:
+
+```bash
+# 🚀 Setup MCP Server (One-time setup)
+cd mcp_server && ./setup.sh
+
+# After setup, restart VS Code to enable AI context assistance
+```
+
+**MCP Server Features:**
+- **System Architecture Context**: Complete understanding of components and data flow
+- **File Purpose Explanations**: Know what every file does and why it exists  
+- **Operations Knowledge**: Commands, troubleshooting, and maintenance procedures
+- **Quick References**: Essential commands and system status checks
+- **Smart Navigation**: AI can understand your complex project structure
 
 ## 🚀 **Quick Reference Commands**
 
@@ -1836,3 +1855,47 @@ fi
 echo "🔍 Checking ports..."
 lsof -i :8000 || echo "✅ Port 8000 free"
 lsof -i :8001 || echo "✅ Port 8001 free"
+
+
+Check Current data status
+
+ssh root@170.64.199.151 "cd /root/test && source /root/trading_venv/bin/activate && python -c "
+import sqlite3
+import os
+
+# Check enhanced training data
+enhanced_db = 'data/ml_models/enhanced_training_data.db'
+if os.path.exists(enhanced_db):
+    conn = sqlite3.connect(enhanced_db)
+    cursor = conn.cursor()
+    
+    # Check training features
+    cursor.execute('SELECT COUNT(*) FROM enhanced_features')
+    features_count = cursor.fetchone()[0]
+    
+    # Check outcomes (completed predictions)
+    cursor.execute('SELECT COUNT(*) FROM enhanced_outcomes WHERE price_direction_1h IS NOT NULL')
+    outcomes_count = cursor.fetchone()[0]
+    
+    print(f'📊 Training Data Status:')
+    print(f'   Features collected: {features_count}')
+    print(f'   Completed outcomes: {outcomes_count}')
+    print(f'   Minimum needed: 50+ for training')
+    print(f'   Recommended: 100+ for reliable models')
+    
+    conn.close()
+else:
+    print('❌ Enhanced training database not found')
+""
+
+
+# Check outcome recording progress daily
+ssh root@170.64.199.151 "cd /root/test && source /root/trading_venv/bin/activate && python -c "
+import sqlite3
+conn = sqlite3.connect('data/ml_models/enhanced_training_data.db')
+cursor = conn.cursor()
+cursor.execute('SELECT COUNT(*) FROM enhanced_outcomes WHERE price_direction_1h IS NOT NULL')
+outcomes = cursor.fetchone()[0]
+print(f'Completed outcomes: {outcomes}')
+conn.close()
+""
