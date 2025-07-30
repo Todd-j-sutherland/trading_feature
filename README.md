@@ -92,7 +92,7 @@ ssh -i ~/.ssh/id_rsa root@170.64.199.151 'bash /root/test/memory_cleanup.sh'
 # Morning routine (Stage 1 continuous monitoring)
 ssh -i ~/.ssh/id_rsa root@170.64.199.151 'cd /root/test && source /root/trading_venv/bin/activate && export USE_TWO_STAGE_ANALYSIS=1 && export SKIP_TRANSFORMERS=1 && python -m app.main morning'
 
-# Evening enhanced analysis (Stage 2 when memory permits)
+# Evening enhanced analysis     (Stage 2 when memory permits)
 ssh -i ~/.ssh/id_rsa root@170.64.199.151 'cd /root/test && source /root/trading_venv/bin/activate && export USE_TWO_STAGE_ANALYSIS=1 && export SKIP_TRANSFORMERS=0 && python -m app.main evening'
 
 # System health check

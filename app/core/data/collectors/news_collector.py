@@ -192,21 +192,45 @@ class SmartCollector:
         self.print_stats()
     
     def run_continuous(self, interval_minutes=30):
-        """Run continuous collection"""
-        print(f"🚀 Starting smart collector (every {interval_minutes} minutes)")
+        """Run continuous collection with graceful shutdown support"""
+        from app.utils.graceful_shutdown import is_shutdown_requested, register_cleanup
         
-        while True:
+        print(f"🚀 Starting smart collector (every {interval_minutes} minutes)")
+        print("💡 Use Ctrl+C to stop gracefully")
+        
+        # Register our own cleanup function
+        def collector_cleanup():
+            print("🛑 Smart collector shutting down...")
+            self.save_active_signals()
+            
+        register_cleanup(collector_cleanup)
+        
+        while not is_shutdown_requested():
             try:
                 self.run_collection_cycle()
-                print(f"💤 Sleeping for {interval_minutes} minutes...")
-                time.sleep(interval_minutes * 60)
+                
+                # Sleep in small chunks to allow for responsive shutdown
+                sleep_time = interval_minutes * 60
+                sleep_chunks = max(1, sleep_time // 10)  # Sleep in 10-second chunks
+                chunk_duration = sleep_time / sleep_chunks
+                
+                print(f"💤 Sleeping for {interval_minutes} minutes... (Use Ctrl+C to stop)")
+                for i in range(int(sleep_chunks)):
+                    if is_shutdown_requested():
+                        print("🛑 Shutdown requested, stopping collector...")
+                        return
+                    time.sleep(chunk_duration)
                 
             except KeyboardInterrupt:
                 print("\n🛑 Stopping collector...")
                 break
             except Exception as e:
                 print(f"❌ Error in collection cycle: {e}")
+                if is_shutdown_requested():
+                    break
                 time.sleep(60)  # Wait 1 minute before retry
+                
+        print("✅ Smart collector stopped gracefully")
 
 if __name__ == "__main__":
     import argparse

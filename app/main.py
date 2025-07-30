@@ -16,6 +16,7 @@ sys.path.insert(0, str(project_root))
 from app.config.settings import Settings
 from app.config.logging import setup_logging
 from app.services.daily_manager import TradingSystemManager
+from app.utils.graceful_shutdown import setup_graceful_shutdown, register_cleanup
 
 def setup_cli():
     """Setup command line interface"""
@@ -639,6 +640,30 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info(f"Starting Trading Analysis System - Command: {args.command}")
     
+    # Setup graceful shutdown
+    shutdown_handler = setup_graceful_shutdown()
+    
+    def cleanup_system():
+        """Cleanup function for graceful shutdown"""
+        logger.info("Performing system cleanup...")
+        print("🧹 Cleaning up trading system...")
+        
+        # Kill any background processes we might have started
+        import subprocess
+        try:
+            # Kill news collector processes
+            subprocess.run(["pkill", "-f", "news_collector"], capture_output=True)
+            # Kill any dashboard processes
+            subprocess.run(["pkill", "-f", "streamlit"], capture_output=True)
+            # Kill any other python trading processes
+            subprocess.run(["pkill", "-f", "app.main"], capture_output=True)
+            logger.info("Background processes terminated")
+        except Exception as e:
+            logger.warning(f"Error terminating background processes: {e}")
+    
+    # Register cleanup function
+    register_cleanup(cleanup_system)
+    
     try:
         # Initialize system manager
         manager = TradingSystemManager(
@@ -698,9 +723,12 @@ def main():
             show_trading_history()
         
         logger.info(f"Command '{args.command}' completed successfully")
+        print("✅ Command completed successfully")
+        print("💡 Use Ctrl+C to stop any background processes")
         
     except KeyboardInterrupt:
         logger.info("Operation cancelled by user")
+        print("\n🛑 Operation cancelled by user")
         sys.exit(130)
     except Exception as e:
         logger.error(f"Error executing command '{args.command}': {e}")

@@ -135,6 +135,89 @@ const QUICK_REFERENCES: Record<string, any> = {
     data_validation: "python export_and_validate_metrics.py"
   },
 
+  validation_framework: {
+    overview: "Comprehensive multi-layered validation system for dashboard, database, and ML data integrity",
+    components: {
+      dashboard_validation: {
+        location: "helpers/export_and_validate_metrics.py",
+        class: "MetricsValidator",
+        purpose: "Validates dashboard metrics, sentiment data, ML performance, and database health",
+        validates: [
+          "ML performance metrics (success rates 0-100%, confidence 0-100%)",
+          "Sentiment scores (-1 to +1 range, confidence 0-1 range)",
+          "Feature analysis data (usage rates, record counts)",
+          "Database statistics (table counts, recent activity)",
+          "ASX bank data completeness (CBA.AX, ANZ.AX, WBC.AX, NAB.AX, MQG.AX, SUN.AX, QBE.AX)"
+        ]
+      },
+      database_structure_validation: {
+        location: "tests/test_data_validation.py",
+        purpose: "Unit tests for database table data integrity",
+        validates: [
+          "Sentiment scores range [-1, 1]",
+          "Confidence scores range [0, 1]", 
+          "RSI values range [0, 100]",
+          "Trading signal types (BUY, SELL, HOLD)",
+          "ML prediction ranges and model version formats"
+        ]
+      },
+      enhanced_ml_validation: {
+        location: "app/core/ml/enhanced_training_pipeline.py",
+        class: "DataValidator",
+        purpose: "Validates ML features, training data, and prevents data leakage",
+        validates: [
+          "Sentiment data (ranges, required fields)",
+          "Technical analysis data (RSI, price ranges)",
+          "Training data (prevents future data leakage)",
+          "Feature quality and ranges"
+        ]
+      },
+      frontend_validation: {
+        location: "frontend/src/components/IntegratedMLDashboard.tsx",
+        purpose: "Frontend validation status display and integration",
+        features: [
+          "validation_status field in training status",
+          "Visual indicators for validation results",
+          "Color-coded validation status (green=passed, red=failed)"
+        ]
+      }
+    },
+    commands: {
+      run_dashboard_validation: "python helpers/export_and_validate_metrics.py",
+      run_database_tests: "python tests/test_data_validation.py",
+      run_system_validation: "python helpers/validate_system.py",
+      run_comprehensive_tests: "python run_comprehensive_tests.py",
+      check_validation_results: "cat metrics_exports/validation_summary_$(date +%Y%m%d)*.txt"
+    },
+    generated_files: {
+      location: "metrics_exports/",
+      files: [
+        "dashboard_metrics_{timestamp}.json - Raw exported data",
+        "validation_results_{timestamp}.json - Detailed validation outcomes",
+        "validation_summary_{timestamp}.txt - Human-readable summary"
+      ],
+      example_output: "Overall Status: PASS, Total Validations: 30, Passed: 30, Failed: 0, Warnings: 0"
+    },
+    quality_thresholds: {
+      data_quality_score: "0.85 (Minimum 85% data quality)",
+      average_confidence: "0.60 (Minimum 60% prediction confidence)",
+      news_coverage: "0.70 (Minimum 70% news coverage)",
+      sentiment_reliability: "0.75 (Minimum 75% sentiment reliability)"
+    },
+    validation_categories: {
+      ml_performance: "Success rates (0-100%), confidence (0-100%), trade counts (non-negative)",
+      sentiment_scores: "Sentiment values (-1 to +1), confidence (0-1), expected banks coverage",
+      feature_analysis: "Feature usage rates (0-100%), record counts (positive), data completeness",
+      database_statistics: "Table counts, recent activity (7 days), timestamp ranges"
+    },
+    automated_alerts: [
+      "Data quality drops below 85%",
+      "More than 2 banks fail validation",
+      "Average confidence below 60%",
+      "News coverage below 70%"
+    ]
+  },
+
   maintenance: {
     weekly: "python -m app.main status",
     monthly_cleanup: "find logs/ -name '*.log' -mtime +30 -delete",
@@ -168,7 +251,16 @@ const FILE_PURPOSES: Record<string, string> = {
   "start_complete_ml_system.sh": "Complete system startup script",
   "deploy_memory_management.sh": "Memory optimization deployment",
   "monitor_remote.sh": "Remote system monitoring",
-  "export_and_validate_metrics.py": "Data validation and metrics export",
+  "export_and_validate_metrics.py": "Primary validation framework - comprehensive dashboard metrics validation and export",
+  
+  // Validation Framework Files
+  "helpers/export_and_validate_metrics.py": "MetricsValidator class - validates dashboard metrics, sentiment data, ML performance",
+  "tests/test_data_validation.py": "Database structure validation tests - sentiment scores, confidence, RSI ranges",
+  "helpers/validate_system.py": "Quick system validation summary - overall health check",
+  "DATA_VALIDATION_SYSTEM.md": "Complete validation framework documentation with usage examples",
+  "verify_dashboard.py": "Dashboard import and function validation tests",
+  "verify_dashboard_data.py": "Dashboard data verification and source identification",
+  "app/core/ml/enhanced_training_pipeline.py": "Contains DataValidator class for ML feature and training data validation",
   
   // System Organization
   "archive/": "Legacy files and historical documentation",
@@ -256,11 +348,25 @@ class TradingSystemMCPServer {
               properties: {
                 category: {
                   type: "string",
-                  enum: ["commands", "architecture", "troubleshooting", "maintenance"],
+                  enum: ["commands", "architecture", "troubleshooting", "maintenance", "validation_framework"],
                   description: "Category of quick reference to retrieve",
                 },
               },
               required: ["category"],
+            },
+          },
+          {
+            name: "get_validation_framework_info",
+            description: "Get comprehensive information about the validation framework components and usage",
+            inputSchema: {
+              type: "object",
+              properties: {
+                component: {
+                  type: "string",
+                  enum: ["overview", "components", "commands", "files", "thresholds", "examples"],
+                  description: "Specific validation framework component to get info about (optional)",
+                },
+              },
             },
           },
           {
@@ -310,6 +416,12 @@ class TradingSystemMCPServer {
             mimeType: "application/json", 
             name: "Quick Reference Commands",
             description: "Essential commands and operations for daily use",
+          },
+          {
+            uri: "trading://system/validation-framework",
+            mimeType: "application/json",
+            name: "Validation Framework",
+            description: "Comprehensive validation framework components, commands, and usage",
           },
         ],
       };
@@ -361,6 +473,17 @@ class TradingSystemMCPServer {
             ],
           };
 
+        case "trading://system/validation-framework":
+          return {
+            contents: [
+              {
+                uri,
+                mimeType: "application/json",
+                text: JSON.stringify(QUICK_REFERENCES.validation_framework, null, 2),
+              },
+            ],
+          };
+
         default:
           throw new McpError(ErrorCode.InvalidRequest, `Unknown resource: ${uri}`);
       }
@@ -379,6 +502,8 @@ class TradingSystemMCPServer {
           return await this.getSystemStatus(args);
         case "get_quick_reference":
           return await this.getQuickReference(args);
+        case "get_validation_framework_info":
+          return await this.getValidationFrameworkInfo(args);
         case "explain_file_purpose":
           return await this.explainFilePurpose(args);
         case "get_system_architecture":
@@ -546,6 +671,44 @@ class TradingSystemMCPServer {
     }
   }
 
+  private async getValidationFrameworkInfo(args: any) {
+    try {
+      const { component } = args || {};
+      
+      const validationFramework = QUICK_REFERENCES.validation_framework;
+      
+      if (component) {
+        const componentInfo = validationFramework[component as keyof typeof validationFramework];
+        if (!componentInfo) {
+          throw new McpError(ErrorCode.InvalidParams, `Unknown validation component: ${component}`);
+        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Validation Framework - ${component}\n\n${JSON.stringify(componentInfo, null, 2)}`,
+            },
+          ],
+        };
+      }
+
+      // Return complete validation framework info
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Comprehensive Validation Framework\n\n${JSON.stringify(validationFramework, null, 2)}`,
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new McpError(ErrorCode.InvalidParams, `Invalid parameters: ${(error as any).message}`);
+      }
+      throw new McpError(ErrorCode.InternalError, `Failed to get validation framework info: ${error}`);
+    }
+  }
+
   private async explainFilePurpose(args: any) {
     try {
       const { filepath } = args;
@@ -615,6 +778,15 @@ class TradingSystemMCPServer {
     if (filepath.includes("ml") || filepath.includes("model")) {
       related.push("enhanced_ml_system/", "data/ml_models/", "export_and_validate_metrics.py");
     }
+    if (filepath.includes("validation") || filepath.includes("validate")) {
+      related.push("helpers/export_and_validate_metrics.py", "tests/test_data_validation.py", "helpers/validate_system.py", "DATA_VALIDATION_SYSTEM.md", "verify_dashboard.py", "verify_dashboard_data.py");
+    }
+    if (filepath.includes("export_and_validate_metrics")) {
+      related.push("dashboard.py", "tests/test_data_validation.py", "metrics_exports/", "DATA_VALIDATION_SYSTEM.md");
+    }
+    if (filepath.includes("test_data_validation")) {
+      related.push("helpers/export_and_validate_metrics.py", "app/core/ml/enhanced_training_pipeline.py", "DATA_VALIDATION_SYSTEM.md");
+    }
     
     return related;
   }
@@ -637,6 +809,21 @@ class TradingSystemMCPServer {
     }
     if (filepath.includes("api_server")) {
       return "Backend API servers. Port 8000 (original), Port 8001 (enhanced ML)";
+    }
+    if (filepath.includes("export_and_validate_metrics.py")) {
+      return "Primary validation framework script. Run: python helpers/export_and_validate_metrics.py. Generates metrics_exports/ files.";
+    }
+    if (filepath.includes("test_data_validation.py")) {
+      return "Database validation test suite. Run: python tests/test_data_validation.py. Tests sentiment scores, RSI ranges, etc.";
+    }
+    if (filepath.includes("validate_system.py")) {
+      return "Quick system validation summary. Run: python helpers/validate_system.py. Provides overall health check.";
+    }
+    if (filepath === "DATA_VALIDATION_SYSTEM.md") {
+      return "Complete validation framework documentation with usage examples and test descriptions";
+    }
+    if (filepath.includes("verify_dashboard")) {
+      return "Dashboard verification scripts. Tests dashboard imports, data sources, and function integrity";
     }
     return "Refer to GOLDEN_STANDARD_DOCUMENTATION.md for detailed usage";
   }

@@ -35,7 +35,7 @@ python api_server.py &
 MAIN_BACKEND_PID=$!
 
 echo "🤖 Starting ML Backend System (Port 8001)..."
-./start_ml_backend.sh &
+helpers/start_ml_backend.sh &
 ML_BACKEND_PID=$!
 
 # Wait a moment for backends to start
@@ -46,7 +46,7 @@ sleep 8
 echo "🎨 Starting Frontend Dashboard (Production Build)..."
 echo "📍 Current directory: $(pwd)"
 echo "📁 Frontend directory exists: $([ -d "frontend" ] && echo "YES" || echo "NO")"
-./start_ml_frontend_production.sh &
+helpers/start_ml_frontend_production.sh &
 FRONTEND_PID=$!
 
 echo ""

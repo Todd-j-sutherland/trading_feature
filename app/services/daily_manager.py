@@ -460,7 +460,7 @@ class TradingSystemManager:
         # Start continuous news monitoring in background
         print("\n🔄 Starting Background News Monitoring...")
         try:
-            # Check if smart collector is already running (fix grep pattern)
+            # Check if smart collector is already running
             ps_check = subprocess.run("ps aux | grep 'app.core.data.collectors.news_collector' | grep -v grep", 
                                      shell=True, capture_output=True, text=True)
             
@@ -469,12 +469,25 @@ class TradingSystemManager:
             else:
                 # Start smart collector in background
                 cmd = f"cd {self.root_dir} && python -m app.core.data.collectors.news_collector --interval 30"
-                print(f"   � Starting smart collector: {cmd}")
+                print(f"   🚀 Starting smart collector: {cmd}")
                 
-                subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                collector_process = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 time.sleep(2)  # Give it time to start
                 
-                # Verify it started (fix grep pattern)
+                # Register process for cleanup
+                from app.utils.graceful_shutdown import register_cleanup
+                
+                def cleanup_collector():
+                    print("🛑 Terminating smart collector...")
+                    try:
+                        collector_process.terminate()
+                        collector_process.wait(timeout=5)
+                    except:
+                        collector_process.kill()
+                
+                register_cleanup(cleanup_collector)
+                
+                # Verify it started
                 ps_verify = subprocess.run("ps aux | grep 'app.core.data.collectors.news_collector' | grep -v grep", 
                                           shell=True, capture_output=True, text=True)
                 if ps_verify.returncode == 0:
@@ -488,6 +501,7 @@ class TradingSystemManager:
         print("   📰 Smart collector monitoring news sentiment every 30 minutes")
         print("   🕐 For manual news updates, use: python -m app.main news --continuous")
         print("   📊 For detailed news analysis, use: python -m app.main news --all")
+        print("   💡 Use Ctrl+C to stop all background processes gracefully")
         
         # Optional Alpaca Trading Integration
         print("\n💹 Alpaca Trading Integration...")
@@ -513,9 +527,23 @@ class TradingSystemManager:
         print("🤖 All AI systems operational and ready for trading")
         print("📊 Enhanced machine learning models loaded")
         print("💹 Real market data analysis completed")
-        print("� Fresh data collection cycle executed")
+        print("🔄 Fresh data collection cycle executed")
         print("📈 Live stock prices and fundamentals analyzed")
-        print("�🚀 System ready for intelligent market analysis")
+        print("🚀 System ready for intelligent market analysis")
+        print("")
+        print("✅ Morning analysis completed successfully!")
+        print("🔄 Background services are running continuously")
+        print("💡 Use Ctrl+C to stop all services gracefully")
+        print("📊 Monitor progress with: python -m app.main status")
+        
+        # Wait for user input or signal to keep process alive for background services
+        from app.utils.graceful_shutdown import wait_for_shutdown
+        print("\n🔄 Keeping services running... Press Ctrl+C to stop gracefully")
+        
+        try:
+            wait_for_shutdown()  # Wait indefinitely until shutdown signal
+        except KeyboardInterrupt:
+            print("\n🛑 Graceful shutdown initiated...")
         
         return True
     

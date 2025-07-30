@@ -1,0 +1,13 @@
+{
+  "github.copilot.chat.experimental.mcp.enabled": true,
+  "github.copilot.chat.mcp.servers": {
+    "asx-trading-system": {
+      "command": "node",
+      "args": ["/Users/toddsutherland/Repos/trading_feature/mcp_server/dist/index.js"],
+      "env": {},
+      "initializationOptions": {}
+    }
+  },
+  "github.copilot.chat.experimental.contextProviders": true,
+  "github.copilot.chat.experimental.tools": true
+}
