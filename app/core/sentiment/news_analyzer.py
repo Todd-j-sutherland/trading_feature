@@ -101,15 +101,15 @@ class NewsSentimentAnalyzer:
         # Initialize keyword filter
         self.keyword_filter = BankNewsFilter()
         
-        # Define bank keywords for news searching
-        self.bank_keywords = {
-            'CBA.AX': ['Commonwealth Bank', 'CBA', 'CommBank', 'Commonwealth'],
-            'WBC.AX': ['Westpac', 'WBC', 'Westpac Banking Corporation'],
-            'ANZ.AX': ['ANZ', 'Australia and New Zealand Banking', 'ANZ Bank'],
-            'NAB.AX': ['NAB', 'National Australia Bank', 'National Bank'],
-            'MQG.AX': ['Macquarie', 'MQG', 'Macquarie Group', 'Macquarie Bank'],
-            'SUN.AX': ['Suncorp', 'SUN', 'Suncorp Group', 'Suncorp Bank'],
-            'QBE.AX': ['QBE', 'QBE Insurance', 'QBE Group']
+        # Use comprehensive bank keywords from keyword system
+        self.bank_keywords = self.keyword_filter.bank_keywords
+        
+        # Add general banking keywords from settings for broader filtering
+        self.general_keywords = {
+            'banking': self.settings.NEWS_SOURCES['keywords']['banking'],
+            'regulation': self.settings.NEWS_SOURCES['keywords']['regulation'], 
+            'monetary': self.settings.NEWS_SOURCES['keywords']['monetary'],
+            'market': self.settings.NEWS_SOURCES['keywords']['market']
         }
         
         # Initialize ML trading components
@@ -1236,13 +1236,17 @@ class NewsSentimentAnalyzer:
                 feed = feedparser.parse(feed_url)
                 
                 for entry in feed.entries[:20]:  # Check last 20 entries
-                    # Check if any keyword is in title or summary
-                    title = entry.get('title', '').lower()
-                    summary = entry.get('summary', '').lower()
+                    title = entry.get('title', '')
+                    summary = entry.get('summary', '')
                     
-                    if any(keyword.lower() in title or keyword.lower() in summary 
-                          for keyword in keywords):
-                        
+                    # Use enhanced keyword filtering
+                    title_and_summary = f"{title} {summary}"
+                    relevance_result = self.keyword_filter.is_relevant_banking_news(
+                        title_and_summary, bank_symbol=symbol
+                    )
+                    
+                    # Include if relevant (either bank-specific or general banking news)
+                    if relevance_result['is_relevant']:
                         # Parse date
                         published = entry.get('published_parsed', None)
                         if published:
@@ -1253,12 +1257,15 @@ class NewsSentimentAnalyzer:
                         # Only include recent news (last 7 days)
                         if pub_date > datetime.now() - timedelta(days=7):
                             news_items.append({
-                                'title': entry.get('title', ''),
-                                'summary': entry.get('summary', ''),
+                                'title': title,
+                                'summary': summary,
                                 'source': feed_name,
                                 'url': entry.get('link', ''),
                                 'published': pub_date.isoformat(),
-                                'relevance': 'high' if symbol.replace('.AX', '') in title else 'medium'
+                                'relevance': 'high' if relevance_result['relevance_score'] > 0.7 else 'medium',
+                                'matched_keywords': relevance_result.get('matched_keywords', []),
+                                'categories': relevance_result.get('categories', []),
+                                'urgency_score': relevance_result.get('urgency_score', 0)
                             })
             
             except Exception as e:
