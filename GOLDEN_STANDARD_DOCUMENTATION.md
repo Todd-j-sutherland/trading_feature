@@ -1905,3 +1905,8 @@ Outcomes: 0
 Training readiness: ❌ INSUFFICIENT
 
 ssh root@170.64.199.151 'cd /root/test && source ../trading_venv/bin/activate && python3 -c "import sqlite3; conn = sqlite3.connect(\"data/ml_models/enhanced_training_data.db\"); cursor = conn.cursor(); cursor.execute(\"SELECT COUNT(*) FROM enhanced_features\"); features = cursor.fetchone()[0]; cursor.execute(\"SELECT COUNT(*) FROM enhanced_outcomes WHERE price_direction_1h IS NOT NULL\"); outcomes = cursor.fetchone()[0]; print(f\"Features: {features}\"); print(f\"Outcomes: {outcomes}\"); print(f\"Training readiness: {'✅ READY' if features >= 50 and outcomes >= 50 else '❌ INSUFFICIENT'}\"); conn.close()"'
+
+
+ssh root@170.64.199.151 "cd /root/test && source /root/trading_venv/bin/activate && PYTHONPATH=/root/test python3 app/core/data/collectors/news_collector.py"
+
+ssh root@170.64.199.151 "ps aux | grep news_collector | grep -v grep"

@@ -24,7 +24,7 @@ from plotly.subplots import make_subplots
 import json
 
 # Configuration
-DATABASE_PATH = "data/ml_models/training_data.db"
+DATABASE_PATH = "data/ml_models/enhanced_training_data.db"
 ASX_BANKS = ["CBA.AX", "ANZ.AX", "WBC.AX", "NAB.AX", "MQG.AX", "SUN.AX", "QBE.AX"]
 
 class DatabaseError(Exception):
@@ -67,7 +67,7 @@ def fetch_ml_performance_metrics() -> Dict:
                 COUNT(CASE WHEN sentiment_score > 0.05 THEN 1 END) as buy_signals,
                 COUNT(CASE WHEN sentiment_score < -0.05 THEN 1 END) as sell_signals,
                 COUNT(CASE WHEN sentiment_score BETWEEN -0.05 AND 0.05 THEN 1 END) as hold_signals
-            FROM sentiment_features 
+            FROM enhanced_features 
             WHERE timestamp >= date('now', '-7 days')
         """)
         
@@ -75,7 +75,7 @@ def fetch_ml_performance_metrics() -> Dict:
         if not row or row['total_predictions'] == 0:
             raise DataError("No prediction data found in the last 7 days")
         
-        # Get performance from trading outcomes
+        # Get performance from enhanced outcomes
         cursor = conn.execute("""
             SELECT 
                 COUNT(*) as completed_trades,
@@ -83,9 +83,9 @@ def fetch_ml_performance_metrics() -> Dict:
                 COUNT(CASE WHEN return_pct > 0 THEN 1 END) as successful_trades,
                 MAX(return_pct) as best_trade,
                 MIN(return_pct) as worst_trade
-            FROM trading_outcomes 
+            FROM enhanced_outcomes 
             WHERE exit_timestamp IS NOT NULL
-            AND signal_timestamp >= date('now', '-30 days')
+            AND prediction_timestamp >= date('now', '-30 days')
         """)
         
         outcomes_row = cursor.fetchone()
@@ -115,6 +115,70 @@ def fetch_ml_performance_metrics() -> Dict:
     finally:
         conn.close()
 
+def fetch_performance_timeline_data(days: int = 30) -> pd.DataFrame:
+    """
+    Fetch performance timeline data for the success rate chart
+    Returns DataFrame with daily success rates and outcome counts
+    """
+    conn = get_database_connection()
+    
+    try:
+        # Get daily performance data
+        cursor = conn.execute("""
+            SELECT 
+                DATE(prediction_timestamp) as date,
+                COUNT(*) as total_outcomes,
+                COUNT(CASE WHEN return_pct > 0 THEN 1 END) as successful_outcomes,
+                ROUND(
+                    CAST(COUNT(CASE WHEN return_pct > 0 THEN 1 END) AS FLOAT) / 
+                    CAST(COUNT(*) AS FLOAT) * 100, 1
+                ) as success_rate_pct,
+                AVG(return_pct) as avg_return_pct,
+                COUNT(DISTINCT symbol) as banks_traded
+            FROM enhanced_outcomes 
+            WHERE prediction_timestamp >= date('now', '-{} days')
+            AND exit_timestamp IS NOT NULL
+            GROUP BY DATE(prediction_timestamp)
+            ORDER BY date ASC
+        """.format(days))
+        
+        results = cursor.fetchall()
+        
+        if not results:
+            # Return empty DataFrame with proper structure
+            return pd.DataFrame(columns=[
+                'Date', 'Total_Outcomes', 'Successful_Outcomes', 
+                'Success_Rate_Pct', 'Avg_Return_Pct', 'Banks_Traded'
+            ])
+        
+        data = []
+        cumulative_outcomes = 0
+        
+        for row in results:
+            cumulative_outcomes += row['total_outcomes']
+            
+            data.append({
+                'Date': pd.to_datetime(row['date']),
+                'Total_Outcomes': row['total_outcomes'],
+                'Cumulative_Outcomes': cumulative_outcomes,
+                'Successful_Outcomes': row['successful_outcomes'],
+                'Success_Rate_Pct': float(row['success_rate_pct'] or 0),
+                'Avg_Return_Pct': float(row['avg_return_pct'] or 0),
+                'Banks_Traded': row['banks_traded']
+            })
+        
+        return pd.DataFrame(data)
+        
+    except sqlite3.Error as e:
+        # Return empty DataFrame instead of raising error
+        st.warning(f"Could not fetch performance timeline: {e}")
+        return pd.DataFrame(columns=[
+            'Date', 'Total_Outcomes', 'Cumulative_Outcomes', 
+            'Successful_Outcomes', 'Success_Rate_Pct', 'Avg_Return_Pct', 'Banks_Traded'
+        ])
+    finally:
+        conn.close()
+
 def fetch_current_sentiment_scores() -> pd.DataFrame:
     """
     Fetch latest sentiment scores for all ASX banks
@@ -133,16 +197,16 @@ def fetch_current_sentiment_scores() -> pd.DataFrame:
                 s1.news_count,
                 s1.reddit_sentiment,
                 s1.event_score,
-                s1.technical_score,
+                s1.rsi as technical_score,
                 CASE 
                     WHEN s1.sentiment_score > 0.05 THEN 'BUY'
                     WHEN s1.sentiment_score < -0.05 THEN 'SELL'
                     ELSE 'HOLD'
                 END as signal
-            FROM sentiment_features s1
+            FROM enhanced_features s1
             INNER JOIN (
                 SELECT symbol, MAX(timestamp) as max_timestamp
-                FROM sentiment_features
+                FROM enhanced_features
                 WHERE symbol IN ({})
                 GROUP BY symbol
             ) s2 ON s1.symbol = s2.symbol AND s1.timestamp = s2.max_timestamp
@@ -191,13 +255,13 @@ def fetch_ml_feature_analysis() -> Dict:
                 AVG(CASE WHEN news_count > 0 THEN 1.0 ELSE 0.0 END) as news_usage,
                 AVG(CASE WHEN reddit_sentiment IS NOT NULL THEN 1.0 ELSE 0.0 END) as reddit_usage,
                 AVG(CASE WHEN event_score IS NOT NULL THEN 1.0 ELSE 0.0 END) as event_usage,
-                AVG(CASE WHEN technical_score IS NOT NULL THEN 1.0 ELSE 0.0 END) as technical_usage,
+                AVG(CASE WHEN rsi IS NOT NULL THEN 1.0 ELSE 0.0 END) as technical_usage,
                 AVG(news_count) as avg_news_count,
                 AVG(ABS(reddit_sentiment)) as avg_reddit_strength,
                 AVG(ABS(event_score)) as avg_event_strength,
-                AVG(technical_score) as avg_technical_strength,
-                ml_features
-            FROM sentiment_features 
+                AVG(rsi) as avg_technical_strength,
+                feature_version as ml_features
+            FROM enhanced_features 
             WHERE timestamp >= date('now', '-30 days')
             LIMIT 1
         """)
@@ -239,73 +303,355 @@ def fetch_ml_feature_analysis() -> Dict:
     finally:
         conn.close()
 
-def fetch_prediction_timeline() -> pd.DataFrame:
+def fetch_portfolio_correlation_data() -> Dict:
     """
-    Fetch prediction timeline with actual outcomes for performance visualization
-    Returns DataFrame with predictions and their actual outcomes
+    Fetch portfolio correlation and concentration risk data
+    Returns correlation matrix, sector concentration, and risk metrics
     """
     conn = get_database_connection()
     
     try:
+        # Get recent sentiment scores for correlation calculation
         cursor = conn.execute("""
             SELECT 
-                tp.created_at as timestamp,
-                tp.symbol,
-                tp.predicted_signal as signal,
-                tp.confidence,
-                COALESCE(latest_sf.technical_score, 0) as technical_score,
-                tp.sentiment_score,
-                tp.actual_outcome,
-                tp.status,
-                CASE 
-                    WHEN tp.actual_outcome IS NOT NULL THEN
-                        CASE WHEN (tp.predicted_signal = 'BUY' AND tp.actual_outcome > 0) OR 
-                                  (tp.predicted_signal = 'SELL' AND tp.actual_outcome < 0) OR
-                                  (tp.predicted_signal = 'HOLD' AND ABS(tp.actual_outcome) < 0.5) 
-                        THEN 'CORRECT' ELSE 'WRONG' END
-                    ELSE 'PENDING'
-                END as accuracy
-            FROM trading_predictions tp
-            LEFT JOIN (
-                SELECT DISTINCT 
-                    sf1.symbol,
-                    sf1.technical_score
-                FROM sentiment_features sf1
-                INNER JOIN (
-                    SELECT symbol, MAX(timestamp) as max_timestamp
-                    FROM sentiment_features
-                    GROUP BY symbol
-                ) sf2 ON sf1.symbol = sf2.symbol AND sf1.timestamp = sf2.max_timestamp
-            ) latest_sf ON tp.symbol = latest_sf.symbol
-            WHERE tp.created_at >= datetime('now', '-7 days')
-            ORDER BY tp.created_at DESC
-        """)
+                sf.symbol,
+                sf.sentiment_score,
+                sf.rsi as technical_score,
+                sf.confidence,
+                sf.timestamp,
+                ROW_NUMBER() OVER (PARTITION BY sf.symbol ORDER BY sf.timestamp DESC) as rn
+            FROM enhanced_features sf
+            WHERE sf.timestamp >= date('now', '-7 days')
+            AND sf.symbol IN ({})
+        """.format(','.join('?' * len(ASX_BANKS))), ASX_BANKS)
         
         results = cursor.fetchall()
         
         if not results:
-            raise DataError("No prediction timeline data found")
+            raise DataError("No recent data for portfolio correlation analysis")
+        
+        # Create DataFrame for correlation analysis
+        data = []
+        for row in results:
+            data.append({
+                'symbol': row['symbol'],
+                'sentiment_score': float(row['sentiment_score'] or 0),
+                'technical_score': float(row['technical_score'] or 0),
+                'confidence': float(row['confidence'] or 0),
+                'timestamp': row['timestamp'],
+                'rn': row['rn']
+            })
+        
+        df = pd.DataFrame(data)
+        
+        # Calculate correlation matrices
+        sentiment_pivot = df[df['rn'] <= 10].pivot_table(
+            index='timestamp', 
+            columns='symbol', 
+            values='sentiment_score', 
+            fill_value=0
+        )
+        
+        technical_pivot = df[df['rn'] <= 10].pivot_table(
+            index='timestamp', 
+            columns='symbol', 
+            values='technical_score', 
+            fill_value=0
+        )
+        
+        # Get current signal distribution for concentration analysis
+        cursor = conn.execute("""
+            SELECT 
+                s1.symbol,
+                CASE 
+                    WHEN s1.sentiment_score > 0.05 THEN 'BUY'
+                    WHEN s1.sentiment_score < -0.05 THEN 'SELL'
+                    ELSE 'HOLD'
+                END as current_signal,
+                s1.sentiment_score,
+                s1.confidence
+            FROM enhanced_features s1
+            INNER JOIN (
+                SELECT symbol, MAX(timestamp) as max_timestamp
+                FROM enhanced_features
+                WHERE symbol IN ({})
+                GROUP BY symbol
+            ) s2 ON s1.symbol = s2.symbol AND s1.timestamp = s2.max_timestamp
+        """.format(','.join('?' * len(ASX_BANKS))), ASX_BANKS)
+        
+        current_signals = cursor.fetchall()
+        
+        # Calculate portfolio metrics
+        sentiment_corr = sentiment_pivot.corr() if len(sentiment_pivot) > 1 else pd.DataFrame()
+        technical_corr = technical_pivot.corr() if len(technical_pivot) > 1 else pd.DataFrame()
+        
+        # Concentration risk analysis
+        signal_counts = {'BUY': 0, 'SELL': 0, 'HOLD': 0}
+        signal_details = []
+        
+        for signal_row in current_signals:
+            signal = signal_row['current_signal']
+            signal_counts[signal] += 1
+            signal_details.append({
+                'symbol': signal_row['symbol'],
+                'signal': signal,
+                'sentiment_score': float(signal_row['sentiment_score'] or 0),
+                'confidence': float(signal_row['confidence'] or 0)
+            })
+        
+        # Calculate concentration risk score (0-100, higher = more risk)
+        total_banks = len(ASX_BANKS)
+        max_signal_count = max(signal_counts.values())
+        concentration_risk = (max_signal_count / total_banks) * 100
+        
+        # Diversification score (0-100, higher = better diversification)
+        signal_distribution = np.array(list(signal_counts.values()))
+        diversification_score = 100 - ((np.std(signal_distribution) / np.mean(signal_distribution)) * 100) if np.mean(signal_distribution) > 0 else 0
+        diversification_score = max(0, min(100, diversification_score))
+        
+        return {
+            'sentiment_correlation': sentiment_corr,
+            'technical_correlation': technical_corr,
+            'signal_distribution': signal_counts,
+            'signal_details': signal_details,
+            'concentration_risk': concentration_risk,
+            'diversification_score': diversification_score,
+            'avg_correlation': sentiment_corr.values[sentiment_corr.values != 1.0].mean() if not sentiment_corr.empty else 0,
+            'max_correlation': sentiment_corr.values[sentiment_corr.values != 1.0].max() if not sentiment_corr.empty else 0,
+            'data_points': len(sentiment_pivot)
+        }
+        
+    except sqlite3.Error as e:
+        raise DatabaseError(f"Failed to fetch portfolio correlation data: {e}")
+    finally:
+        conn.close()
+
+def fetch_prediction_timeline() -> pd.DataFrame:
+    """
+    Fetch prediction timeline with actual outcomes for performance visualization
+    Returns DataFrame based on enhanced features and outcomes
+    """
+    conn = get_database_connection()
+    
+    try:
+        # Get features with outcomes from the enhanced database
+        query = """
+            SELECT 
+                ef.timestamp,
+                ef.symbol,
+                CASE 
+                    WHEN ef.rsi < 30 THEN 'BUY'
+                    WHEN ef.rsi > 70 THEN 'SELL'
+                    ELSE 'HOLD'
+                END as signal,
+                CASE 
+                    WHEN ef.rsi < 30 OR ef.rsi > 70 THEN 0.8
+                    ELSE 0.3
+                END as confidence,
+                ef.sentiment_score,
+                ef.rsi as technical_score,
+                eo.return_pct as actual_outcome,
+                CASE 
+                    WHEN eo.return_pct IS NOT NULL THEN 'COMPLETED'
+                    ELSE 'PENDING'
+                END as status,
+                CASE 
+                    WHEN eo.return_pct IS NOT NULL THEN
+                        CASE 
+                            WHEN (ef.rsi < 30 AND eo.return_pct > 0) OR 
+                                 (ef.rsi > 70 AND eo.return_pct < 0) OR
+                                 (ef.rsi BETWEEN 30 AND 70 AND ABS(eo.return_pct) < 0.5) 
+                            THEN 'CORRECT' 
+                            ELSE 'WRONG' 
+                        END
+                    ELSE 'PENDING'
+                END as accuracy
+            FROM enhanced_features ef
+            LEFT JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
+            WHERE ef.timestamp >= datetime('now', '-7 days')
+            ORDER BY ef.timestamp DESC
+            LIMIT 100
+        """
+        
+        cursor = conn.execute(query)
+        results = cursor.fetchall()
+        
+        if not results:
+            # Return empty DataFrame with proper structure
+            return pd.DataFrame(columns=[
+                'Timestamp', 'Symbol', 'Signal', 'Confidence', 
+                'Technical Score', 'Sentiment Score', 'Actual Outcome', 
+                'Status', 'Accuracy'
+            ])
         
         data = []
         for row in results:
             data.append({
-                'Timestamp': pd.to_datetime(row['timestamp']),
-                'Symbol': row['symbol'],
-                'Signal': row['signal'],
-                'Confidence': float(row['confidence'] or 0),
-                'Technical Score': float(row['technical_score'] or 0),
-                'Sentiment Score': float(row['sentiment_score'] or 0),
-                'Actual Outcome': float(row['actual_outcome'] or 0) if row['actual_outcome'] is not None else None,
-                'Status': row['status'],
-                'Accuracy': row['accuracy']
+                'Timestamp': pd.to_datetime(row[0]),  # timestamp
+                'Symbol': row[1],                      # symbol
+                'Signal': row[2],                      # signal
+                'Confidence': float(row[3] or 0),     # confidence
+                'Sentiment Score': float(row[4] or 0), # sentiment_score
+                'Technical Score': float(row[5] or 0), # technical_score (rsi)
+                'Actual Outcome': float(row[6] or 0) if row[6] is not None else None, # actual_outcome
+                'Status': row[7] or 'PENDING',        # status
+                'Accuracy': row[8] or 'PENDING'       # accuracy
             })
         
         return pd.DataFrame(data)
         
     except sqlite3.Error as e:
-        raise DatabaseError(f"Failed to fetch prediction timeline: {e}")
+        # Return empty DataFrame instead of raising error
+        st.warning(f"Could not fetch prediction timeline: {e}")
+        return pd.DataFrame(columns=[
+            'Timestamp', 'Symbol', 'Signal', 'Confidence', 
+            'Technical Score', 'Sentiment Score', 'Actual Outcome', 
+            'Status', 'Accuracy'
+        ])
     finally:
         conn.close()
+
+def render_portfolio_correlation_section(correlation_data: Dict):
+    """
+    Render portfolio correlation and concentration risk analysis
+    """
+    st.subheader("🔗 Portfolio Risk Management")
+    
+    # Key metrics overview
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        risk_color = "🔴" if correlation_data['concentration_risk'] > 70 else "🟡" if correlation_data['concentration_risk'] > 40 else "🟢"
+        st.metric(
+            "Concentration Risk",
+            f"{risk_color} {correlation_data['concentration_risk']:.1f}%",
+            help="Higher = more concentrated positions in same direction"
+        )
+    
+    with col2:
+        div_color = "🟢" if correlation_data['diversification_score'] > 60 else "🟡" if correlation_data['diversification_score'] > 30 else "🔴"
+        st.metric(
+            "Diversification Score", 
+            f"{div_color} {correlation_data['diversification_score']:.1f}%",
+            help="Higher = better signal diversification across banks"
+        )
+    
+    with col3:
+        avg_corr = correlation_data['avg_correlation']
+        corr_color = "🔴" if abs(avg_corr) > 0.7 else "🟡" if abs(avg_corr) > 0.4 else "🟢"
+        st.metric(
+            "Avg Correlation",
+            f"{corr_color} {avg_corr:.3f}",
+            help="Average correlation between bank sentiment scores"
+        )
+    
+    with col4:
+        st.metric(
+            "Data Points",
+            correlation_data['data_points'],
+            help="Number of time periods used for correlation analysis"
+        )
+    
+    # Signal distribution and correlation heatmaps
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Current signal distribution
+        signal_data = correlation_data['signal_distribution']
+        fig = px.pie(
+            values=list(signal_data.values()),
+            names=list(signal_data.keys()),
+            title="Current Signal Distribution",
+            color_discrete_map={'BUY': 'green', 'SELL': 'red', 'HOLD': 'gray'}
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Risk assessment
+        risk_level = "🔴 HIGH" if correlation_data['concentration_risk'] > 70 else "🟡 MEDIUM" if correlation_data['concentration_risk'] > 40 else "🟢 LOW"
+        st.write(f"**Portfolio Risk Level**: {risk_level}")
+        
+        if correlation_data['concentration_risk'] > 60:
+            st.warning("⚠️ High concentration risk detected - consider position adjustments")
+        elif correlation_data['concentration_risk'] > 40:
+            st.info("📊 Moderate concentration - monitor for changes")
+        else:
+            st.success("✅ Good diversification across signals")
+    
+    with col2:
+        # Sentiment correlation heatmap
+        if not correlation_data['sentiment_correlation'].empty:
+            fig = px.imshow(
+                correlation_data['sentiment_correlation'],
+                title="Sentiment Score Correlations (7-day)",
+                color_continuous_scale='RdBu_r',
+                aspect='auto',
+                zmin=-1, zmax=1
+            )
+            fig.update_layout(
+                xaxis_title="Bank",
+                yaxis_title="Bank"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("📊 Insufficient data for correlation analysis")
+    
+    # Detailed signal breakdown
+    with st.expander("📋 **Detailed Signal Analysis**", expanded=False):
+        signal_df = pd.DataFrame(correlation_data['signal_details'])
+        
+        if not signal_df.empty:
+            # Enhanced signal table
+            signal_df['Confidence'] = signal_df['confidence'].apply(lambda x: f"{x:.1%}")
+            signal_df['Sentiment Score'] = signal_df['sentiment_score'].apply(lambda x: f"{x:+.4f}")
+            signal_df['Signal Strength'] = signal_df['sentiment_score'].abs()
+            
+            # Color coding for signals
+            def get_signal_indicator(signal):
+                return {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '🟡'}[signal]
+            
+            signal_df['Indicator'] = signal_df['signal'].apply(get_signal_indicator)
+            
+            display_df = signal_df[['symbol', 'Indicator', 'signal', 'Sentiment Score', 'Confidence']].copy()
+            display_df.columns = ['Symbol', 'Indicator', 'Signal', 'Sentiment Score', 'Confidence']
+            
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+            
+            # Correlation warnings
+            if not correlation_data['sentiment_correlation'].empty:
+                high_corr_pairs = []
+                corr_matrix = correlation_data['sentiment_correlation']
+                
+                for i in range(len(corr_matrix.columns)):
+                    for j in range(i+1, len(corr_matrix.columns)):
+                        corr_val = corr_matrix.iloc[i, j]
+                        if abs(corr_val) > 0.7:  # High correlation threshold
+                            bank1 = corr_matrix.columns[i]
+                            bank2 = corr_matrix.columns[j]
+                            high_corr_pairs.append(f"{bank1} ↔ {bank2}: {corr_val:.3f}")
+                
+                if high_corr_pairs:
+                    st.warning("⚠️ **High Correlation Alert**:")
+                    for pair in high_corr_pairs:
+                        st.write(f"• {pair}")
+                    st.write("Consider reducing exposure to highly correlated positions")
+        else:
+            st.info("No signal data available for detailed analysis")
+    
+    # Technical correlation (if available)
+    if not correlation_data['technical_correlation'].empty:
+        with st.expander("🔧 **Technical Correlation Analysis**", expanded=False):
+            fig = px.imshow(
+                correlation_data['technical_correlation'],
+                title="Technical Score Correlations (7-day)",
+                color_continuous_scale='RdBu_r',
+                aspect='auto',
+                zmin=-1, zmax=1
+            )
+            fig.update_layout(
+                xaxis_title="Bank",
+                yaxis_title="Bank"
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
 def render_ml_performance_section(metrics: Dict):
     """
@@ -370,6 +716,117 @@ def render_ml_performance_section(metrics: Dict):
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No completed trades for performance analysis")
+    
+    # Performance Timeline Chart
+    st.markdown("---")
+    st.subheader("📈 Performance Timeline")
+    
+    # Time scale selector
+    time_scale = st.selectbox(
+        "Select Time Scale:",
+        options=['Daily (30 days)', 'Weekly (12 weeks)', 'Monthly (6 months)'],
+        index=0,
+        help="Choose the time period and granularity for the performance chart"
+    )
+    
+    # Determine days based on selection
+    if 'Daily' in time_scale:
+        days = 30
+        group_by = 'day'
+    elif 'Weekly' in time_scale:
+        days = 84  # 12 weeks
+        group_by = 'week'
+    else:  # Monthly
+        days = 180  # 6 months
+        group_by = 'month'
+    
+    # Fetch timeline data
+    timeline_data = fetch_performance_timeline_data(days)
+    
+    if not timeline_data.empty:
+        # Create dual-axis chart
+        fig = make_subplots(
+            specs=[[{"secondary_y": True}]],
+            subplot_titles=("AI Performance Over Time",)
+        )
+        
+        # Add success rate line (left y-axis)
+        fig.add_trace(
+            go.Scatter(
+                x=timeline_data['Date'],
+                y=timeline_data['Success_Rate_Pct'],
+                mode='lines+markers',
+                name='Success Rate %',
+                line=dict(color='#1f77b4', width=3),
+                marker=dict(size=6),
+                hovertemplate='<b>%{x}</b><br>Success Rate: %{y}%<br><extra></extra>'
+            ),
+            secondary_y=False,
+        )
+        
+        # Add cumulative outcomes line (right y-axis)
+        fig.add_trace(
+            go.Scatter(
+                x=timeline_data['Date'],
+                y=timeline_data['Cumulative_Outcomes'],
+                mode='lines+markers',
+                name='Total Outcomes',
+                line=dict(color='#2ca02c', width=3),
+                marker=dict(size=6),
+                hovertemplate='<b>%{x}</b><br>Total Outcomes: %{y}<br><extra></extra>'
+            ),
+            secondary_y=True,
+        )
+        
+        # Set x-axis title
+        fig.update_xaxes(title_text="Date")
+        
+        # Set y-axes titles
+        fig.update_yaxes(title_text="Success Rate (%)", color='#1f77b4', secondary_y=False)
+        fig.update_yaxes(title_text="Cumulative Outcomes", color='#2ca02c', secondary_y=True)
+        
+        # Update layout
+        fig.update_layout(
+            title=f"Performance Timeline ({time_scale})",
+            hovermode='x unified',
+            height=400,
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Summary statistics
+        if len(timeline_data) > 1:
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                avg_success = timeline_data['Success_Rate_Pct'].mean()
+                st.metric("Avg Success Rate", f"{avg_success:.1f}%")
+            
+            with col2:
+                total_outcomes = timeline_data['Cumulative_Outcomes'].iloc[-1]
+                st.metric("Total Outcomes", int(total_outcomes))
+            
+            with col3:
+                best_day = timeline_data['Success_Rate_Pct'].max()
+                st.metric("Best Day", f"{best_day:.1f}%")
+            
+            with col4:
+                trend = "📈" if timeline_data['Success_Rate_Pct'].iloc[-1] > timeline_data['Success_Rate_Pct'].iloc[0] else "📉"
+                st.metric("Trend", trend)
+        
+    else:
+        st.info(f"""
+        📊 **Performance timeline data will appear here once outcomes accumulate**
+        
+        **What you'll see:**
+        - 📈 **Blue line**: Daily/weekly success rate percentage  
+        - 📊 **Green line**: Cumulative number of trading outcomes
+        - 🎛️ **Time scale**: Switch between daily, weekly, and monthly views
+        
+        **Current status:** System rebuilding - collecting data for future analysis
+        """)
 
 def render_sentiment_dashboard(sentiment_df: pd.DataFrame):
     """
@@ -522,19 +979,31 @@ def render_prediction_timeline(timeline_df: pd.DataFrame):
     """
     st.subheader("⏱️ Prediction Timeline (Last 7 Days)")
     
-    # Show data availability info
-    if not timeline_df.empty:
-        latest_prediction = timeline_df['Timestamp'].max()
-        oldest_prediction = timeline_df['Timestamp'].min()
-        unique_timestamps = timeline_df['Timestamp'].nunique()
+    # Handle empty data gracefully
+    if timeline_df.empty:
+        st.info("📊 **No prediction timeline data available yet**")
+        st.write("""
+        This section will show prediction performance once your system generates more predictions with outcomes.
         
-        if unique_timestamps == 1:
-            st.info(f"📅 All {len(timeline_df)} predictions were generated in a batch run on {latest_prediction.strftime('%Y-%m-%d at %H:%M:%S')}")
-        else:
-            st.info(f"📅 Prediction data available from {oldest_prediction.strftime('%Y-%m-%d %H:%M')} to {latest_prediction.strftime('%Y-%m-%d %H:%M')} ({unique_timestamps} different timestamps)")
-    else:
-        st.warning("⚠️ No prediction timeline data found in the last 7 days")
+        **What you'll see here once data is available:**
+        - ⏱️ Prediction timeline with accuracy tracking
+        - 📈 Success rate trends over time  
+        - 🎯 Confidence vs performance analysis
+        - 📊 Per-symbol prediction statistics
+        
+        **To generate more data:** Let your system run continuously or execute morning/evening routines.
+        """)
         return
+    
+    # Show data availability info
+    latest_prediction = timeline_df['Timestamp'].max()
+    oldest_prediction = timeline_df['Timestamp'].min()
+    unique_timestamps = timeline_df['Timestamp'].nunique()
+    
+    if unique_timestamps == 1:
+        st.info(f"📅 All {len(timeline_df)} predictions were generated in a batch run on {latest_prediction.strftime('%Y-%m-%d at %H:%M:%S')}")
+    else:
+        st.info(f"📅 Prediction data available from {oldest_prediction.strftime('%Y-%m-%d %H:%M')} to {latest_prediction.strftime('%Y-%m-%d %H:%M')} ({unique_timestamps} different timestamps)")
     
     # Group by day for overview (or by timestamp if batch)
     timeline_df['Date'] = timeline_df['Timestamp'].dt.date
@@ -774,17 +1243,17 @@ def main():
     # Add data freshness check
     try:
         conn = get_database_connection()
-        cursor = conn.execute("SELECT MAX(timestamp) FROM sentiment_features")
+        cursor = conn.execute("SELECT MAX(timestamp) FROM enhanced_features")
         latest_sentiment = cursor.fetchone()[0]
-        cursor = conn.execute("SELECT MAX(created_at) FROM trading_predictions")
-        latest_prediction = cursor.fetchone()[0]
+        cursor = conn.execute("SELECT MAX(timestamp) FROM enhanced_outcomes")
+        latest_outcome = cursor.fetchone()[0]
         conn.close()
         
         st.sidebar.write("**Data Freshness:**")
         if latest_sentiment:
-            st.sidebar.write(f"• Sentiment: {latest_sentiment}")
-        if latest_prediction:
-            st.sidebar.write(f"• Predictions: {latest_prediction}")
+            st.sidebar.write(f"• Features: {latest_sentiment}")
+        if latest_outcome:
+            st.sidebar.write(f"• Outcomes: {latest_outcome}")
     except:
         pass
     
@@ -800,9 +1269,13 @@ def main():
             sentiment_df = fetch_current_sentiment_scores()
             feature_analysis = fetch_ml_feature_analysis()
             timeline_df = fetch_prediction_timeline()
+            correlation_data = fetch_portfolio_correlation_data()
         
         # Render dashboard sections
         render_ml_performance_section(ml_metrics)
+        st.markdown("---")
+        
+        render_portfolio_correlation_section(correlation_data)
         st.markdown("---")
         
         render_sentiment_dashboard(sentiment_df)
