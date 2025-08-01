@@ -56,6 +56,14 @@ class SmartCollector:
                 # Get sentiment analysis with bank-specific keywords
                 result = self.analyzer.analyze_and_track(symbol, keywords=keywords)
                 
+                # Generate ML feature ID for proper outcome tracking
+                try:
+                    feature_id = self.ml_pipeline.collect_training_data(result, symbol)
+                    result['ml_feature_id'] = feature_id
+                except Exception as e:
+                    print(f"   ⚠️  Could not generate feature_id for {symbol}: {e}")
+                    result['ml_feature_id'] = None
+                
                 # Filter for high-quality signals
                 if self.is_high_quality_signal(result):
                     signal_id = f"{symbol}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
