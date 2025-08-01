@@ -20,6 +20,7 @@ import logging
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional
+import pytz
 
 # Setup logging
 log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "logs")
@@ -86,9 +87,19 @@ class EnhancedMorningAnalyzer:
         
         self.logger.info("Enhanced Morning Analyzer initialized")
     
+    def get_australian_time(self):
+        """Get current time in Australian timezone (AEST/AEDT)"""
+        try:
+            # Try to use pytz for accurate timezone handling
+            australian_tz = pytz.timezone('Australia/Sydney')
+            return datetime.now(australian_tz)
+        except:
+            # Fallback: assume system is already in correct timezone
+            return datetime.now()
+    
     def is_market_hours(self) -> bool:
         """Check if during ASX market hours (10 AM - 4 PM AEST)"""
-        now = datetime.now()
+        now = self.get_australian_time()
         if now.weekday() >= 5:  # Weekend
             return False
         return 10 <= now.hour < 16
@@ -106,7 +117,7 @@ class EnhancedMorningAnalyzer:
         self.logger.info("🌅 Starting Enhanced Morning Analysis")
         
         analysis_results = {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': self.get_australian_time().isoformat(),
             'market_hours': self.is_market_hours(),
             'analysis_type': 'enhanced_ml_integrated',
             'banks_analyzed': [],
@@ -451,7 +462,7 @@ class EnhancedMorningAnalyzer:
         self.logger.info("Running basic analysis (enhanced components not available)")
         
         return {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': self.get_australian_time().isoformat(),
             'analysis_type': 'basic_fallback',
             'market_hours': self.is_market_hours(),
             'message': 'Enhanced ML components not available - install required dependencies',

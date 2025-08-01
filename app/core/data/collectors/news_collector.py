@@ -8,6 +8,7 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta
+import pytz
 
 # Add project root to Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -30,6 +31,16 @@ class SmartCollector:
         self.keyword_manager = KeywordManager()
         self.active_signals = self.load_active_signals()
         self.collection_stats = {'signals_today': 0, 'outcomes_recorded': 0}
+    
+    def get_australian_time(self):
+        """Get current time in Australian timezone (AEST/AEDT)"""
+        try:
+            # Try to use pytz for accurate timezone handling
+            australian_tz = pytz.timezone('Australia/Sydney')
+            return datetime.now(australian_tz)
+        except:
+            # Fallback: assume system is already in correct timezone
+            return datetime.now()
         
     def load_active_signals(self):
         """Load active signals from file"""
@@ -46,7 +57,7 @@ class SmartCollector:
     
     def collect_high_quality_signals(self):
         """Collect only high-confidence signals for training"""
-        print(f"🔍 Scanning for high-quality signals... {datetime.now().strftime('%H:%M:%S')}")
+        print(f"🔍 Scanning for high-quality signals... {self.get_australian_time().strftime('%H:%M:%S')}")
         
         for symbol in self.symbols:
             try:
@@ -66,12 +77,12 @@ class SmartCollector:
                 
                 # Filter for high-quality signals
                 if self.is_high_quality_signal(result):
-                    signal_id = f"{symbol}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    signal_id = f"{symbol}_{self.get_australian_time().strftime('%Y%m%d_%H%M%S')}"
                     
                     # Store signal for outcome tracking
                     self.active_signals[signal_id] = {
                         'symbol': symbol,
-                        'timestamp': datetime.now().isoformat(),
+                        'timestamp': self.get_australian_time().isoformat(),
                         'signal_type': result['signal'],
                         'sentiment_score': result['overall_sentiment'],
                         'confidence': result['confidence'],
@@ -105,7 +116,7 @@ class SmartCollector:
     
     def check_signal_outcomes(self):
         """Check outcomes for active signals (4-hour window)"""
-        cutoff_time = datetime.now() - timedelta(hours=4)
+        cutoff_time = self.get_australian_time() - timedelta(hours=4)
         outcomes_recorded = 0
         
         for signal_id, signal in list(self.active_signals.items()):
@@ -130,7 +141,7 @@ class SmartCollector:
                         'signal_type': signal['signal_type'],
                         'entry_price': entry_price,
                         'exit_price': current_price,
-                        'exit_timestamp': datetime.now().isoformat(),
+                        'exit_timestamp': self.get_australian_time().isoformat(),
                         'max_drawdown': min(0, return_pct * 0.7)  # Estimate
                     }
                     
@@ -154,7 +165,7 @@ class SmartCollector:
     
     def cleanup_old_signals(self):
         """Remove old completed signals"""
-        cutoff_time = datetime.now() - timedelta(days=7)
+        cutoff_time = self.get_australian_time() - timedelta(days=7)
         
         for signal_id in list(self.active_signals.keys()):
             signal = self.active_signals[signal_id]
@@ -182,7 +193,7 @@ class SmartCollector:
     
     def run_collection_cycle(self):
         """Run one complete collection cycle"""
-        print(f"\n🔄 Starting collection cycle - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"\n🔄 Starting collection cycle - {self.get_australian_time().strftime('%Y-%m-%d %H:%M:%S')}")
         
         # Collect new signals
         self.collect_high_quality_signals()
