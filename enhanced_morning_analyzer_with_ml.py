@@ -87,11 +87,11 @@ class EnhancedMorningAnalyzer:
     def get_australian_time(self):
         """Get current time in Australian timezone (AEST/AEDT)"""
         try:
-            # Try to use pytz for accurate timezone handling
-            australian_tz = pytz.timezone('Australia/Sydney')
-            return datetime.now(australian_tz)
+            # Australian Eastern timezone (handles AEST/AEDT automatically)
+            au_tz = pytz.timezone('Australia/Sydney')
+            return datetime.now(au_tz)
         except:
-            # Fallback: assume system is already in correct timezone
+            # Fallback to UTC if timezone fails
             return datetime.now()
     
     def is_market_hours(self) -> bool:
@@ -99,7 +99,7 @@ class EnhancedMorningAnalyzer:
         now = self.get_australian_time()
         if now.weekday() >= 5:  # Weekend
             return False
-        return 10 <= now.hour < 16
+        return 10 <= now.hour < 16  # 10 AM to 4 PM AEST
     
     def run_enhanced_morning_analysis(self) -> Dict:
         """

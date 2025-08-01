@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 import logging
 import json
 from typing import Dict, List, Optional
+import pytz
 
 # Setup logging
 logging.basicConfig(
@@ -84,6 +85,16 @@ class EnhancedEveningAnalyzer:
         
         self.logger.info("Enhanced Evening Analyzer initialized")
     
+    def get_australian_time(self):
+        """Get current time in Australian timezone (AEST/AEDT)"""
+        try:
+            # Australian Eastern timezone (handles AEST/AEDT automatically)
+            au_tz = pytz.timezone('Australia/Sydney')
+            return datetime.now(au_tz)
+        except:
+            # Fallback to UTC if timezone fails
+            return datetime.now()
+    
     def run_enhanced_evening_analysis(self) -> Dict:
         """
         Run comprehensive evening analysis with ML training and validation
@@ -98,7 +109,7 @@ class EnhancedEveningAnalyzer:
         self.logger.info("🌆 Starting Enhanced Evening Analysis")
         
         analysis_results = {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': self.get_australian_time().isoformat(),
             'analysis_type': 'enhanced_evening_ml_training',
             'data_collection': {},
             'model_training': {},
@@ -527,7 +538,7 @@ class EnhancedEveningAnalyzer:
         """Generate predictions for next trading day"""
         predictions = {
             'predictions_generated': False,
-            'prediction_timestamp': datetime.now().isoformat(),
+            'prediction_timestamp': self.get_australian_time().isoformat(),
             'bank_predictions': {},
             'market_outlook': {},
             'confidence_summary': {}
@@ -643,9 +654,9 @@ class EnhancedEveningAnalyzer:
                  parameters, feature_importance)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
-                f"enhanced_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                f"enhanced_{self.get_australian_time().strftime('%Y%m%d_%H%M%S')}",
                 'enhanced_multi_output',
-                datetime.now().isoformat(),
+                self.get_australian_time().isoformat(),
                 performance['direction_accuracy']['1h'],
                 performance['direction_accuracy']['4h'],
                 performance['direction_accuracy']['1d'],
@@ -669,7 +680,7 @@ class EnhancedEveningAnalyzer:
     def _run_basic_evening_analysis(self) -> Dict:
         """Fallback basic evening analysis"""
         return {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': self.get_australian_time().isoformat(),
             'analysis_type': 'basic_evening_fallback',
             'message': 'Enhanced ML components not available'
         }
