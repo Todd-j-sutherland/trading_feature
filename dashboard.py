@@ -21,6 +21,12 @@ from typing import Dict, List, Optional, Tuple
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import sys
+import os
+
+# Add the app directory to the path for MarketAux integration
+sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
+from app.core.sentiment.marketaux_integration import MarketAuxManager
 
 # Configuration
 DATABASE_PATH = "data/ml_models/enhanced_training_data.db"
@@ -238,6 +244,64 @@ def fetch_current_sentiment_scores() -> pd.DataFrame:
         raise DatabaseError(f"Failed to fetch current sentiment scores: {e}")
     finally:
         conn.close()
+
+def fetch_marketaux_sentiment_comparison() -> pd.DataFrame:
+    """
+    Fetch MarketAux sentiment data and compare with existing Reddit sentiment
+    Returns DataFrame with comparison data
+    """
+    try:
+        # Initialize MarketAux manager
+        marketaux_manager = MarketAuxManager()
+        
+        # Get MarketAux sentiment data
+        marketaux_results = marketaux_manager.get_super_batch_sentiment()
+        
+        # Get current Reddit sentiment from database (which is broken/0.0)
+        reddit_df = fetch_current_sentiment_scores()
+        
+        # Create comparison data
+        comparison_data = []
+        
+        # Convert ASX_BANKS format (CBA.AX) to MarketAux format (CBA)
+        bank_mapping = {bank.replace('.AX', ''): bank for bank in ASX_BANKS}
+        
+        for marketaux_result in marketaux_results:
+            symbol = marketaux_result.symbol
+            asx_symbol = bank_mapping.get(symbol, f"{symbol}.AX")
+            
+            # Find corresponding Reddit data
+            reddit_row = reddit_df[reddit_df['Symbol'] == asx_symbol]
+            reddit_sentiment = reddit_row['Reddit Sentiment'].iloc[0] if not reddit_row.empty else 0.0
+            
+            # Calculate combined sentiment (70% MarketAux, 30% Reddit due to Reddit reliability issues)
+            combined_sentiment = (marketaux_result.sentiment_score * 0.7) + (reddit_sentiment * 0.3)
+            
+            comparison_data.append({
+                'Symbol': symbol,
+                'ASX Symbol': asx_symbol,
+                'Reddit Sentiment': reddit_sentiment,
+                'MarketAux Sentiment': marketaux_result.sentiment_score,
+                'Combined Sentiment': combined_sentiment,
+                'MarketAux Confidence': marketaux_result.confidence,
+                'News Volume': marketaux_result.news_volume,
+                'Source Quality': marketaux_result.source_quality,
+                'Key News': marketaux_result.highlights[0][:100] + "..." if marketaux_result.highlights else "No news",
+                'Sentiment Change': combined_sentiment - reddit_sentiment,
+                'Signal Strength': 'Strong' if abs(marketaux_result.sentiment_score) > 0.3 else 'Moderate' if abs(marketaux_result.sentiment_score) > 0.15 else 'Weak',
+                'Trading Signal': 'BUY' if combined_sentiment > 0.1 else 'SELL' if combined_sentiment < -0.1 else 'HOLD'
+            })
+        
+        return pd.DataFrame(comparison_data)
+        
+    except Exception as e:
+        st.error(f"Error fetching MarketAux data: {e}")
+        # Return empty DataFrame with expected columns if MarketAux fails
+        return pd.DataFrame(columns=[
+            'Symbol', 'ASX Symbol', 'Reddit Sentiment', 'MarketAux Sentiment', 
+            'Combined Sentiment', 'MarketAux Confidence', 'News Volume', 
+            'Source Quality', 'Key News', 'Sentiment Change', 'Signal Strength', 'Trading Signal'
+        ])
 
 def fetch_ml_feature_analysis() -> Dict:
     """
@@ -840,6 +904,202 @@ def render_ml_performance_section(metrics: Dict):
         **Current status:** System rebuilding - collecting data for future analysis
         """)
 
+def render_marketaux_sentiment_comparison():
+    """
+    Render sentiment comparison: Reddit vs MarketAux vs Combined
+    """
+    st.subheader("🔄 Sentiment Analysis Comparison: Before vs After MarketAux")
+    st.markdown("**Compare broken Reddit sentiment with professional MarketAux news sentiment**")
+    
+    try:
+        # Get comparison data
+        comparison_df = fetch_marketaux_sentiment_comparison()
+        
+        if comparison_df.empty:
+            st.warning("MarketAux data not available. Please check API configuration.")
+            return
+        
+        # Summary metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            reddit_signals = len(comparison_df[comparison_df['Reddit Sentiment'] != 0])
+            st.metric(
+                "Reddit Working Signals",
+                f"{reddit_signals}/{len(comparison_df)}",
+                f"{reddit_signals/len(comparison_df)*100:.0f}%"
+            )
+        
+        with col2:
+            marketaux_signals = len(comparison_df[comparison_df['MarketAux Sentiment'] != 0])
+            st.metric(
+                "MarketAux Active Signals", 
+                f"{marketaux_signals}/{len(comparison_df)}",
+                f"{marketaux_signals/len(comparison_df)*100:.0f}%"
+            )
+        
+        with col3:
+            strong_signals = len(comparison_df[comparison_df['Signal Strength'] == 'Strong'])
+            st.metric(
+                "Strong Trading Signals",
+                strong_signals,
+                f"From MarketAux news"
+            )
+        
+        with col4:
+            total_news = comparison_df['News Volume'].sum()
+            st.metric(
+                "News Articles Analyzed",
+                int(total_news),
+                "Professional sources"
+            )
+        
+        # Comparison visualization
+        st.markdown("### 📈 Sentiment Score Comparison")
+        
+        # Create comparison chart
+        fig = go.Figure()
+        
+        # Add Reddit sentiment (broken system)
+        fig.add_trace(go.Bar(
+            name='Reddit Sentiment (Broken)',
+            x=comparison_df['Symbol'],
+            y=comparison_df['Reddit Sentiment'],
+            marker_color='lightcoral',
+            opacity=0.7
+        ))
+        
+        # Add MarketAux sentiment
+        fig.add_trace(go.Bar(
+            name='MarketAux Professional News',
+            x=comparison_df['Symbol'],
+            y=comparison_df['MarketAux Sentiment'],
+            marker_color='lightblue',
+            opacity=0.8
+        ))
+        
+        # Add combined sentiment
+        fig.add_trace(go.Bar(
+            name='Combined Sentiment (70% MarketAux + 30% Reddit)',
+            x=comparison_df['Symbol'],
+            y=comparison_df['Combined Sentiment'],
+            marker_color='green',
+            opacity=0.9
+        ))
+        
+        fig.update_layout(
+            title='Sentiment Score Comparison: Reddit vs MarketAux vs Combined',
+            xaxis_title='Bank Symbol',
+            yaxis_title='Sentiment Score',
+            barmode='group',
+            height=400,
+            yaxis=dict(range=[-1, 1]),
+            hovermode='x unified'
+        )
+        
+        # Add zero line
+        fig.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.5)
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Detailed comparison table
+        st.markdown("### 📋 Detailed Sentiment Analysis")
+        
+        # Format the data for display
+        display_df = comparison_df.copy()
+        display_df['Reddit Sentiment'] = display_df['Reddit Sentiment'].apply(lambda x: f"{x:.3f}")
+        display_df['MarketAux Sentiment'] = display_df['MarketAux Sentiment'].apply(lambda x: f"{x:.3f}")
+        display_df['Combined Sentiment'] = display_df['Combined Sentiment'].apply(lambda x: f"{x:.3f}")
+        display_df['Sentiment Change'] = display_df['Sentiment Change'].apply(lambda x: f"{x:+.3f}")
+        display_df['MarketAux Confidence'] = display_df['MarketAux Confidence'].apply(lambda x: f"{x:.2f}")
+        
+        # Add signal indicators
+        def get_signal_indicator(signal):
+            return {'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'HOLD': '🟡 HOLD'}[signal]
+        
+        display_df['Trading Signal'] = display_df['Trading Signal'].apply(get_signal_indicator)
+        
+        # Select columns for display
+        display_columns = [
+            'Symbol', 'Reddit Sentiment', 'MarketAux Sentiment', 'Combined Sentiment',
+            'Sentiment Change', 'Trading Signal', 'Signal Strength', 'News Volume', 'Key News'
+        ]
+        
+        st.dataframe(
+            display_df[display_columns],
+            use_container_width=True,
+            hide_index=True
+        )
+        
+        # Impact analysis
+        st.markdown("### 💡 Impact Analysis")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**🔴 BEFORE (Reddit Only):**")
+            reddit_working = len(comparison_df[comparison_df['Reddit Sentiment'] != 0])
+            reddit_strength = comparison_df['Reddit Sentiment'].abs().sum()
+            st.write(f"• Working signals: {reddit_working}/{len(comparison_df)} stocks")
+            st.write(f"• Total signal strength: {reddit_strength:.3f}")
+            st.write(f"• Data quality: Social media noise")
+            st.write(f"• Reliability: System broken (mostly 0.0 values)")
+            st.write(f"• Update frequency: Irregular/broken")
+        
+        with col2:
+            st.markdown("**🟢 AFTER (With MarketAux):**")
+            marketaux_working = len(comparison_df[comparison_df['MarketAux Sentiment'] != 0])
+            marketaux_strength = comparison_df['MarketAux Sentiment'].abs().sum()
+            combined_strength = comparison_df['Combined Sentiment'].abs().sum()
+            st.write(f"• Active signals: {marketaux_working}/{len(comparison_df)} stocks")
+            st.write(f"• MarketAux signal strength: {marketaux_strength:.3f}")
+            st.write(f"• Combined signal strength: {combined_strength:.3f}")
+            st.write(f"• Data quality: Professional financial news")
+            st.write(f"• Reliability: High (professional sources)")
+            st.write(f"• Update frequency: Real-time market hours")
+        
+        # Trading recommendations
+        st.markdown("### 🎯 Trading Recommendations Based on Combined Sentiment")
+        
+        bullish_stocks = comparison_df[comparison_df['Combined Sentiment'] > 0.1]
+        bearish_stocks = comparison_df[comparison_df['Combined Sentiment'] < -0.1]
+        neutral_stocks = comparison_df[
+            (comparison_df['Combined Sentiment'] >= -0.1) & 
+            (comparison_df['Combined Sentiment'] <= 0.1)
+        ]
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown("**🟢 BULLISH SIGNALS**")
+            if not bullish_stocks.empty:
+                for _, stock in bullish_stocks.iterrows():
+                    st.write(f"• **{stock['Symbol']}**: {stock['Combined Sentiment']:.3f}")
+                    st.write(f"  News: {stock['News Volume']} articles")
+            else:
+                st.write("No bullish signals detected")
+        
+        with col2:
+            st.markdown("**🔴 BEARISH SIGNALS**")
+            if not bearish_stocks.empty:
+                for _, stock in bearish_stocks.iterrows():
+                    st.write(f"• **{stock['Symbol']}**: {stock['Combined Sentiment']:.3f}")
+                    st.write(f"  News: {stock['News Volume']} articles")
+            else:
+                st.write("No bearish signals detected")
+        
+        with col3:
+            st.markdown("**🟡 NEUTRAL/HOLD**")
+            if not neutral_stocks.empty:
+                for _, stock in neutral_stocks.iterrows():
+                    st.write(f"• **{stock['Symbol']}**: {stock['Combined Sentiment']:.3f}")
+            else:
+                st.write("No neutral signals")
+        
+    except Exception as e:
+        st.error(f"Error rendering sentiment comparison: {e}")
+        st.info("MarketAux integration may not be properly configured.")
+
 def render_sentiment_dashboard(sentiment_df: pd.DataFrame):
     """
     Render current sentiment scores dashboard
@@ -1327,6 +1587,10 @@ def main():
         st.markdown("---")
         
         render_portfolio_correlation_section(correlation_data)
+        st.markdown("---")
+        
+        # NEW: MarketAux sentiment comparison section
+        render_marketaux_sentiment_comparison()
         st.markdown("---")
         
         render_sentiment_dashboard(sentiment_df)

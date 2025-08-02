@@ -142,6 +142,10 @@ class NewsSentimentAnalyzer:
         # Initialize Reddit client
         self._init_reddit_client()
         
+        # Initialize MarketAux integration
+        self.marketaux_manager = None
+        self._init_marketaux_client()
+        
         # Initialize transformer models if available
         self.transformer_pipelines = {}
         
@@ -186,6 +190,39 @@ class NewsSentimentAnalyzer:
             logger.warning(f"❌ Failed to initialize Reddit client: {e}")
             logger.info("Reddit sentiment will be disabled - only news sentiment will be used")
             self.reddit = None
+            return False
+    
+    def _init_marketaux_client(self):
+        """Initialize MarketAux client for professional news sentiment"""
+        try:
+            from .marketaux_integration import MarketAuxManager
+            
+            # Get API token from environment
+            api_token = os.getenv('MARKETAUX_API_TOKEN')
+            if not api_token:
+                logger.warning("❌ MARKETAUX_API_TOKEN not found in environment variables")
+                logger.info("To enable MarketAux professional sentiment analysis:")
+                logger.info("1. Sign up at https://www.marketaux.com/register")
+                logger.info("2. Set MARKETAUX_API_TOKEN=your_token in your .env file")
+                self.marketaux_manager = None
+                return False
+            
+            self.marketaux_manager = MarketAuxManager(api_token)
+            logger.info("✅ MarketAux professional sentiment analysis initialized")
+            
+            # Log usage stats
+            stats = self.marketaux_manager.get_usage_stats()
+            logger.info(f"MarketAux requests remaining: {stats['requests_remaining']}/{stats['daily_limit']}")
+            
+            return True
+            
+        except ImportError:
+            logger.warning("❌ MarketAux integration module not available")
+            self.marketaux_manager = None
+            return False
+        except Exception as e:
+            logger.warning(f"❌ Failed to initialize MarketAux client: {e}")
+            self.marketaux_manager = None
             return False
             
     def init_transformer_models(self):
@@ -593,6 +630,9 @@ class NewsSentimentAnalyzer:
             # Get Reddit sentiment
             reddit_sentiment = self._get_reddit_sentiment(symbol)
             
+            # Get MarketAux professional sentiment
+            marketaux_sentiment = self._get_marketaux_sentiment(symbol, strategy="balanced")
+            
             # Check for specific events
             event_analysis = self._check_significant_events(all_news, symbol)
             
@@ -605,7 +645,8 @@ class NewsSentimentAnalyzer:
                 reddit_sentiment,
                 event_analysis,
                 market_context,
-                all_news  # Pass all_news to the improved calculation
+                all_news,  # Pass all_news to the improved calculation
+                marketaux_sentiment  # Add MarketAux sentiment
             )
             
             result = {
@@ -614,6 +655,7 @@ class NewsSentimentAnalyzer:
                 'news_count': len(all_news),
                 'sentiment_scores': sentiment_analysis,
                 'reddit_sentiment': reddit_sentiment,
+                'marketaux_sentiment': marketaux_sentiment,  # Add MarketAux sentiment
                 'significant_events': event_analysis,
                 'overall_sentiment': overall_sentiment['score'],
                 'sentiment_components': overall_sentiment['components'],
@@ -701,17 +743,19 @@ class NewsSentimentAnalyzer:
                                             reddit_sentiment: Dict, 
                                             events: Dict,
                                             market_context: Dict,
-                                            all_news: List[Dict] = None) -> Dict:
-        """Enhanced sentiment calculation with ML trading features and dynamic weighting"""
+                                            all_news: List[Dict] = None,
+                                            marketaux_sentiment: Dict = None) -> Dict:
+        """Enhanced sentiment calculation with MarketAux professional sentiment and ML trading features"""
         
-        # Base weights - now includes ML trading features
+        # Base weights - now includes MarketAux professional sentiment
         weights = {
-            'news': 0.35,           # Reduced to make room for ML features
+            'news': 0.25,           # Reduced to make room for MarketAux
             'reddit': 0.15,
-            'events': 0.2,          # Reduced slightly
+            'marketaux': 0.20,      # Professional news sentiment (high weight)
+            'events': 0.15,         # Reduced slightly
             'volume': 0.1,
-            'momentum': 0.1,
-            'ml_trading': 0.1       # New ML trading component
+            'momentum': 0.05,
+            'ml_trading': 0.1       # ML trading component
         }
         
         # Adjust weights based on data quality
@@ -755,17 +799,34 @@ class NewsSentimentAnalyzer:
             weights['events'] -= 0.02
         
         # Dynamic weight adjustment based on data availability
+        marketaux_available = marketaux_sentiment and marketaux_sentiment.get('sentiment_score', 0) != 0
+        
         if news_count < 5:
             weights['news'] *= 0.5
-            weights['reddit'] += weights['news'] * 0.2  # Transfer some weight to reddit
+            if marketaux_available:
+                weights['marketaux'] += weights['news'] * 0.3  # Transfer to professional sentiment
+                weights['reddit'] += weights['news'] * 0.2
+            else:
+                weights['reddit'] += weights['news'] * 0.3
             weights['events'] += weights['news'] * 0.15
-            weights['ml_trading'] += weights['news'] * 0.15  # Transfer some to ML trading
+            weights['ml_trading'] += weights['news'] * 0.15
         
         if reddit_posts < 3:
             weights['reddit'] *= 0.3
-            weights['news'] += weights['reddit'] * 0.4  # Transfer weight back to news
+            if marketaux_available:
+                weights['marketaux'] += weights['reddit'] * 0.4  # Transfer to professional sentiment
+                weights['news'] += weights['reddit'] * 0.3
+            else:
+                weights['news'] += weights['reddit'] * 0.4
             weights['events'] += weights['reddit'] * 0.15
             weights['ml_trading'] += weights['reddit'] * 0.15
+        
+        # Adjust if MarketAux is not available
+        if not marketaux_available:
+            transferred_weight = weights['marketaux']
+            weights['marketaux'] = 0
+            weights['news'] += transferred_weight * 0.6
+            weights['events'] += transferred_weight * 0.4
         
         # Reduce ML trading weight if ML features are unavailable
         if not self.feature_engineer or ml_confidence < 0.3:
@@ -777,6 +838,7 @@ class NewsSentimentAnalyzer:
         # Calculate component scores
         news_score = news_sentiment.get('average_sentiment', 0) if isinstance(news_sentiment, dict) else 0
         reddit_score = reddit_sentiment.get('average_sentiment', 0)
+        marketaux_score = marketaux_sentiment.get('sentiment_score', 0) if marketaux_sentiment else 0
         
         # Enhanced event scoring with decay
         events_score = self._calculate_event_impact_score(events)
@@ -795,6 +857,7 @@ class NewsSentimentAnalyzer:
         overall = (
             news_score * normalized_weights['news'] +
             reddit_score * normalized_weights['reddit'] +
+            marketaux_score * normalized_weights['marketaux'] +
             events_score * normalized_weights['events'] +
             volume_sentiment * normalized_weights['volume'] +
             momentum_score * normalized_weights['momentum'] +
@@ -822,6 +885,7 @@ class NewsSentimentAnalyzer:
             'components': {
                 'news': news_score * normalized_weights['news'],
                 'reddit': reddit_score * normalized_weights['reddit'],
+                'marketaux': marketaux_score * normalized_weights['marketaux'],
                 'events': events_score * normalized_weights['events'],
                 'volume': volume_sentiment * normalized_weights['volume'],
                 'momentum': momentum_score * normalized_weights['momentum'],
@@ -1894,6 +1958,83 @@ class NewsSentimentAnalyzer:
                 'top_posts': [],
                 'sentiment_distribution': {},
                 'subreddit_breakdown': {}
+            }
+    
+    def _get_marketaux_sentiment(self, symbol: str, strategy: str = "balanced") -> Dict:
+        """Get professional news sentiment from MarketAux API"""
+        try:
+            if not self.marketaux_manager:
+                logger.debug(f"❌ MarketAux client not available for {symbol} - skipping professional sentiment")
+                return {
+                    'articles_analyzed': 0,
+                    'sentiment_score': 0.0,
+                    'confidence': 0.0,
+                    'news_volume': 0,
+                    'source_quality': 'none',
+                    'highlights': [],
+                    'sources': [],
+                    'error': 'MarketAux client not initialized'
+                }
+            
+            # Check if we can make a request
+            if not self.marketaux_manager.can_make_request():
+                logger.warning(f"⚠️ MarketAux daily limit reached - using cached data for {symbol}")
+                return {
+                    'articles_analyzed': 0,
+                    'sentiment_score': 0.0,
+                    'confidence': 0.0,
+                    'news_volume': 0,
+                    'source_quality': 'cached',
+                    'highlights': [],
+                    'sources': [],
+                    'error': 'Daily request limit reached'
+                }
+            
+            logger.debug(f"🔍 Getting MarketAux professional sentiment for {symbol}")
+            
+            # Clean symbol for MarketAux (remove .AX)
+            clean_symbol = symbol.replace('.AX', '')
+            
+            # Get sentiment analysis
+            sentiment_data = self.marketaux_manager.get_symbol_sentiment(clean_symbol, strategy)
+            
+            if sentiment_data:
+                logger.debug(f"✅ MarketAux sentiment retrieved for {symbol}: {sentiment_data.sentiment_score:.3f}")
+                
+                return {
+                    'articles_analyzed': sentiment_data.news_volume,
+                    'sentiment_score': sentiment_data.sentiment_score,
+                    'confidence': sentiment_data.confidence,
+                    'news_volume': sentiment_data.news_volume,
+                    'source_quality': sentiment_data.source_quality,
+                    'highlights': sentiment_data.highlights,
+                    'sources': sentiment_data.sources,
+                    'timestamp': sentiment_data.timestamp.isoformat()
+                }
+            else:
+                logger.debug(f"⚠️ No MarketAux sentiment data for {symbol}")
+                return {
+                    'articles_analyzed': 0,
+                    'sentiment_score': 0.0,
+                    'confidence': 0.0,
+                    'news_volume': 0,
+                    'source_quality': 'none',
+                    'highlights': [],
+                    'sources': [],
+                    'error': 'No sentiment data returned'
+                }
+                
+        except Exception as e:
+            logger.warning(f"❌ Error getting MarketAux sentiment for {symbol}: {str(e)}")
+            return {
+                'articles_analyzed': 0,
+                'sentiment_score': 0.0,
+                'confidence': 0.0,
+                'news_volume': 0,
+                'source_quality': 'error',
+                'highlights': [],
+                'sources': [],
+                'error': str(e)
             }
 
     def _default_sentiment(self) -> Dict:
