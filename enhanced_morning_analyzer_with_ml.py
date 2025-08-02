@@ -134,6 +134,18 @@ class EnhancedMorningAnalyzer:
         # Phase 1: Enhanced Data Integration
         self.logger.info("📊 Phase 1: Enhanced Data Integration")
         
+        # OPTIMIZATION: Pre-fetch MarketAux sentiment for all banks at once
+        # This solves the 3-article limitation by giving each bank 3 dedicated articles
+        self.logger.info("🚀 MARKETAUX OPTIMIZATION: Pre-fetching sentiment for all banks")
+        bank_symbols = list(self.banks.keys())
+        optimized_marketaux_data = self.sentiment_analyzer.prefetch_optimized_marketaux_sentiment(bank_symbols)
+        
+        if optimized_marketaux_data:
+            total_articles = sum(data.get('news_volume', 0) for data in optimized_marketaux_data.values())
+            self.logger.info(f"✅ OPTIMIZATION SUCCESS: {total_articles} articles ({total_articles/len(bank_symbols):.1f} per bank)")
+        else:
+            self.logger.info("⚠️ MarketAux optimization not available - falling back to individual requests")
+        
         total_sentiment = 0
         analyzed_count = 0
         

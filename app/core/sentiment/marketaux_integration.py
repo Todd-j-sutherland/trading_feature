@@ -266,6 +266,132 @@ class MarketAuxManager:
         
         return sentiment_results
     
+    def get_optimized_sentiment_analysis(self, 
+                                       symbols: List[str], 
+                                       strategy: str = "individual_bank",
+                                       use_cache: bool = True,
+                                       timeframe_hours: int = 6) -> Optional[List[SentimentData]]:
+        """
+        OPTIMIZED: Get sentiment analysis for multiple banks with individual requests
+        
+        This method solves the 3-article limitation by making separate API calls
+        for each bank, giving each bank 3 dedicated articles instead of sharing
+        3 articles across all banks.
+        
+        Args:
+            symbols: List of bank symbols (e.g., ['CBA', 'ANZ', 'WBC', 'NAB'])
+            strategy: Request strategy identifier  
+            use_cache: Whether to use cached data if available
+            timeframe_hours: Cache validity period in hours
+            
+        Returns:
+            List of SentimentData objects, one per bank with full article coverage
+        """
+        
+        if not symbols:
+            return []
+        
+        # Prioritize banks - Big 4 first for better cache usage
+        priority_banks = ['CBA', 'ANZ', 'WBC', 'NAB']
+        prioritized_symbols = []
+        
+        # Add priority banks first (if in the request)
+        for bank in priority_banks:
+            bank_variants = [bank, f"{bank}.AX"]
+            for variant in bank_variants:
+                if variant in symbols and variant not in prioritized_symbols:
+                    prioritized_symbols.append(variant)
+        
+        # Add remaining banks
+        for symbol in symbols:
+            if symbol not in prioritized_symbols:
+                prioritized_symbols.append(symbol)
+        
+        logger.info(f"🚀 OPTIMIZED: Processing {len(prioritized_symbols)} banks individually for maximum coverage")
+        
+        all_results = []
+        successful_requests = 0
+        failed_requests = 0
+        
+        for i, symbol in enumerate(prioritized_symbols):
+            try:
+                logger.info(f"📊 Fetching news for {symbol} ({i+1}/{len(prioritized_symbols)})")
+                
+                # Check individual symbol cache first
+                individual_cache_key = self._get_cache_key([symbol], timeframe_hours)
+                if use_cache and individual_cache_key in self.cache:
+                    cached_data = self.cache[individual_cache_key]
+                    cache_time = datetime.fromisoformat(cached_data['timestamp'])
+                    if datetime.now() - cache_time < timedelta(hours=timeframe_hours):
+                        logger.info(f"✅ Using cached data for {symbol}")
+                        cached_results = self._parse_cached_sentiment(cached_data)
+                        if cached_results:
+                            all_results.extend(cached_results)
+                            continue
+                
+                # Check if we can make the request
+                if not self.can_make_request():
+                    logger.warning(f"❌ Request limit reached for {symbol}, using cached data if available")
+                    if individual_cache_key in self.cache:
+                        cached_results = self._parse_cached_sentiment(self.cache[individual_cache_key])
+                        if cached_results:
+                            all_results.extend(cached_results)
+                    else:
+                        # Create fallback data
+                        fallback = self._create_fallback_sentiment(symbol)
+                        all_results.append(fallback)
+                    failed_requests += 1
+                    continue
+                
+                # Make individual API request for this bank (gets 3 articles for this bank)
+                bank_sentiment = self.get_sentiment_analysis(
+                    symbols=[symbol],
+                    strategy=f"individual_{strategy}",
+                    use_cache=use_cache,
+                    timeframe_hours=timeframe_hours
+                )
+                
+                if bank_sentiment and len(bank_sentiment) > 0:
+                    all_results.extend(bank_sentiment)
+                    successful_requests += 1
+                    logger.info(f"✅ Got {len(bank_sentiment[0].highlights)} articles for {symbol}")
+                else:
+                    logger.warning(f"❌ No sentiment data for {symbol}")
+                    fallback = self._create_fallback_sentiment(symbol)
+                    all_results.append(fallback)
+                    failed_requests += 1
+                
+                # Rate limiting - delay between requests (except for last)
+                if i < len(prioritized_symbols) - 1:
+                    time.sleep(1.0)  # 1 second delay between bank requests
+                    
+            except Exception as e:
+                logger.error(f"❌ Error fetching sentiment for {symbol}: {e}")
+                fallback = self._create_fallback_sentiment(symbol)
+                all_results.append(fallback)
+                failed_requests += 1
+        
+        logger.info(f"🎯 OPTIMIZATION COMPLETE: {successful_requests} successful, {failed_requests} failed/cached")
+        
+        if successful_requests > 0:
+            total_articles = sum(len(result.highlights) for result in all_results if hasattr(result, 'highlights'))
+            logger.info(f"📈 Total articles collected: {total_articles} (vs {len(symbols)*0.4:.1f} with old method)")
+        
+        return all_results
+    
+    def _create_fallback_sentiment(self, symbol: str) -> SentimentData:
+        """Create fallback sentiment data when API fails or cache miss"""
+        return SentimentData(
+            symbol=symbol,
+            sentiment_score=0.0,
+            confidence=0.3,
+            news_volume=0,
+            source_quality='low',
+            timestamp=datetime.now(),
+            highlights=[],
+            sources=[]
+        )
+
     def _process_api_response(self, data: Dict, symbols: List[str]) -> List[SentimentData]:
         """Process API response into SentimentData objects"""
         results = []

@@ -81,6 +81,353 @@ except ImportError:
     ENHANCED_SENTIMENT_AVAILABLE = False
     logger.warning("Enhanced sentiment integration not available")
 
+class QualityBasedSentimentWeighting:
+    """Dynamic weighting system based on real-time quality assessment of sentiment sources"""
+    
+    def __init__(self):
+        self.base_weights = {
+            'news': 0.25,
+            'reddit': 0.15,
+            'marketaux': 0.20,
+            'events': 0.15,
+            'volume': 0.10,
+            'momentum': 0.05,
+            'ml_trading': 0.10
+        }
+        
+        # Quality multiplier bounds
+        self.min_multiplier = 0.5
+        self.max_multiplier = 1.5
+        
+    def _assess_news_quality(self, news_sentiment: Dict, transformer_confidence: float = 0) -> Dict:
+        """Assess news sentiment quality with multiple metrics"""
+        if not isinstance(news_sentiment, dict):
+            return {'score': 0.3, 'grade': 'F', 'issues': ['Invalid data format']}
+            
+        news_count = news_sentiment.get('news_count', 0)
+        avg_sentiment = abs(news_sentiment.get('average_sentiment', 0))
+        
+        # Source diversity (check if method_breakdown exists)
+        method_breakdown = news_sentiment.get('method_breakdown', {})
+        source_diversity = len([m for m in method_breakdown.keys() if method_breakdown[m].get('count', 0) > 0])
+        
+        # Calculate quality metrics
+        volume_score = min(news_count / 20.0, 1.0)  # Normalize to 20 articles
+        confidence_score = transformer_confidence
+        diversity_score = min(source_diversity / 5.0, 1.0)  # Normalize to 5 sources
+        signal_strength = min(avg_sentiment * 2, 1.0)  # Strong sentiment signals
+        
+        # Weighted quality score
+        quality_score = (
+            volume_score * 0.3 +
+            confidence_score * 0.3 +
+            diversity_score * 0.2 +
+            signal_strength * 0.2
+        )
+        
+        # Determine grade and issues
+        grade, issues = self._get_grade_and_issues(quality_score, {
+            'volume': news_count,
+            'confidence': transformer_confidence,
+            'diversity': source_diversity,
+            'signal': avg_sentiment
+        })
+        
+        return {
+            'score': quality_score,
+            'grade': grade,
+            'issues': issues,
+            'metrics': {
+                'volume_score': volume_score,
+                'confidence_score': confidence_score,
+                'diversity_score': diversity_score,
+                'signal_strength': signal_strength
+            }
+        }
+    
+    def _assess_reddit_quality(self, reddit_sentiment: Dict) -> Dict:
+        """Assess Reddit sentiment quality"""
+        if not isinstance(reddit_sentiment, dict):
+            return {'score': 0.2, 'grade': 'F', 'issues': ['No Reddit data']}
+            
+        posts_count = reddit_sentiment.get('posts_analyzed', 0)
+        avg_sentiment = abs(reddit_sentiment.get('average_sentiment', 0))
+        
+        # Reddit-specific metrics
+        volume_score = min(posts_count / 15.0, 1.0)  # Normalize to 15 posts
+        engagement_score = min(posts_count / 10.0, 1.0)  # Basic engagement proxy
+        signal_strength = min(avg_sentiment * 1.5, 1.0)
+        freshness_score = 0.8  # Assume reasonably fresh for now
+        
+        quality_score = (
+            volume_score * 0.4 +
+            engagement_score * 0.2 +
+            signal_strength * 0.2 +
+            freshness_score * 0.2
+        )
+        
+        grade, issues = self._get_grade_and_issues(quality_score, {
+            'posts': posts_count,
+            'signal': avg_sentiment
+        })
+        
+        return {
+            'score': quality_score,
+            'grade': grade,
+            'issues': issues,
+            'metrics': {
+                'volume_score': volume_score,
+                'engagement_score': engagement_score,
+                'signal_strength': signal_strength,
+                'freshness_score': freshness_score
+            }
+        }
+    
+    def _assess_marketaux_quality(self, marketaux_sentiment: Dict) -> Dict:
+        """Assess MarketAux professional sentiment quality"""
+        if not marketaux_sentiment or marketaux_sentiment.get('sentiment_score', 0) == 0:
+            return {'score': 0.0, 'grade': 'F', 'issues': ['No MarketAux data']}
+            
+        sentiment_score = abs(marketaux_sentiment.get('sentiment_score', 0))
+        
+        # Professional source gets high base quality
+        reliability_score = 0.9  # Professional source
+        signal_strength = min(sentiment_score * 1.2, 1.0)
+        coverage_score = 0.85  # Assume good coverage
+        timeliness_score = 0.8  # Assume timely updates
+        
+        quality_score = (
+            reliability_score * 0.4 +
+            signal_strength * 0.3 +
+            coverage_score * 0.2 +
+            timeliness_score * 0.1
+        )
+        
+        grade, issues = self._get_grade_and_issues(quality_score, {
+            'signal': sentiment_score,
+            'professional': True
+        })
+        
+        return {
+            'score': quality_score,
+            'grade': grade,
+            'issues': issues,
+            'metrics': {
+                'reliability_score': reliability_score,
+                'signal_strength': signal_strength,
+                'coverage_score': coverage_score,
+                'timeliness_score': timeliness_score
+            }
+        }
+    
+    def _assess_events_quality(self, events: Dict) -> Dict:
+        """Assess events quality"""
+        if not isinstance(events, dict):
+            return {'score': 0.3, 'grade': 'D', 'issues': ['Invalid events data']}
+            
+        events_detected = events.get('events_detected', [])
+        event_count = len(events_detected)
+        
+        # Events quality metrics
+        volume_score = min(event_count / 5.0, 1.0)  # Normalize to 5 events
+        relevance_score = 0.7  # Assume moderate relevance
+        impact_score = min(event_count * 0.2, 1.0)  # More events = higher potential impact
+        timeliness_score = 0.8  # Assume events are recent
+        
+        quality_score = (
+            volume_score * 0.3 +
+            relevance_score * 0.3 +
+            impact_score * 0.2 +
+            timeliness_score * 0.2
+        )
+        
+        grade, issues = self._get_grade_and_issues(quality_score, {
+            'events': event_count
+        })
+        
+        return {
+            'score': quality_score,
+            'grade': grade,
+            'issues': issues,
+            'metrics': {
+                'volume_score': volume_score,
+                'relevance_score': relevance_score,
+                'impact_score': impact_score,
+                'timeliness_score': timeliness_score
+            }
+        }
+    
+    def _assess_volume_quality(self, news_sentiment: Dict) -> Dict:
+        """Assess volume-weighted sentiment quality"""
+        if not isinstance(news_sentiment, dict):
+            return {'score': 0.2, 'grade': 'F', 'issues': ['No volume data']}
+            
+        # Volume metrics (simplified assessment)
+        news_count = news_sentiment.get('news_count', 0)
+        has_volume_data = news_count > 0
+        
+        data_availability = 1.0 if has_volume_data else 0.0
+        coverage_score = min(news_count / 15.0, 1.0)
+        consistency_score = 0.6  # Assume moderate consistency
+        
+        quality_score = (
+            data_availability * 0.5 +
+            coverage_score * 0.3 +
+            consistency_score * 0.2
+        )
+        
+        grade, issues = self._get_grade_and_issues(quality_score, {
+            'data_available': has_volume_data,
+            'coverage': news_count
+        })
+        
+        return {
+            'score': quality_score,
+            'grade': grade,
+            'issues': issues,
+            'metrics': {
+                'data_availability': data_availability,
+                'coverage_score': coverage_score,
+                'consistency_score': consistency_score
+            }
+        }
+    
+    def _assess_momentum_quality(self, news_sentiment: Dict) -> Dict:
+        """Assess momentum sentiment quality"""
+        if not isinstance(news_sentiment, dict):
+            return {'score': 0.2, 'grade': 'F', 'issues': ['No momentum data']}
+            
+        # Momentum metrics (simplified)
+        news_count = news_sentiment.get('news_count', 0)
+        has_historical_data = news_count > 3
+        
+        data_availability = 1.0 if has_historical_data else 0.5
+        trend_clarity = 0.6  # Assume moderate trend clarity
+        stability_score = 0.7  # Assume reasonable stability
+        
+        quality_score = (
+            data_availability * 0.4 +
+            trend_clarity * 0.3 +
+            stability_score * 0.3
+        )
+        
+        grade, issues = self._get_grade_and_issues(quality_score, {
+            'historical_data': has_historical_data,
+            'trend_clarity': trend_clarity
+        })
+        
+        return {
+            'score': quality_score,
+            'grade': grade,
+            'issues': issues,
+            'metrics': {
+                'data_availability': data_availability,
+                'trend_clarity': trend_clarity,
+                'stability_score': stability_score
+            }
+        }
+    
+    def _assess_ml_trading_quality(self, ml_confidence: float, ml_trading_result: Dict) -> Dict:
+        """Assess ML trading component quality"""
+        if ml_confidence < 0.1:
+            return {'score': 0.1, 'grade': 'F', 'issues': ['ML system unavailable']}
+            
+        # ML quality metrics
+        model_confidence = ml_confidence
+        feature_completeness = 0.8  # Assume good feature engineering
+        prediction_stability = min(ml_confidence * 1.2, 1.0)
+        backtesting_performance = 0.7  # Assume moderate historical performance
+        
+        quality_score = (
+            model_confidence * 0.4 +
+            feature_completeness * 0.2 +
+            prediction_stability * 0.2 +
+            backtesting_performance * 0.2
+        )
+        
+        grade, issues = self._get_grade_and_issues(quality_score, {
+            'confidence': ml_confidence,
+            'features': feature_completeness
+        })
+        
+        return {
+            'score': quality_score,
+            'grade': grade,
+            'issues': issues,
+            'metrics': {
+                'model_confidence': model_confidence,
+                'feature_completeness': feature_completeness,
+                'prediction_stability': prediction_stability,
+                'backtesting_performance': backtesting_performance
+            }
+        }
+    
+    def _get_grade_and_issues(self, quality_score: float, metrics: Dict) -> tuple:
+        """Convert quality score to grade and identify issues"""
+        if quality_score >= 0.85:
+            return 'A', []
+        elif quality_score >= 0.70:
+            return 'B', []
+        elif quality_score >= 0.55:
+            return 'C', ['Moderate quality concerns']
+        elif quality_score >= 0.40:
+            return 'D', ['Significant quality issues']
+        else:
+            return 'F', ['Poor data quality']
+    
+    def calculate_dynamic_weights(self, 
+                                news_sentiment: Dict, 
+                                reddit_sentiment: Dict,
+                                marketaux_sentiment: Dict,
+                                events: Dict,
+                                transformer_confidence: float = 0,
+                                ml_confidence: float = 0,
+                                ml_trading_result: Dict = None) -> Dict:
+        """Calculate dynamic weights based on real-time quality assessment"""
+        
+        # Assess quality for each component
+        assessments = {
+            'news': self._assess_news_quality(news_sentiment, transformer_confidence),
+            'reddit': self._assess_reddit_quality(reddit_sentiment),
+            'marketaux': self._assess_marketaux_quality(marketaux_sentiment),
+            'events': self._assess_events_quality(events),
+            'volume': self._assess_volume_quality(news_sentiment),
+            'momentum': self._assess_momentum_quality(news_sentiment),
+            'ml_trading': self._assess_ml_trading_quality(ml_confidence, ml_trading_result or {})
+        }
+        
+        # Calculate quality multipliers
+        quality_multipliers = {}
+        for component, assessment in assessments.items():
+            quality_score = assessment['score']
+            # Convert quality score to multiplier (0.5x to 1.5x)
+            multiplier = self.min_multiplier + (quality_score * (self.max_multiplier - self.min_multiplier))
+            quality_multipliers[component] = multiplier
+        
+        # Apply multipliers to base weights
+        adjusted_weights = {}
+        for component, base_weight in self.base_weights.items():
+            adjusted_weights[component] = base_weight * quality_multipliers[component]
+        
+        # Normalize weights to sum to 1.0
+        total_weight = sum(adjusted_weights.values())
+        normalized_weights = {k: v/total_weight for k, v in adjusted_weights.items()}
+        
+        # Calculate weight changes from base
+        weight_changes = {}
+        for component in self.base_weights:
+            change = ((normalized_weights[component] - self.base_weights[component]) / 
+                     self.base_weights[component] * 100)
+            weight_changes[component] = change
+        
+        return {
+            'weights': normalized_weights,
+            'quality_assessments': assessments,
+            'quality_multipliers': quality_multipliers,
+            'weight_changes': weight_changes,
+            'base_weights': self.base_weights.copy()
+        }
+
 class NewsSentimentAnalyzer:
     """Analyzes news sentiment from free Australian sources"""
     
@@ -117,6 +464,10 @@ class NewsSentimentAnalyzer:
         self.reddit = None
         self.ml_model = None
         self.enhanced_integration = None
+        
+        # Initialize quality-based weighting system
+        self.quality_weighting = QualityBasedSentimentWeighting()
+        logger.info("Quality-based weighting system initialized")
         
         # Try to initialize ML trading components
         if ML_TRADING_AVAILABLE:
@@ -659,6 +1010,9 @@ class NewsSentimentAnalyzer:
                 'significant_events': event_analysis,
                 'overall_sentiment': overall_sentiment['score'],
                 'sentiment_components': overall_sentiment['components'],
+                'quality_assessments': overall_sentiment.get('quality_assessments', {}),  # Add quality assessments
+                'weight_changes': overall_sentiment.get('weight_changes', {}),  # Add weight changes
+                'dynamic_weights': overall_sentiment.get('weights', {}),  # Add dynamic weights
                 'confidence': overall_sentiment['confidence'],
                 'ml_confidence': overall_sentiment.get('ml_confidence'),  # Add ML confidence
                 'recent_headlines': [news['title'] for news in all_news[:5]]
@@ -745,30 +1099,9 @@ class NewsSentimentAnalyzer:
                                             market_context: Dict,
                                             all_news: List[Dict] = None,
                                             marketaux_sentiment: Dict = None) -> Dict:
-        """Enhanced sentiment calculation with MarketAux professional sentiment and ML trading features"""
+        """Enhanced sentiment calculation with quality-based dynamic weighting system"""
         
-        # Base weights - now includes MarketAux professional sentiment
-        weights = {
-            'news': 0.25,           # Reduced to make room for MarketAux
-            'reddit': 0.15,
-            'marketaux': 0.20,      # Professional news sentiment (high weight)
-            'events': 0.15,         # Reduced slightly
-            'volume': 0.1,
-            'momentum': 0.05,
-            'ml_trading': 0.1       # ML trading component
-        }
-        
-        # Adjust weights based on data quality
-        news_count = news_sentiment.get('news_count', 0) if isinstance(news_sentiment, dict) else 0
-        reddit_posts = reddit_sentiment.get('posts_analyzed', 0)
-        
-        # Check if transformers are being used and their confidence
-        transformer_confidence = 0
-        if isinstance(news_sentiment, dict) and 'method_breakdown' in news_sentiment:
-            method_breakdown = news_sentiment['method_breakdown']
-            transformer_confidence = method_breakdown.get('transformer', {}).get('confidence', 0)
-        
-        # Calculate ML trading features and score
+        # Get ML trading features and score first as we need it for quality assessment
         ml_trading_result = {'ml_score': 0, 'confidence': 0}
         if all_news and self.feature_engineer:
             try:
@@ -782,60 +1115,34 @@ class NewsSentimentAnalyzer:
         ml_score = ml_trading_result['ml_score']
         ml_confidence = ml_trading_result['confidence']
         
-        # Boost news weight if transformers are working well
-        if transformer_confidence > 0.8:
-            weights['news'] += 0.05  # High confidence transformer boosts news reliability
-        elif transformer_confidence > 0.6:
-            weights['news'] += 0.03  # Medium confidence
+        # Check transformer confidence
+        transformer_confidence = 0
+        if isinstance(news_sentiment, dict) and 'method_breakdown' in news_sentiment:
+            method_breakdown = news_sentiment['method_breakdown']
+            transformer_confidence = method_breakdown.get('transformer', {}).get('confidence', 0)
         
-        # Boost ML trading weight if ML confidence is high
-        if ml_confidence > 0.8:
-            weights['ml_trading'] += 0.05
-            weights['news'] -= 0.02  # Slight reduction to maintain balance
-            weights['events'] -= 0.03
-        elif ml_confidence > 0.6:
-            weights['ml_trading'] += 0.03
-            weights['news'] -= 0.01
-            weights['events'] -= 0.02
+        # Use quality-based dynamic weighting system
+        weighting_result = self.quality_weighting.calculate_dynamic_weights(
+            news_sentiment,
+            reddit_sentiment,
+            marketaux_sentiment,
+            events,
+            transformer_confidence,
+            ml_confidence,
+            ml_trading_result
+        )
         
-        # Dynamic weight adjustment based on data availability
-        marketaux_available = marketaux_sentiment and marketaux_sentiment.get('sentiment_score', 0) != 0
+        # Get the dynamically calculated weights
+        normalized_weights = weighting_result['weights']
+        quality_assessments = weighting_result['quality_assessments']
         
-        if news_count < 5:
-            weights['news'] *= 0.5
-            if marketaux_available:
-                weights['marketaux'] += weights['news'] * 0.3  # Transfer to professional sentiment
-                weights['reddit'] += weights['news'] * 0.2
-            else:
-                weights['reddit'] += weights['news'] * 0.3
-            weights['events'] += weights['news'] * 0.15
-            weights['ml_trading'] += weights['news'] * 0.15
-        
-        if reddit_posts < 3:
-            weights['reddit'] *= 0.3
-            if marketaux_available:
-                weights['marketaux'] += weights['reddit'] * 0.4  # Transfer to professional sentiment
-                weights['news'] += weights['reddit'] * 0.3
-            else:
-                weights['news'] += weights['reddit'] * 0.4
-            weights['events'] += weights['reddit'] * 0.15
-            weights['ml_trading'] += weights['reddit'] * 0.15
-        
-        # Adjust if MarketAux is not available
-        if not marketaux_available:
-            transferred_weight = weights['marketaux']
-            weights['marketaux'] = 0
-            weights['news'] += transferred_weight * 0.6
-            weights['events'] += transferred_weight * 0.4
-        
-        # Reduce ML trading weight if ML features are unavailable
-        if not self.feature_engineer or ml_confidence < 0.3:
-            transferred_weight = weights['ml_trading']
-            weights['ml_trading'] = 0
-            weights['news'] += transferred_weight * 0.6
-            weights['events'] += transferred_weight * 0.4
-        
-        # Calculate component scores
+        # Log quality-based weight adjustments
+        logger.info("Quality-based weight adjustments:")
+        for component, change in weighting_result['weight_changes'].items():
+            grade = quality_assessments[component]['grade']
+            logger.info(f"  {component}: {change:+.1f}% (Grade {grade})")
+            
+        # Calculate component scores (same as before)
         news_score = news_sentiment.get('average_sentiment', 0) if isinstance(news_sentiment, dict) else 0
         reddit_score = reddit_sentiment.get('average_sentiment', 0)
         marketaux_score = marketaux_sentiment.get('sentiment_score', 0) if marketaux_sentiment else 0
@@ -848,10 +1155,6 @@ class NewsSentimentAnalyzer:
         
         # Add momentum factor
         momentum_score = self._calculate_sentiment_momentum(news_sentiment)
-        
-        # Normalize weights
-        total_weight = sum(weights.values())
-        normalized_weights = {k: v/total_weight for k, v in weights.items()}
         
         # Calculate weighted score
         overall = (
@@ -869,6 +1172,9 @@ class NewsSentimentAnalyzer:
         overall *= market_modifier
         
         # Calculate confidence factor based on data quality including transformer and ML confidence
+        news_count = news_sentiment.get('news_count', 0) if isinstance(news_sentiment, dict) else 0
+        reddit_posts = reddit_sentiment.get('posts_analyzed', 0)
+        
         confidence = self._calculate_confidence_factor(
             news_count, 
             reddit_posts, 
@@ -892,6 +1198,8 @@ class NewsSentimentAnalyzer:
                 'ml_trading': ml_score * normalized_weights['ml_trading']
             },
             'weights': normalized_weights,
+            'quality_assessments': quality_assessments,  # Add quality assessments to output
+            'weight_changes': weighting_result['weight_changes'],  # Add weight changes to output
             'confidence': confidence,
             'market_modifier': market_modifier,
             'ml_trading_details': ml_trading_result.get('feature_analysis', {}),
@@ -1963,6 +2271,12 @@ class NewsSentimentAnalyzer:
     def _get_marketaux_sentiment(self, symbol: str, strategy: str = "balanced") -> Dict:
         """Get professional news sentiment from MarketAux API"""
         try:
+            # Check optimized cache first
+            if hasattr(self, '_marketaux_cache') and symbol in self._marketaux_cache:
+                cached_data = self._marketaux_cache[symbol]
+                logger.debug(f"✅ Using optimized cached MarketAux data for {symbol}")
+                return cached_data
+            
             if not self.marketaux_manager:
                 logger.debug(f"❌ MarketAux client not available for {symbol} - skipping professional sentiment")
                 return {
@@ -2036,6 +2350,75 @@ class NewsSentimentAnalyzer:
                 'sources': [],
                 'error': str(e)
             }
+
+    def prefetch_optimized_marketaux_sentiment(self, symbols: List[str]) -> Dict[str, Dict]:
+        """
+        OPTIMIZED: Pre-fetch MarketAux sentiment for multiple banks using individual requests
+        
+        This method solves the 3-article limitation by making separate API calls
+        for each bank, giving each bank 3 dedicated articles instead of sharing
+        3 articles across all banks.
+        
+        Args:
+            symbols: List of bank symbols (e.g., ['CBA.AX', 'ANZ.AX', 'WBC.AX', 'NAB.AX'])
+            
+        Returns:
+            Dict mapping symbols to sentiment data
+        """
+        
+        if not self.marketaux_manager:
+            logger.info("MarketAux not available - skipping optimized bulk fetch")
+            return {}
+        
+        logger.info(f"🚀 OPTIMIZED MARKETAUX: Pre-fetching sentiment for {len(symbols)} banks")
+        
+        try:
+            # Use the optimized sentiment analysis method
+            sentiment_results = self.marketaux_manager.get_optimized_sentiment_analysis(
+                symbols=symbols,
+                strategy="morning_bulk_optimized",
+                use_cache=True,
+                timeframe_hours=6
+            )
+            
+            # Convert SentimentData objects to dict format
+            optimized_cache = {}
+            
+            if sentiment_results:
+                for sentiment_data in sentiment_results:
+                    symbol = sentiment_data.symbol
+                    
+                    # Ensure symbol has .AX suffix for consistency
+                    if not symbol.endswith('.AX'):
+                        symbol = f"{symbol}.AX"
+                    
+                    optimized_cache[symbol] = {
+                        'articles_analyzed': sentiment_data.news_volume,
+                        'sentiment_score': sentiment_data.sentiment_score,
+                        'confidence': sentiment_data.confidence,
+                        'news_volume': sentiment_data.news_volume,
+                        'source_quality': sentiment_data.source_quality,
+                        'highlights': sentiment_data.highlights,
+                        'sources': sentiment_data.sources,
+                        'timestamp': sentiment_data.timestamp.isoformat(),
+                        'optimized_fetch': True  # Flag to indicate this was from optimized fetch
+                    }
+                
+                logger.info(f"✅ OPTIMIZATION SUCCESS: Cached sentiment for {len(optimized_cache)} banks")
+                
+                # Store in instance cache for quick access during individual bank analysis
+                if not hasattr(self, '_marketaux_cache'):
+                    self._marketaux_cache = {}
+                self._marketaux_cache.update(optimized_cache)
+                
+                return optimized_cache
+            else:
+                logger.warning("❌ No sentiment data returned from optimized fetch")
+                return {}
+                
+        except Exception as e:
+            logger.error(f"❌ Error in optimized MarketAux fetch: {e}")
+            return {}
 
     def _default_sentiment(self) -> Dict:
         """Return default sentiment structure when analysis fails"""

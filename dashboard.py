@@ -18,6 +18,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from enhance_confidence_calculation import get_enhanced_confidence
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -520,10 +521,7 @@ def fetch_prediction_timeline() -> pd.DataFrame:
                     WHEN ef.rsi > 70 THEN 'SELL'
                     ELSE 'HOLD'
                 END as signal,
-                CASE 
-                    WHEN ef.rsi < 30 OR ef.rsi > 70 THEN 0.8
-                    ELSE 0.3
-                END as confidence,
+                ef.rsi,
                 ef.sentiment_score,
                 ef.rsi as technical_score,
                 eo.return_pct as actual_outcome,
@@ -541,9 +539,14 @@ def fetch_prediction_timeline() -> pd.DataFrame:
                             ELSE 'WRONG' 
                         END
                     ELSE 'PENDING'
-                END as accuracy
+                END as accuracy,
+                sa.news_count,
+                sa.confidence as sentiment_confidence,
+                sa.method_breakdown
             FROM enhanced_features ef
             LEFT JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
+            LEFT JOIN sentiment_analysis sa ON ef.symbol = sa.symbol AND 
+                      DATE(ef.timestamp) = DATE(sa.timestamp)
             WHERE ef.timestamp >= datetime('now', '-7 days')
             ORDER BY ef.timestamp DESC
             LIMIT 100
@@ -562,16 +565,53 @@ def fetch_prediction_timeline() -> pd.DataFrame:
         
         data = []
         for row in results:
+            # Extract data from SQL result
+            timestamp = row[0]
+            symbol = row[1] 
+            signal = row[2]
+            rsi = float(row[3] or 50)
+            sentiment_score = float(row[4] or 0)
+            technical_score = float(row[5] or 0)
+            actual_outcome = float(row[6] or 0) if row[6] is not None else None
+            status = row[7] or 'PENDING'
+            accuracy = row[8] or 'PENDING'
+            news_count = int(row[9] or 0)
+            sentiment_confidence = float(row[10] or 0.5)
+            method_breakdown = row[11] or '{}'
+            
+            # Create sentiment data for enhanced confidence calculation
+            sentiment_data = {
+                'news_count': news_count,
+                'confidence': sentiment_confidence,
+                'method_breakdown': {},
+                'quality_assessment': {'overall_grade': 'C'}  # Default grade
+            }
+            
+            try:
+                # Try to parse method breakdown if available
+                import json
+                if method_breakdown and method_breakdown != '{}':
+                    sentiment_data['method_breakdown'] = json.loads(method_breakdown)
+            except:
+                pass
+            
+            # Calculate enhanced confidence
+            try:
+                enhanced_confidence = get_enhanced_confidence(rsi, sentiment_data, symbol)
+            except Exception as e:
+                # Fallback to improved static calculation if enhanced fails
+                enhanced_confidence = 0.8 if rsi < 30 or rsi > 70 else 0.3
+                
             data.append({
-                'Timestamp': pd.to_datetime(row[0]),  # timestamp
-                'Symbol': row[1],                      # symbol
-                'Signal': row[2],                      # signal
-                'Confidence': float(row[3] or 0),     # confidence
-                'Sentiment Score': float(row[4] or 0), # sentiment_score
-                'Technical Score': float(row[5] or 0), # technical_score (rsi)
-                'Actual Outcome': float(row[6] or 0) if row[6] is not None else None, # actual_outcome
-                'Status': row[7] or 'PENDING',        # status
-                'Accuracy': row[8] or 'PENDING'       # accuracy
+                'Timestamp': pd.to_datetime(timestamp),
+                'Symbol': symbol,
+                'Signal': signal,
+                'Confidence': enhanced_confidence,
+                'Sentiment Score': sentiment_score,
+                'Technical Score': technical_score,
+                'Actual Outcome': actual_outcome,
+                'Status': status,
+                'Accuracy': accuracy
             })
         
         return pd.DataFrame(data)
@@ -1528,6 +1568,222 @@ def render_prediction_timeline(timeline_df: pd.DataFrame):
         else:
             st.warning("No predictions match the selected filters.")
 
+
+def render_quality_based_weighting_section():
+    """
+    Render the quality-based dynamic weighting analysis section
+    """
+    st.header("🎯 Quality-Based Dynamic Weighting Analysis")
+    st.markdown("**Real-time adaptation of sentiment component weights based on data quality**")
+    
+    try:
+        # Import the sentiment analyzer to get real-time quality data
+        sys.path.append(os.path.join(os.path.dirname(__file__)))
+        from app.core.sentiment.news_analyzer import NewsSentimentAnalyzer
+        
+        # Get current quality assessments for all banks
+        analyzer = NewsSentimentAnalyzer()
+        banks_quality_data = {}
+        
+        with st.spinner("Analyzing component quality for all banks..."):
+            for bank in ASX_BANKS[:4]:  # Focus on big 4 banks for performance
+                try:
+                    result = analyzer.analyze_bank_sentiment(bank)
+                    if 'quality_assessments' in result:
+                        banks_quality_data[bank] = {
+                            'quality_assessments': result['quality_assessments'],
+                            'weight_changes': result['weight_changes'],
+                            'dynamic_weights': result['dynamic_weights'],
+                            'overall_sentiment': result['overall_sentiment'],
+                            'confidence': result['confidence']
+                        }
+                except Exception as e:
+                    st.warning(f"Could not analyze {bank}: {str(e)[:100]}...")
+                    continue
+        
+        if not banks_quality_data:
+            st.warning("No quality assessment data available. The system may be updating.")
+            return
+        
+        # Create tabs for different views
+        tab1, tab2, tab3 = st.tabs(["📊 Quality Grades", "⚖️ Dynamic Weights", "📈 Weight Changes"])
+        
+        with tab1:
+            st.subheader("Component Quality Grades by Bank")
+            
+            # Create quality matrix
+            components = ['news', 'reddit', 'marketaux', 'events', 'volume', 'momentum', 'ml_trading']
+            quality_matrix = []
+            
+            for bank in banks_quality_data:
+                row = [bank.replace('.AX', '')]
+                for component in components:
+                    if component in banks_quality_data[bank]['quality_assessments']:
+                        grade = banks_quality_data[bank]['quality_assessments'][component]['grade']
+                        score = banks_quality_data[bank]['quality_assessments'][component]['score']
+                        row.append(f"{grade} ({score:.0%})")
+                    else:
+                        row.append("N/A")
+                quality_matrix.append(row)
+            
+            # Create DataFrame for display
+            quality_df = pd.DataFrame(quality_matrix, columns=['Bank'] + [c.title() for c in components])
+            
+            # Style the dataframe with colors based on grades
+            def style_grades(val):
+                if 'A' in val:
+                    return 'background-color: #d4edda; color: #155724'
+                elif 'B' in val:
+                    return 'background-color: #cce5ff; color: #004085'
+                elif 'C' in val:
+                    return 'background-color: #fff3cd; color: #856404'
+                elif 'D' in val:
+                    return 'background-color: #ffeaa7; color: #d68910'
+                elif 'F' in val:
+                    return 'background-color: #f8d7da; color: #721c24'
+                return ''
+            
+            styled_df = quality_df.style.applymap(style_grades, subset=quality_df.columns[1:])
+            st.dataframe(styled_df, use_container_width=True, hide_index=True)
+            
+            # Quality insights
+            st.markdown("**📋 Quality Insights:**")
+            all_grades = []
+            for bank in banks_quality_data.values():
+                for component in bank['quality_assessments'].values():
+                    all_grades.append(component['grade'])
+            
+            grade_counts = pd.Series(all_grades).value_counts()
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Excellent (A-B)", grade_counts.get('A', 0) + grade_counts.get('B', 0))
+            with col2:
+                st.metric("Average (C)", grade_counts.get('C', 0))
+            with col3:
+                st.metric("Poor (D-F)", grade_counts.get('D', 0) + grade_counts.get('F', 0))
+        
+        with tab2:
+            st.subheader("Dynamic Weight Allocation")
+            
+            # Create weight comparison chart
+            for i, (bank, data) in enumerate(banks_quality_data.items()):
+                st.markdown(f"**{bank.replace('.AX', '')}** (Sentiment: {data['overall_sentiment']:+.3f}, Confidence: {data['confidence']:.1%})")
+                
+                # Create base vs dynamic weights comparison
+                base_weights = analyzer.quality_weighting.base_weights
+                dynamic_weights = data['dynamic_weights']
+                
+                components_display = [c.replace('_', ' ').title() for c in components]
+                base_values = [base_weights[c] * 100 for c in components]
+                dynamic_values = [dynamic_weights[c] * 100 for c in components]
+                
+                # Create comparison chart
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    name='Base Weights',
+                    x=components_display,
+                    y=base_values,
+                    marker_color='lightblue',
+                    opacity=0.7
+                ))
+                fig.add_trace(go.Bar(
+                    name='Dynamic Weights',
+                    x=components_display,
+                    y=dynamic_values,
+                    marker_color='darkblue'
+                ))
+                
+                fig.update_layout(
+                    title=f"{bank.replace('.AX', '')} - Weight Comparison",
+                    xaxis_title="Components",
+                    yaxis_title="Weight (%)",
+                    barmode='group',
+                    height=400,
+                    showlegend=True
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                if i < len(banks_quality_data) - 1:
+                    st.markdown("---")
+        
+        with tab3:
+            st.subheader("Weight Change Analysis")
+            
+            # Create weight change heatmap
+            change_matrix = []
+            bank_names = []
+            
+            for bank, data in banks_quality_data.items():
+                bank_names.append(bank.replace('.AX', ''))
+                changes = []
+                for component in components:
+                    if component in data['weight_changes']:
+                        changes.append(data['weight_changes'][component])
+                    else:
+                        changes.append(0)
+                change_matrix.append(changes)
+            
+            if change_matrix:
+                # Create heatmap
+                fig = px.imshow(
+                    change_matrix,
+                    x=[c.replace('_', ' ').title() for c in components],
+                    y=bank_names,
+                    color_continuous_scale='RdBu_r',
+                    color_continuous_midpoint=0,
+                    title="Weight Changes (%) - Red: Decreased, Blue: Increased",
+                    aspect="auto"
+                )
+                
+                # Add text annotations
+                for i, bank_changes in enumerate(change_matrix):
+                    for j, change in enumerate(bank_changes):
+                        fig.add_annotation(
+                            x=j, y=i,
+                            text=f"{change:+.0f}%",
+                            showarrow=False,
+                            font=dict(color="white" if abs(change) > 20 else "black", size=10)
+                        )
+                
+                fig.update_layout(height=400)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            # Summary statistics
+            st.markdown("**📊 Weight Change Summary:**")
+            all_changes = []
+            for data in banks_quality_data.values():
+                all_changes.extend(data['weight_changes'].values())
+            
+            if all_changes:
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Avg Change", f"{np.mean(all_changes):+.1f}%")
+                with col2:
+                    st.metric("Max Increase", f"{max(all_changes):+.1f}%")
+                with col3:
+                    st.metric("Max Decrease", f"{min(all_changes):+.1f}%")
+                with col4:
+                    st.metric("Volatility", f"{np.std(all_changes):.1f}%")
+        
+        # System benefits info box
+        st.info("""
+        **🎯 Benefits of Quality-Based Dynamic Weighting:**
+        - **Adaptive Intelligence**: Weights automatically adjust based on real-time data quality
+        - **Robust Analysis**: Poor quality sources get reduced influence automatically
+        - **Enhanced Accuracy**: High-confidence components receive increased weight
+        - **Transparent Metrics**: Clear A-F grading system for each component
+        - **Real-time Optimization**: No manual intervention required
+        """)
+        
+    except ImportError as e:
+        st.error(f"Quality analysis module not available: {e}")
+    except Exception as e:
+        st.error(f"Error in quality analysis: {e}")
+        st.info("The quality analysis system may be initializing. Please try refreshing in a moment.")
+
+
 def main():
     """
     Main dashboard application
@@ -1584,6 +1840,10 @@ def main():
         
         # Render dashboard sections
         render_ml_performance_section(ml_metrics)
+        st.markdown("---")
+        
+        # NEW: Quality-Based Dynamic Weighting Analysis
+        render_quality_based_weighting_section()
         st.markdown("---")
         
         render_portfolio_correlation_section(correlation_data)
