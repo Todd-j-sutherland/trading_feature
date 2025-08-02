@@ -217,6 +217,73 @@ News Sources → Sentiment Analysis → Feature Engineering → ML Models → Pr
 | `enhanced_evening_analyzer_with_ml.py` | Evening analysis | Model training, validation |
 | `enhanced_training_pipeline.py` | ML pipeline | Feature engineering, training |
 
+## 📊 **ML SYSTEM STATUS & PERFORMANCE TRACKING** {#ml-status}
+
+> **Last Assessment**: August 2, 2025 - Remote Evening Analysis  
+> **Next Review**: August 9, 2025 (Weekly Check)
+
+### 🎯 **Current Model Performance** 
+```
+Training Samples: 10 (Target: 50+ for production)
+Feature Count: 53 (✅ Complete)
+Direction Accuracy: 
+  ├─ 1-hour: 50.0% (❌ Target: 60%+)
+  ├─ 4-hour: 66.7% (✅ Good progress)  
+  └─ 1-day: 50.0% (❌ Target: 60%+)
+Model Assessment: NEEDS_IMPROVEMENT
+```
+
+### 📈 **Training Data Accumulation Status**
+| Metric | Current | Target | Status |
+|--------|---------|--------|--------|
+| Training Samples | 10 | 50+ | ❌ Insufficient |
+| Feature Completeness | 100% | 100% | ✅ Perfect |
+| Validation Success | 100% | 95%+ | ✅ Excellent |
+| Direction Accuracy | 50-67% | 60%+ | ⚠️ Improving |
+
+### 🔮 **Prediction Confidence Tracking**
+```
+Current Confidence: 0.523 (Target: 0.6+)
+Market Outlook: NEUTRAL
+Signal Distribution: All HOLD (Conservative)
+Banks Analyzed: 7/7 (100% coverage)
+```
+
+### ⏰ **Development Timeline**
+| Week | Expected Samples | Accuracy Target | Status |
+|------|------------------|-----------------|--------|
+| Week 1 (Current) | 10-15 | 50-60% | 🔄 In Progress |
+| Week 2 | 20-30 | 55-65% | 📅 Planned |
+| Week 3-4 | 40-60 | 60-75% | 🎯 Production Target |
+
+### 🔍 **Weekly Monitoring Commands**
+```bash
+# Check training data accumulation
+ssh root@170.64.199.151 'cd /root/test && source ../trading_venv/bin/activate && python3 -c "
+import sqlite3
+conn = sqlite3.connect(\"data/ml_models/enhanced_training_data.db\")
+cursor = conn.cursor()
+cursor.execute(\"SELECT COUNT(*) FROM enhanced_features\")
+features = cursor.fetchone()[0]
+cursor.execute(\"SELECT COUNT(*) FROM enhanced_outcomes WHERE price_direction_1h IS NOT NULL\")
+outcomes = cursor.fetchone()[0]
+print(f\"Features: {features}\")
+print(f\"Outcomes: {outcomes}\")
+print(f\"Training readiness: {'✅ READY' if features >= 50 and outcomes >= 50 else '❌ INSUFFICIENT'}\")
+conn.close()
+"'
+
+# Run weekly evening analysis for model assessment
+ssh root@170.64.199.151 'cd /root/test && source ../trading_venv/bin/activate && python3 -m app.main evening'
+```
+
+### 📋 **Action Items for Next Review (Aug 9)**
+- [ ] Verify training samples ≥ 25 (50% target)
+- [ ] Check accuracy improvement (target: 55%+ on 4h predictions)  
+- [ ] Monitor prediction confidence (target: 0.55+)
+- [ ] Assess signal diversity (reduce HOLD-only predictions)
+- [ ] Validate Smart Collector outcome recording
+
 ## 🏦 **Supported Banks (11 Total)**
 
 ```python
@@ -1908,5 +1975,5 @@ ssh root@170.64.199.151 'cd /root/test && source ../trading_venv/bin/activate &&
 
 
 ssh root@170.64.199.151 "cd /root/test && source /root/trading_venv/bin/activate && PYTHONPATH=/root/test python3 app/core/data/collectors/news_collector.py"
-
+python3 -m app.core.data.collectors.news_collector
 ssh root@170.64.199.151 "ps aux | grep news_collector | grep -v grep"

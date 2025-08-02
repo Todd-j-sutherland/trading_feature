@@ -21,7 +21,6 @@ from typing import Dict, List, Optional, Tuple
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import json
 
 # Configuration
 DATABASE_PATH = "data/ml_models/enhanced_training_data.db"
@@ -271,13 +270,26 @@ def fetch_ml_feature_analysis() -> Dict:
         if not row:
             raise DataError("No ML feature data found")
         
-        # Parse ML features if available
-        ml_features_info = {}
-        if row['ml_features']:
-            try:
-                ml_features_info = json.loads(row['ml_features'])
-            except json.JSONDecodeError:
-                ml_features_info = {"raw": row['ml_features']}
+        # Get detailed feature statistics from SQL instead of JSON
+        feature_details = {
+            'feature_version': row['ml_features'] or 'Unknown',
+            'total_features': 53,  # Based on schema analysis
+            'feature_categories': {
+                'Sentiment Features': ['sentiment_score', 'confidence', 'news_count', 'reddit_sentiment', 'event_score'],
+                'Technical Indicators': ['rsi', 'macd_line', 'macd_signal', 'macd_histogram', 'sma_20', 'sma_50', 'sma_200', 'ema_12', 'ema_26', 'bollinger_upper', 'bollinger_lower', 'bollinger_width'],
+                'Price Features': ['current_price', 'price_change_1h', 'price_change_4h', 'price_change_1d', 'price_change_5d', 'price_change_20d', 'price_vs_sma20', 'price_vs_sma50', 'price_vs_sma200', 'daily_range', 'atr_14', 'volatility_20d'],
+                'Volume Features': ['volume', 'volume_sma20', 'volume_ratio', 'on_balance_volume', 'volume_price_trend'],
+                'Market Context': ['asx200_change', 'sector_performance', 'aud_usd_rate', 'vix_level', 'market_breadth', 'market_momentum'],
+                'Interaction Features': ['sentiment_momentum', 'sentiment_rsi', 'volume_sentiment', 'confidence_volatility', 'news_volume_impact', 'technical_sentiment_divergence'],
+                'Time Features': ['asx_market_hours', 'asx_opening_hour', 'asx_closing_hour', 'monday_effect', 'friday_effect', 'month_end', 'quarter_end']
+            },
+            'usage_stats': {
+                'news_analysis': float(row['news_usage'] or 0) * 100,
+                'reddit_sentiment': float(row['reddit_usage'] or 0) * 100,
+                'event_scoring': float(row['event_usage'] or 0) * 100,
+                'technical_indicators': float(row['technical_usage'] or 0) * 100
+            }
+        }
         
         feature_analysis = {
             'total_records': row['total_records'],
@@ -293,7 +305,7 @@ def fetch_ml_feature_analysis() -> Dict:
                 'avg_event_strength': float(row['avg_event_strength'] or 0),
                 'avg_technical_strength': float(row['avg_technical_strength'] or 0)
             },
-            'ml_features': ml_features_info
+            'ml_features': feature_details
         }
         
         return feature_analysis
@@ -971,7 +983,46 @@ def render_ml_features_explanation(feature_analysis: Dict):
     # ML Features details
     if feature_analysis['ml_features']:
         with st.expander("🔧 Detailed ML Features"):
-            st.json(feature_analysis['ml_features'])
+            ml_features = feature_analysis['ml_features']
+            
+            # Feature version and overview
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Feature Version", ml_features['feature_version'])
+            with col2:
+                st.metric("Total Features", ml_features['total_features'])
+            with col3:
+                st.metric("Categories", len(ml_features['feature_categories']))
+            
+            # Feature categories breakdown
+            st.subheader("📊 Feature Categories")
+            for category, features in ml_features['feature_categories'].items():
+                with st.expander(f"{category} ({len(features)} features)"):
+                    # Display features in columns for better readability
+                    cols = st.columns(3)
+                    for i, feature in enumerate(features):
+                        cols[i % 3].write(f"• {feature}")
+            
+            # Usage statistics
+            st.subheader("📈 Feature Usage Statistics")
+            usage_stats = ml_features['usage_stats']
+            
+            usage_df = pd.DataFrame([
+                {"Feature Type": "News Analysis", "Usage Rate": usage_stats['news_analysis']},
+                {"Feature Type": "Reddit Sentiment", "Usage Rate": usage_stats['reddit_sentiment']},
+                {"Feature Type": "Event Scoring", "Usage Rate": usage_stats['event_scoring']},
+                {"Feature Type": "Technical Indicators", "Usage Rate": usage_stats['technical_indicators']}
+            ])
+            
+            fig_usage = px.bar(
+                usage_df,
+                x='Feature Type',
+                y='Usage Rate',
+                title="Feature Usage Rates (%)",
+                color='Usage Rate',
+                color_continuous_scale='viridis'
+            )
+            st.plotly_chart(fig_usage, use_container_width=True)
 
 def render_prediction_timeline(timeline_df: pd.DataFrame):
     """

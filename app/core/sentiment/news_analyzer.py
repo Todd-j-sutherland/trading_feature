@@ -139,6 +139,9 @@ class NewsSentimentAnalyzer:
         # Load ML model if available
         self.ml_model = self._load_ml_model()
         
+        # Initialize Reddit client
+        self._init_reddit_client()
+        
         # Initialize transformer models if available
         self.transformer_pipelines = {}
         
@@ -151,6 +154,39 @@ class NewsSentimentAnalyzer:
                 self.init_finbert_only()
             else:
                 self.init_transformer_models()
+    
+    def _init_reddit_client(self):
+        """Initialize Reddit client for sentiment analysis"""
+        try:
+            # Get Reddit credentials from environment variables
+            client_id = os.getenv('REDDIT_CLIENT_ID')
+            client_secret = os.getenv('REDDIT_CLIENT_SECRET')
+            user_agent = os.getenv('REDDIT_USER_AGENT', 'TradingAnalysisBot/1.0')
+            
+            if client_id and client_secret:
+                self.reddit = praw.Reddit(
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    user_agent=user_agent
+                )
+                
+                # Test Reddit connection
+                test_subreddit = self.reddit.subreddit('AusFinance')
+                test_subreddit.display_name  # This will raise an exception if auth fails
+                
+                logger.info("✅ Reddit client initialized successfully")
+                return True
+                
+            else:
+                logger.warning("❌ Reddit credentials not found in environment variables")
+                logger.info("Set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET to enable Reddit sentiment")
+                return False
+                
+        except Exception as e:
+            logger.warning(f"❌ Failed to initialize Reddit client: {e}")
+            logger.info("Reddit sentiment will be disabled - only news sentiment will be used")
+            self.reddit = None
+            return False
             
     def init_transformer_models(self):
         """Initialize various transformer models for sentiment analysis"""
@@ -1739,6 +1775,7 @@ class NewsSentimentAnalyzer:
             keywords = self.bank_keywords.get(symbol, [symbol.replace('.AX', '')])
             
             if not self.reddit:
+                logger.debug(f"❌ Reddit client not available for {symbol} - skipping Reddit sentiment")
                 return {
                     'posts_analyzed': 0,
                     'average_sentiment': 0,
@@ -1747,9 +1784,11 @@ class NewsSentimentAnalyzer:
                     'neutral_count': 0,
                     'top_posts': [],
                     'sentiment_distribution': {},
-                    'subreddit_breakdown': {}
+                    'subreddit_breakdown': {},
+                    'error': 'Reddit client not initialized'
                 }
             
+            logger.debug(f"🔍 Collecting Reddit sentiment for {symbol} with keywords: {keywords}")
             subreddits = ['ASX_Bets', 'AusFinance', 'fiaustralia', 'ASX', 'investing']
             all_posts = []
             
