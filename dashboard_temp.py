@@ -11,15 +11,6 @@ Requirements:
 - Production-ready error handling
 """
 
-# Suppress warnings for cleaner dashboard output
-import warnings
-warnings.filterwarnings('ignore', category=UserWarning)
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-warnings.filterwarnings('ignore', message='.*sklearn.*')
-warnings.filterwarnings('ignore', message='.*transformers.*')
-warnings.filterwarnings('ignore', message='.*ScriptRunContext.*')
-warnings.filterwarnings('ignore', message='.*missing ScriptRunContext.*')
-
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -33,33 +24,12 @@ from plotly.subplots import make_subplots
 import sys
 import os
 
-# Configure Streamlit to reduce warnings
-import logging
-logging.getLogger('streamlit').setLevel(logging.ERROR)
+# Add the app directory to the path for MarketAux integration
+sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
+from app.core.sentiment.marketaux_integration import MarketAuxManager
 
-# Try to import MarketAux and enhanced confidence with fallback
-try:
-    from app.core.sentiment.marketaux_integration import MarketAuxManager
-except ImportError:
-    # Fallback if MarketAux not available
-    class MarketAuxManager:
-        def __init__(self):
-            pass
-        def get_super_batch_sentiment(self):
-            return []
-
-try:
-    from enhance_confidence_calculation import get_enhanced_confidence
-except ImportError:
-    # Fallback confidence calculation
-    def get_enhanced_confidence(rsi, sentiment_data, symbol):
-        if rsi < 30 or rsi > 70:
-            return 0.8
-        else:
-            return 0.3
-
-# Configuration - FIXED: Use correct database path
-DATABASE_PATH = "./data/ml_models/enhanced_training_data.db"
+# Configuration
+DATABASE_PATH = "data/ml_models/enhanced_training_data.db"
 ASX_BANKS = ["CBA.AX", "ANZ.AX", "WBC.AX", "NAB.AX", "MQG.AX", "SUN.AX", "QBE.AX"]
 
 class DatabaseError(Exception):
@@ -103,12 +73,12 @@ def fetch_ml_performance_metrics() -> Dict:
                 COUNT(CASE WHEN sentiment_score < -0.05 THEN 1 END) as sell_signals,
                 COUNT(CASE WHEN sentiment_score BETWEEN -0.05 AND 0.05 THEN 1 END) as hold_signals
             FROM enhanced_features 
-            WHERE timestamp >= date('now', '-30 days')
+            WHERE timestamp >= date('now', '-7 days')
         """)
         
         row = cursor.fetchone()
         if not row or row['total_predictions'] == 0:
-            raise DataError("No prediction data found in the last 30 days")
+            raise DataError("No prediction data found in the last 7 days")
         
         # Get performance from enhanced outcomes
         cursor = conn.execute("""
@@ -427,7 +397,7 @@ def fetch_portfolio_correlation_data() -> Dict:
                 sf.timestamp,
                 ROW_NUMBER() OVER (PARTITION BY sf.symbol ORDER BY sf.timestamp DESC) as rn
             FROM enhanced_features sf
-            WHERE sf.timestamp >= date('now', '-30 days')
+            WHERE sf.timestamp >= date('now', '-7 days')
             AND sf.symbol IN ({})
         """.format(','.join('?' * len(ASX_BANKS))), ASX_BANKS)
         
@@ -574,7 +544,7 @@ def fetch_prediction_timeline() -> pd.DataFrame:
                 END as accuracy
             FROM enhanced_features ef
             LEFT JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
-            WHERE ef.timestamp >= datetime('now', '-30 days')
+            WHERE ef.timestamp >= datetime('now', '-7 days')
             ORDER BY ef.timestamp DESC
             LIMIT 100
         """
@@ -1558,228 +1528,10 @@ def render_prediction_timeline(timeline_df: pd.DataFrame):
         else:
             st.warning("No predictions match the selected filters.")
 
-def render_quality_based_weighting_section():
-    """
-    Render quality-based dynamic weighting analysis (slow loading - placed at bottom)
-    """
-    try:
-        # Import the quality analyzer (may be slow to load)
-        from quality_based_weighting_system import QualityBasedSentimentWeighting
-        
-        st.subheader("🔬 Quality-Based Dynamic Weighting Analysis")
-        st.write("**Real-time quality assessment of sentiment components with dynamic weight adjustment**")
-        
-        # Initialize analyzer
-        analyzer = QualityBasedSentimentWeighting()
-        banks_quality_data = {}
-        
-        # Initialize analyzer
-        analyzer = QualityBasedSentimentWeighting()
-        
-        # Create sample analysis data (in real implementation, this would come from actual sentiment analysis)
-        with st.spinner("Analyzing sentiment component quality..."):
-            # Sample analysis based on current sentiment data
-            sample_analysis = {
-                'news_count': 35,
-                'sentiment_scores': {'average_sentiment': 0.15, 'sentiment_variance': 0.25},
-                'reddit_sentiment': {'posts_analyzed': 0, 'average_sentiment': 0.0},  # Reddit broken
-                'marketaux_sentiment': {'sentiment_score': 0.2, 'confidence': 0.8, 'articles_analyzed': 12},
-                'ml_confidence': 0.75,
-                'transformer_confidence': 0.85,
-                'significant_events': {'events_detected': [1, 2]}
-            }
-            
-            # Calculate dynamic weights
-            results = analyzer.calculate_dynamic_weights(sample_analysis)
-        
-        # Create quality overview
-        st.markdown("#### 📊 Quality Overview")
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            avg_quality = np.mean(list(results['quality_scores'].values()))
-            quality_grade = "A" if avg_quality > 0.8 else "B" if avg_quality > 0.6 else "C" if avg_quality > 0.4 else "D"
-            st.metric("Average Quality", f"{quality_grade} ({avg_quality:.2f})")
-        
-        with col2:
-            total_adjustment = results['total_adjustment']
-            st.metric("Total Weight Adjustment", f"{total_adjustment:.3f}")
-        
-        with col3:
-            components_analyzed = len(results['weights'])
-            st.metric("Components Analyzed", components_analyzed)
-        
-        with col4:
-            best_component = max(results['quality_scores'], key=results['quality_scores'].get)
-            st.metric("Best Component", best_component.title())
-        
-        # Dynamic weights comparison
-        st.markdown("#### ⚖️ Dynamic Weight Comparison")
-        
-        # Create comparison DataFrame
-        weight_data = []
-        for component in analyzer.base_weights.keys():
-            base_weight = analyzer.base_weights[component] * 100
-            quality_score = results['quality_scores'][component]
-            new_weight = results['weights'][component] * 100
-            change = new_weight - base_weight
-            
-            weight_data.append({
-                'Component': component.title(),
-                'Base Weight (%)': f"{base_weight:.1f}%",
-                'Quality Score': f"{quality_score:.3f}",
-                'New Weight (%)': f"{new_weight:.1f}%",
-                'Change': f"{change:+.1f}%",
-                'Quality Grade': "A" if quality_score > 0.8 else "B" if quality_score > 0.6 else "C" if quality_score > 0.4 else "D"
-            })
-        
-        weight_df = pd.DataFrame(weight_data)
-        st.dataframe(weight_df, use_container_width=True, hide_index=True)
-        
-        # Quality scores visualization
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Quality scores bar chart
-            quality_chart_data = pd.DataFrame([
-                {'Component': k.title(), 'Quality Score': v}
-                for k, v in results['quality_scores'].items()
-            ])
-            
-            fig = px.bar(
-                quality_chart_data,
-                x='Component',
-                y='Quality Score',
-                title="Component Quality Scores",
-                color='Quality Score',
-                color_continuous_scale='RdYlGn',
-                range_y=[0, 1]
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Weight adjustment visualization
-            weight_chart_data = pd.DataFrame([
-                {
-                    'Component': k.title(), 
-                    'Base Weight': analyzer.base_weights[k] * 100,
-                    'Adjusted Weight': v * 100
-                }
-                for k, v in results['weights'].items()
-            ])
-            
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                name='Base Weight',
-                x=weight_chart_data['Component'],
-                y=weight_chart_data['Base Weight'],
-                marker_color='lightblue'
-            ))
-            fig.add_trace(go.Bar(
-                name='Adjusted Weight',
-                x=weight_chart_data['Component'],
-                y=weight_chart_data['Adjusted Weight'],
-                marker_color='darkblue'
-            ))
-            fig.update_layout(
-                title='Weight Comparison: Base vs Quality-Adjusted',
-                barmode='group',
-                yaxis_title='Weight (%)'
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Quality report
-        st.markdown("#### 📋 Detailed Quality Report")
-        quality_report = analyzer.get_quality_report()
-        st.text(quality_report)
-        
-        # Key insights
-        st.markdown("#### 💡 Key Insights")
-        
-        # Component performance analysis
-        best_component = max(results['quality_scores'], key=results['quality_scores'].get)
-        worst_component = min(results['quality_scores'], key=results['quality_scores'].get)
-        
-        insights = [
-            f"🥇 **Best performing component**: {best_component.title()} (Quality: {results['quality_scores'][best_component]:.3f})",
-            f"📉 **Needs improvement**: {worst_component.title()} (Quality: {results['quality_scores'][worst_component]:.3f})",
-            f"📊 **System adaptation**: {results['total_adjustment']:.3f} total weight adjustment",
-            f"⚖️ **Dynamic balancing**: Weights automatically adjusted based on real-time quality"
-        ]
-        
-        # Add specific insights based on components
-        if results['quality_scores']['reddit'] < 0.3:
-            insights.append("🔴 **Reddit sentiment**: Very low quality detected - reduced weight applied")
-        
-        if results['quality_scores']['marketaux'] > 0.7:
-            insights.append("🟢 **MarketAux**: High quality professional news source - weight boosted")
-        
-        if results['quality_scores']['ml_trading'] > 0.6:
-            insights.append("🤖 **ML confidence**: Good model performance - maintaining weight")
-        
-        for insight in insights:
-            st.write(insight)
-        
-        # System benefits
-        with st.expander("🎯 **Benefits of Quality-Based Weighting**", expanded=False):
-            st.markdown("""
-            **🔄 Automatic Adaptation:**
-            - System automatically adjusts to changing data quality
-            - Poor quality components get reduced influence
-            - High quality components get enhanced weight
-            
-            **📊 Real-time Quality Assessment:**
-            - Continuous monitoring of all sentiment components
-            - Machine learning validates each data source
-            - Historical performance tracking improves over time
-            
-            **�️ Risk Reduction:**
-            - Prevents overreliance on any single data source
-            - Reduces impact of unreliable or stale data
-            - Maintains balanced portfolio view
-            
-            **🎯 Enhanced Accuracy:**
-            - Higher confidence in final sentiment scores
-            - Better prediction performance through quality focus
-            - Transparent quality metrics for analysis
-            """)
-        
-    except ImportError as e:
-        st.error(f"Quality analysis module not available: {e}")
-        st.info("""
-        **Quality-Based Dynamic Weighting Analysis**
-        
-        This advanced feature analyzes the quality of sentiment components and adjusts 
-        weights dynamically for more accurate predictions.
-        
-        **Features include:**
-        - 📊 Component quality grading (0-1 scale)
-        - ⚖️ Dynamic weight adjustment based on quality
-        - 📈 Real-time quality monitoring
-        - 🎯 Confidence scoring with quality factors
-        
-        **To enable:** Ensure the quality weighting system is properly configured.
-        """)
-    except Exception as e:
-        st.error(f"Error in quality analysis: {e}")
-        st.info("The quality analysis system may be initializing. Please try refreshing in a moment.")
-
 def main():
     """
     Main dashboard application
     """
-    # Suppress additional Streamlit warnings
-    import streamlit.web.cli as stcli
-    import streamlit.runtime.scriptrunner as sr
-    
-    # Check if running in proper Streamlit context
-    try:
-        # This will work when run with streamlit run
-        ctx = sr.get_script_run_ctx()
-    except:
-        # Running directly with python - create minimal context
-        ctx = None
-    
     # Page configuration
     st.set_page_config(
         page_title="ASX Banks Trading Sentiment Dashboard",
@@ -1851,15 +1603,6 @@ def main():
         st.markdown("---")
         
         render_prediction_timeline(timeline_df)
-        
-        # Move quality analysis to the bottom for slow loading
-        st.markdown("---")
-        st.markdown("### ⚡ Advanced Analysis (May Take a Moment to Load)")
-        
-        # Quality-Based Dynamic Weighting Analysis - at the bottom for safety
-        with st.expander("🔬 **Quality-Based Dynamic Weighting Analysis**", expanded=False):
-            st.markdown("**Advanced sentiment component quality analysis with dynamic weighting**")
-            render_quality_based_weighting_section()
         
         # Footer
         st.markdown("---")
