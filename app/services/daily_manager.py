@@ -74,21 +74,24 @@ class TradingSystemManager:
                 if enhanced_result and 'error' not in enhanced_result:
                     print("✅ Enhanced ML morning analysis completed successfully")
                     
-                    # Display key results
-                    predictions = enhanced_result.get('bank_predictions', {})
-                    market_overview = enhanced_result.get('market_overview', {})
+                    # Display key results using correct structure
+                    banks_analyzed = enhanced_result.get('banks_analyzed', [])
+                    ml_predictions = enhanced_result.get('ml_predictions', {})
+                    overall_sentiment = enhanced_result.get('overall_market_sentiment', 0)
+                    feature_counts = enhanced_result.get('feature_counts', {})
+                    total_features = sum(feature_counts.values()) if feature_counts else 0
                     
                     print(f"\n📊 Enhanced Analysis Summary:")
-                    print(f"   Banks Analyzed: {len(predictions)}")
-                    print(f"   Market Sentiment: {market_overview.get('overall_sentiment', 'UNKNOWN')}")
-                    print(f"   Feature Pipeline: {enhanced_result.get('data_collection_summary', {}).get('total_features_collected', 0)} features")
+                    print(f"   Banks Analyzed: {len(banks_analyzed)}")
+                    print(f"   Market Sentiment: {'BULLISH' if overall_sentiment > 0.1 else 'BEARISH' if overall_sentiment < -0.1 else 'NEUTRAL'}")
+                    print(f"   Feature Pipeline: {total_features} features")
                     
                     # Show top predictions
-                    if predictions:
+                    if ml_predictions:
                         print(f"\n🎯 Top Trading Signals:")
-                        for symbol, pred in list(predictions.items())[:3]:
+                        for symbol, pred in list(ml_predictions.items())[:3]:
                             action = pred.get('optimal_action', 'UNKNOWN')
-                            confidence = pred.get('confidence', 0)
+                            confidence = pred.get('confidence_scores', {}).get('average', 0)
                             print(f"   {symbol}: {action} (confidence: {confidence:.3f})")
                     
                     return True
