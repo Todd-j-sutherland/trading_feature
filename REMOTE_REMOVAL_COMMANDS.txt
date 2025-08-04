@@ -1,0 +1,123 @@
+# REMOTE SYNTHETIC DATA REMOVAL COMMANDS
+# Copy and paste these commands on your remote server
+
+# You're already connected to: ssh root@170.64.199.151
+# You're already in: cd /root/test && source ../trading_venv/bin/activate
+
+# Create the removal script directly on remote server:
+cat > remove_synthetic_outcomes.py << 'EOF'
+#!/usr/bin/env python3
+"""
+Remove Synthetic Outcomes - Clean Real Data Only
+"""
+
+import sqlite3
+import os
+from datetime import datetime
+
+print("🧹 REMOVING SYNTHETIC OUTCOMES")
+print("=" * 50)
+
+db_path = "data/ml_models/enhanced_training_data.db"
+
+if not os.path.exists(db_path):
+    print(f"❌ Database not found: {db_path}")
+    exit(1)
+
+try:
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Check current state
+    cursor.execute("SELECT COUNT(*) FROM enhanced_outcomes")
+    total_before = cursor.fetchone()[0]
+    
+    print(f"📊 Before cleanup: {total_before} total outcomes")
+    
+    # Identify synthetic (exit_timestamp = prediction_timestamp)
+    cursor.execute("""
+        SELECT COUNT(*) FROM enhanced_outcomes 
+        WHERE exit_timestamp = prediction_timestamp
+    """)
+    synthetic_count = cursor.fetchone()[0]
+    
+    print(f"🎯 Found {synthetic_count} synthetic outcomes to remove")
+    
+    if synthetic_count > 0:
+        # Remove synthetic outcomes
+        cursor.execute("""
+            DELETE FROM enhanced_outcomes 
+            WHERE exit_timestamp = prediction_timestamp
+        """)
+        
+        removed_count = cursor.rowcount
+        conn.commit()
+        print(f"✅ Removed {removed_count} synthetic outcomes")
+    
+    # Final state
+    cursor.execute("SELECT COUNT(*) FROM enhanced_outcomes")
+    total_after = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM enhanced_features")
+    features_count = cursor.fetchone()[0]
+    
+    print(f"📊 After cleanup:")
+    print(f"   Features: {features_count}")
+    print(f"   Real outcomes: {total_after}")
+    print(f"   Training ready: {'✅ YES' if features_count >= 50 and total_after >= 50 else '❌ NO'}")
+    
+    # Show real data composition
+    if total_after > 0:
+        cursor.execute("""
+            SELECT symbol, COUNT(*) 
+            FROM enhanced_outcomes 
+            GROUP BY symbol 
+            ORDER BY COUNT(*) DESC
+        """)
+        for symbol, count in cursor.fetchall():
+            print(f"   {symbol}: {count} real outcomes")
+    
+    conn.close()
+    print("✅ CLEANUP COMPLETE - Database contains ONLY real market data")
+    
+except Exception as e:
+    print(f"❌ Error: {e}")
+EOF
+
+chmod +x remove_synthetic_outcomes.py
+
+# Run the cleanup
+echo "🚀 Running synthetic data removal..."
+python3 remove_synthetic_outcomes.py
+
+# Verify the cleanup worked
+echo ""
+echo "🔍 Final verification:"
+python3 -c "
+import sqlite3
+conn = sqlite3.connect('data/ml_models/enhanced_training_data.db')
+cursor = conn.cursor()
+
+cursor.execute('SELECT COUNT(*) FROM enhanced_features')
+features = cursor.fetchone()[0]
+
+cursor.execute('SELECT COUNT(*) FROM enhanced_outcomes')
+outcomes = cursor.fetchone()[0]
+
+cursor.execute('SELECT COUNT(*) FROM enhanced_outcomes WHERE exit_timestamp = prediction_timestamp')
+synthetic_remaining = cursor.fetchone()[0]
+
+print(f'📊 FINAL STATE:')
+print(f'   Features: {features}')
+print(f'   Real outcomes: {outcomes}')
+print(f'   Synthetic remaining: {synthetic_remaining}')
+print(f'   Clean database: {\"✅ YES\" if synthetic_remaining == 0 else \"❌ NO\"}')
+print(f'   Training ready: {\"✅ YES\" if features >= 50 and outcomes >= 50 else \"❌ NO\"}')
+
+conn.close()
+"
+
+echo ""
+echo "🎯 REMOVAL COMPLETE!"
+echo "   Your database now contains ONLY real market data"
+echo "   System will accumulate training data naturally over time"

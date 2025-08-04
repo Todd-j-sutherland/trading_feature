@@ -276,7 +276,7 @@ class EnhancedEveningAnalyzer:
         
         try:
             # Prepare training dataset
-            X, y = self.enhanced_pipeline.prepare_enhanced_training_dataset(min_samples=10)
+            X, y = self.enhanced_pipeline.prepare_enhanced_training_dataset(min_samples=50)
             
             if X is not None and y is not None:
                 training_results['training_attempted'] = True
@@ -520,14 +520,14 @@ class EnhancedEveningAnalyzer:
                 
                 validation_results['performance_thresholds'] = thresholds
                 
-                # Check against thresholds
-                meets_direction_threshold = dir_acc_1h >= thresholds['min_direction_accuracy']
+                # Check against thresholds - Use 4h accuracy since that's what we have data for
+                meets_direction_threshold = dir_acc_4h >= thresholds['min_direction_accuracy']
                 meets_magnitude_threshold = mag_mae_1d <= thresholds['max_magnitude_mae']
                 meets_sample_threshold = samples >= thresholds['min_samples']
                 
                 validation_results['benchmark_comparison'] = {
-                    'direction_accuracy_1h': {
-                        'value': dir_acc_1h,
+                    'direction_accuracy_4h': {
+                        'value': dir_acc_4h,
                         'threshold': thresholds['min_direction_accuracy'],
                         'meets_threshold': meets_direction_threshold
                     },
