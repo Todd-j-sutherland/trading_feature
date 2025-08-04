@@ -9,7 +9,6 @@ Requirements:
 - Direct SQL database queries (no JSON files)
 - Real-time data only
 - Production-ready error handling
-- Feature flag system for safe feature development
 """
 
 # Suppress warnings for cleaner dashboard output
@@ -31,11 +30,11 @@ from typing import Dict, List, Optional, Tuple
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import logging
 import sys
 import os
 
 # Configure Streamlit to reduce warnings
+import logging
 logging.getLogger('streamlit').setLevel(logging.ERROR)
 
 # Try to import MarketAux and enhanced confidence with fallback
@@ -49,17 +48,6 @@ except ImportError:
         def get_super_batch_sentiment(self):
             return []
 
-# Import feature flag system for safe feature development
-try:
-    from feature_flags import FeatureFlags, is_feature_enabled, feature_gate
-    FEATURE_FLAGS = FeatureFlags()
-except ImportError:
-    # Fallback if feature flags not available
-    FEATURE_FLAGS = None
-    def is_feature_enabled(feature_name): return False
-    def feature_gate(feature_name): 
-        return lambda func: lambda *args, **kwargs: None
-
 try:
     from enhance_confidence_calculation import get_enhanced_confidence
 except ImportError:
@@ -71,7 +59,7 @@ except ImportError:
             return 0.3
 
 # Configuration - FIXED: Use correct database path
-DATABASE_PATH = "./data/ml_models/enhanced_training_data.db"
+DATABASE_PATH = "enhanced_ml_system/integration/data/ml_models/enhanced_training_data.db"
 ASX_BANKS = ["CBA.AX", "ANZ.AX", "WBC.AX", "NAB.AX", "MQG.AX", "SUN.AX", "QBE.AX"]
 
 class DatabaseError(Exception):
@@ -159,156 +147,6 @@ def fetch_ml_performance_metrics() -> Dict:
         
     except sqlite3.Error as e:
         raise DatabaseError(f"Failed to fetch ML performance metrics: {e}")
-    finally:
-        conn.close()
-
-def fetch_hypothetical_returns_data(days: int = 30) -> pd.DataFrame:
-    """
-    Fetch hypothetical returns analysis based on actual entry/exit prices
-    Returns detailed trading scenarios with multiple timeframes
-    """
-    conn = get_database_connection()
-    
-    try:
-        # Get outcomes with detailed price information
-        cursor = conn.execute("""
-            SELECT 
-                eo.id,
-                eo.symbol,
-                eo.prediction_timestamp,
-                eo.optimal_action,
-                eo.confidence_score,
-                eo.entry_price,
-                eo.exit_price_1h,
-                eo.exit_price_4h,
-                eo.exit_price_1d,
-                eo.return_pct as actual_return,
-                eo.price_direction_1h,
-                eo.price_direction_4h,
-                eo.price_direction_1d,
-                eo.price_magnitude_1h,
-                eo.price_magnitude_4h,
-                eo.price_magnitude_1d,
-                eo.exit_timestamp,
-                ef.sentiment_score,
-                ef.rsi
-            FROM enhanced_outcomes eo
-            LEFT JOIN enhanced_features ef ON eo.feature_id = ef.id
-            WHERE eo.prediction_timestamp >= date('now', '-{} days')
-            AND eo.exit_timestamp IS NOT NULL
-            AND eo.entry_price IS NOT NULL
-            ORDER BY eo.prediction_timestamp DESC
-        """.format(days))
-        
-        results = cursor.fetchall()
-        
-        if not results:
-            return pd.DataFrame()
-        
-        # Process results into hypothetical trading scenarios
-        trades = []
-        for row in results:
-            # Base trade information
-            base_trade = {
-                'Trade_ID': row[0],
-                'Symbol': row[1],
-                'Prediction_Time': pd.to_datetime(row[2]),
-                'Signal': row[3],
-                'Confidence': float(row[4] or 0),
-                'Entry_Price': float(row[5] or 0),
-                'Actual_Return': float(row[9] or 0),
-                'Sentiment_Score': float(row[17] or 0) if row[17] else 0,
-                'RSI': float(row[18] or 0) if row[18] else 0
-            }
-            
-            # Calculate hypothetical returns for different timeframes
-            entry_price = base_trade['Entry_Price']
-            
-            if entry_price > 0:
-                # 1-hour scenario
-                if row[6]:  # exit_price_1h
-                    exit_1h = float(row[6])
-                    return_1h = ((exit_1h - entry_price) / entry_price) * 100
-                    
-                    # For SELL signals, invert the return (short position)
-                    if base_trade['Signal'] in ['SELL', 'STRONG_SELL']:
-                        return_1h = -return_1h
-                    
-                    trades.append({
-                        **base_trade,
-                        'Timeframe': '1 Hour',
-                        'Exit_Price': exit_1h,
-                        'Hypothetical_Return_%': return_1h,
-                        'Position_Type': 'Short' if base_trade['Signal'] in ['SELL', 'STRONG_SELL'] else 'Long',
-                        'Trade_Duration': '1h'
-                    })
-                
-                # 4-hour scenario
-                if row[7]:  # exit_price_4h
-                    exit_4h = float(row[7])
-                    return_4h = ((exit_4h - entry_price) / entry_price) * 100
-                    
-                    if base_trade['Signal'] in ['SELL', 'STRONG_SELL']:
-                        return_4h = -return_4h
-                    
-                    trades.append({
-                        **base_trade,
-                        'Timeframe': '4 Hours',
-                        'Exit_Price': exit_4h,
-                        'Hypothetical_Return_%': return_4h,
-                        'Position_Type': 'Short' if base_trade['Signal'] in ['SELL', 'STRONG_SELL'] else 'Long',
-                        'Trade_Duration': '4h'
-                    })
-                
-                # 1-day scenario
-                if row[8]:  # exit_price_1d
-                    exit_1d = float(row[8])
-                    return_1d = ((exit_1d - entry_price) / entry_price) * 100
-                    
-                    if base_trade['Signal'] in ['SELL', 'STRONG_SELL']:
-                        return_1d = -return_1d
-                    
-                    trades.append({
-                        **base_trade,
-                        'Timeframe': '1 Day',
-                        'Exit_Price': exit_1d,
-                        'Hypothetical_Return_%': return_1d,
-                        'Position_Type': 'Short' if base_trade['Signal'] in ['SELL', 'STRONG_SELL'] else 'Long',
-                        'Trade_Duration': '1d'
-                    })
-        
-        df = pd.DataFrame(trades)
-        
-        if not df.empty:
-            # Add additional calculated fields
-            df['Profit_Loss_$'] = df.apply(lambda row: 
-                (row['Hypothetical_Return_%'] / 100) * 10000, axis=1)  # Assuming $10k position size
-            
-            df['Trade_Success'] = df['Hypothetical_Return_%'] > 0
-            df['Signal_Strength'] = df['Signal'].map({
-                'STRONG_BUY': 5, 'BUY': 4, 'HOLD': 3, 'SELL': 2, 'STRONG_SELL': 1
-            })
-            
-            # Performance categorization
-            def categorize_performance(return_pct):
-                if return_pct > 2:
-                    return 'Excellent'
-                elif return_pct > 1:
-                    return 'Good'
-                elif return_pct > 0:
-                    return 'Profitable'
-                elif return_pct > -1:
-                    return 'Small Loss'
-                else:
-                    return 'Large Loss'
-            
-            df['Performance_Category'] = df['Hypothetical_Return_%'].apply(categorize_performance)
-        
-        return df
-        
-    except sqlite3.Error as e:
-        st.warning(f"Could not fetch hypothetical returns: {e}")
-        return pd.DataFrame()
     finally:
         conn.close()
 
@@ -1096,313 +934,6 @@ def render_ml_performance_section(metrics: Dict):
         **Current status:** System rebuilding - collecting data for future analysis
         """)
 
-def render_hypothetical_returns_analysis(returns_df: pd.DataFrame):
-    """
-    Render comprehensive hypothetical returns analysis
-    """
-    st.subheader("💰 Hypothetical Trading Returns Analysis")
-    st.markdown("**What would your returns have been based on actual entry/exit prices?**")
-    
-    if returns_df.empty:
-        st.info("""
-        📊 **Hypothetical returns analysis will appear here once trading outcomes accumulate**
-        
-        **What you'll see:**
-        - 💰 Profit/loss calculations across multiple timeframes
-        - 📈 Performance by signal type and confidence level
-        - 🎯 Success rate analysis by trading strategy
-        - 📊 Portfolio simulation with different position sizes
-        
-        **Current status:** System needs more completed trades for analysis
-        """)
-        return
-    
-    # Summary metrics
-    st.markdown("#### 📊 Trading Performance Summary")
-    
-    total_trades = len(returns_df)
-    profitable_trades = len(returns_df[returns_df['Hypothetical_Return_%'] > 0])
-    total_return = returns_df['Hypothetical_Return_%'].sum()
-    avg_return = returns_df['Hypothetical_Return_%'].mean()
-    best_trade = returns_df['Hypothetical_Return_%'].max()
-    worst_trade = returns_df['Hypothetical_Return_%'].min()
-    
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        success_rate = (profitable_trades / total_trades) * 100 if total_trades > 0 else 0
-        st.metric(
-            "Success Rate",
-            f"{success_rate:.1f}%",
-            f"{profitable_trades}/{total_trades} trades"
-        )
-    
-    with col2:
-        st.metric(
-            "Total Return",
-            f"{total_return:.2f}%",
-            "Cumulative"
-        )
-    
-    with col3:
-        st.metric(
-            "Average Return",
-            f"{avg_return:.2f}%",
-            "Per trade"
-        )
-    
-    with col4:
-        st.metric(
-            "Best Trade",
-            f"+{best_trade:.2f}%",
-            "Single trade"
-        )
-    
-    with col5:
-        st.metric(
-            "Worst Trade",
-            f"{worst_trade:.2f}%",
-            "Single trade"
-        )
-    
-    # Portfolio simulation
-    st.markdown("#### 💼 Portfolio Simulation")
-    
-    # Position size selector
-    position_sizes = [1000, 5000, 10000, 25000, 50000]
-    selected_position = st.selectbox(
-        "Select hypothetical position size ($):",
-        position_sizes,
-        index=2,  # Default to $10,000
-        help="Choose how much you would invest per trade"
-    )
-    
-    # Calculate portfolio performance
-    returns_df['Position_Value'] = selected_position
-    returns_df['Profit_Loss_$'] = (returns_df['Hypothetical_Return_%'] / 100) * selected_position
-    
-    portfolio_performance = returns_df.groupby('Timeframe').agg({
-        'Hypothetical_Return_%': ['count', 'mean', 'sum'],
-        'Profit_Loss_$': ['sum', 'mean'],
-        'Trade_Success': 'sum'
-    }).round(2)
-    
-    portfolio_performance.columns = ['Total_Trades', 'Avg_Return_%', 'Cumulative_Return_%', 
-                                   'Total_Profit_$', 'Avg_Profit_$', 'Successful_Trades']
-    portfolio_performance['Success_Rate_%'] = (
-        portfolio_performance['Successful_Trades'] / portfolio_performance['Total_Trades'] * 100
-    ).round(1)
-    
-    st.dataframe(portfolio_performance, use_container_width=True)
-    
-    # Visualization section
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Returns distribution by timeframe
-        fig = px.box(
-            returns_df,
-            x='Timeframe',
-            y='Hypothetical_Return_%',
-            color='Position_Type',
-            title=f"Return Distribution by Timeframe (${selected_position:,} positions)",
-            hover_data=['Symbol', 'Signal', 'Confidence']
-        )
-        fig.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.5)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        # Performance by signal type
-        signal_performance = returns_df.groupby('Signal').agg({
-            'Hypothetical_Return_%': ['count', 'mean'],
-            'Trade_Success': 'sum'
-        }).round(2)
-        signal_performance.columns = ['Trade_Count', 'Avg_Return_%', 'Successful_Trades']
-        signal_performance['Success_Rate_%'] = (
-            signal_performance['Successful_Trades'] / signal_performance['Trade_Count'] * 100
-        ).round(1)
-        signal_performance.reset_index(inplace=True)
-        
-        fig = px.scatter(
-            signal_performance,
-            x='Success_Rate_%',
-            y='Avg_Return_%',
-            size='Trade_Count',
-            color='Signal',
-            title="Signal Performance: Success Rate vs Average Return",
-            hover_data=['Trade_Count']
-        )
-        fig.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.5)
-        fig.add_vline(x=50, line_dash="dash", line_color="black", opacity=0.5)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Detailed trades table
-    st.markdown("#### 📋 Detailed Trading Records")
-    
-    # Filter options
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        timeframe_filter = st.selectbox(
-            "Filter by Timeframe:",
-            ['All'] + list(returns_df['Timeframe'].unique()),
-            index=0
-        )
-    
-    with col2:
-        signal_filter = st.selectbox(
-            "Filter by Signal:",
-            ['All'] + list(returns_df['Signal'].unique()),
-            index=0
-        )
-    
-    with col3:
-        performance_filter = st.selectbox(
-            "Filter by Performance:",
-            ['All', 'Profitable', 'Losses'],
-            index=0
-        )
-    
-    # Apply filters
-    filtered_df = returns_df.copy()
-    
-    if timeframe_filter != 'All':
-        filtered_df = filtered_df[filtered_df['Timeframe'] == timeframe_filter]
-    
-    if signal_filter != 'All':
-        filtered_df = filtered_df[filtered_df['Signal'] == signal_filter]
-    
-    if performance_filter == 'Profitable':
-        filtered_df = filtered_df[filtered_df['Hypothetical_Return_%'] > 0]
-    elif performance_filter == 'Losses':
-        filtered_df = filtered_df[filtered_df['Hypothetical_Return_%'] <= 0]
-    
-    # Format display data
-    display_df = filtered_df.copy()
-    display_df['Date'] = display_df['Prediction_Time'].dt.strftime('%Y-%m-%d %H:%M')
-    display_df['Entry Price'] = display_df['Entry_Price'].apply(lambda x: f"${x:.2f}")
-    display_df['Exit Price'] = display_df['Exit_Price'].apply(lambda x: f"${x:.2f}")
-    display_df['Return %'] = display_df['Hypothetical_Return_%'].apply(lambda x: f"{x:+.2f}%")
-    display_df['Profit/Loss'] = display_df['Profit_Loss_$'].apply(lambda x: f"${x:+.2f}")
-    display_df['Confidence'] = display_df['Confidence'].apply(lambda x: f"{x:.1%}")
-    
-    # Add result indicator
-    def get_result_indicator(return_pct):
-        if return_pct > 1:
-            return '🟢 Excellent'
-        elif return_pct > 0:
-            return '✅ Profit'
-        elif return_pct > -1:
-            return '🟡 Small Loss'
-        else:
-            return '🔴 Large Loss'
-    
-    display_df['Result'] = display_df['Hypothetical_Return_%'].apply(get_result_indicator)
-    
-    # Select columns for display
-    display_columns = [
-        'Date', 'Symbol', 'Signal', 'Timeframe', 'Position_Type',
-        'Entry Price', 'Exit Price', 'Return %', 'Profit/Loss', 
-        'Confidence', 'Result'
-    ]
-    
-    st.dataframe(
-        display_df[display_columns].head(20),  # Limit to 20 most recent
-        use_container_width=True,
-        hide_index=True
-    )
-    
-    if len(filtered_df) > 20:
-        st.info(f"Showing 20 most recent trades. Total filtered trades: {len(filtered_df)}")
-    
-    # Performance insights
-    st.markdown("#### 💡 Trading Strategy Insights")
-    
-    if len(filtered_df) > 0:
-        insights = []
-        
-        # Best performing timeframe
-        timeframe_returns = filtered_df.groupby('Timeframe')['Hypothetical_Return_%'].mean()
-        best_timeframe = timeframe_returns.idxmax()
-        best_timeframe_return = timeframe_returns.max()
-        insights.append(f"🎯 **Best timeframe**: {best_timeframe} (Avg: {best_timeframe_return:+.2f}%)")
-        
-        # Best performing signal
-        signal_returns = filtered_df.groupby('Signal')['Hypothetical_Return_%'].mean()
-        best_signal = signal_returns.idxmax()
-        best_signal_return = signal_returns.max()
-        insights.append(f"📈 **Best signal type**: {best_signal} (Avg: {best_signal_return:+.2f}%)")
-        
-        # High confidence trades
-        high_conf_trades = filtered_df[filtered_df['Confidence'] > 0.7]
-        if len(high_conf_trades) > 0:
-            high_conf_return = high_conf_trades['Hypothetical_Return_%'].mean()
-            insights.append(f"🎪 **High confidence trades** (>70%): {len(high_conf_trades)} trades, Avg: {high_conf_return:+.2f}%")
-        
-        # Best performing bank
-        bank_returns = filtered_df.groupby('Symbol')['Hypothetical_Return_%'].mean()
-        best_bank = bank_returns.idxmax()
-        best_bank_return = bank_returns.max()
-        insights.append(f"🏦 **Best performing bank**: {best_bank} (Avg: {best_bank_return:+.2f}%)")
-        
-        # Risk analysis
-        volatility = filtered_df['Hypothetical_Return_%'].std()
-        insights.append(f"📊 **Strategy volatility**: {volatility:.2f}% (lower is less risky)")
-        
-        for insight in insights:
-            st.write(insight)
-    
-    # Risk metrics
-    with st.expander("⚠️ **Risk Analysis**", expanded=False):
-        if len(filtered_df) > 0:
-            # Sharpe ratio approximation (assuming risk-free rate of 4%)
-            excess_return = filtered_df['Hypothetical_Return_%'].mean() - (4/365)  # Daily risk-free rate
-            volatility = filtered_df['Hypothetical_Return_%'].std()
-            sharpe_ratio = excess_return / volatility if volatility > 0 else 0
-            
-            # Maximum drawdown
-            cumulative_returns = (1 + filtered_df['Hypothetical_Return_%'] / 100).cumprod()
-            running_max = cumulative_returns.expanding().max()
-            drawdown = (cumulative_returns - running_max) / running_max
-            max_drawdown = drawdown.min() * 100
-            
-            # Win/loss streaks
-            win_streak = 0
-            loss_streak = 0
-            current_win_streak = 0
-            current_loss_streak = 0
-            
-            for return_pct in filtered_df['Hypothetical_Return_%']:
-                if return_pct > 0:
-                    current_win_streak += 1
-                    current_loss_streak = 0
-                    win_streak = max(win_streak, current_win_streak)
-                else:
-                    current_loss_streak += 1
-                    current_win_streak = 0
-                    loss_streak = max(loss_streak, current_loss_streak)
-            
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Sharpe Ratio", f"{sharpe_ratio:.2f}")
-            
-            with col2:
-                st.metric("Max Drawdown", f"{max_drawdown:.2f}%")
-            
-            with col3:
-                st.metric("Longest Win Streak", f"{win_streak} trades")
-            
-            with col4:
-                st.metric("Longest Loss Streak", f"{loss_streak} trades")
-            
-            st.markdown("""
-            **Risk Metrics Explained:**
-            - **Sharpe Ratio**: Risk-adjusted return (>1.0 is good, >2.0 is excellent)
-            - **Max Drawdown**: Largest peak-to-trough decline in portfolio value
-            - **Win/Loss Streaks**: Consecutive profitable/unprofitable trades
-            """)
-
 def render_marketaux_sentiment_comparison():
     """
     Render sentiment comparison: Reddit vs MarketAux vs Combined
@@ -2027,194 +1558,115 @@ def render_prediction_timeline(timeline_df: pd.DataFrame):
         else:
             st.warning("No predictions match the selected filters.")
 
-@feature_gate('ADVANCED_VISUALIZATIONS')
 def render_quality_based_weighting_section():
     """
     Render quality-based dynamic weighting analysis (slow loading - placed at bottom)
-    Feature gated: Only shows if FEATURE_ADVANCED_VISUALIZATIONS is enabled
     """
     try:
         # Import the quality analyzer (may be slow to load)
-        from quality_based_weighting_system import QualityBasedSentimentWeighting
+        from quality_based_weighting_system import NewsSentimentAnalyzer
         
         st.subheader("🔬 Quality-Based Dynamic Weighting Analysis")
         st.write("**Real-time quality assessment of sentiment components with dynamic weight adjustment**")
-        st.info("🎛️ This feature is controlled by the FEATURE_ADVANCED_VISUALIZATIONS flag")
         
         # Initialize analyzer
-        analyzer = QualityBasedSentimentWeighting()
+        analyzer = NewsSentimentAnalyzer()
         banks_quality_data = {}
         
-        # Initialize analyzer
-        analyzer = QualityBasedSentimentWeighting()
+        with st.spinner("Analyzing component quality for all banks..."):
+            for bank in ASX_BANKS[:4]:  # Focus on big 4 banks for performance
+                try:
+                    result = analyzer.analyze_bank_sentiment(bank)
+                    if 'quality_assessments' in result:
+                        banks_quality_data[bank] = {
+                            'quality_assessments': result['quality_assessments'],
+                            'weight_changes': result['weight_changes'],
+                            'dynamic_weights': result['dynamic_weights'],
+                            'overall_sentiment': result['overall_sentiment'],
+                            'confidence': result['confidence']
+                        }
+                except Exception as e:
+                    st.warning(f"Could not analyze {bank}: {str(e)[:100]}...")
+                    continue
         
-        # Create sample analysis data (in real implementation, this would come from actual sentiment analysis)
-        with st.spinner("Analyzing sentiment component quality..."):
-            # Sample analysis based on current sentiment data
-            sample_analysis = {
-                'news_count': 35,
-                'sentiment_scores': {'average_sentiment': 0.15, 'sentiment_variance': 0.25},
-                'reddit_sentiment': {'posts_analyzed': 0, 'average_sentiment': 0.0},  # Reddit broken
-                'marketaux_sentiment': {'sentiment_score': 0.2, 'confidence': 0.8, 'articles_analyzed': 12},
-                'ml_confidence': 0.75,
-                'transformer_confidence': 0.85,
-                'significant_events': {'events_detected': [1, 2]}
-            }
-            
-            # Calculate dynamic weights
-            results = analyzer.calculate_dynamic_weights(sample_analysis)
+        if not banks_quality_data:
+            st.warning("No quality assessment data available. The system may be updating.")
+            return
         
         # Create quality overview
         st.markdown("#### 📊 Quality Overview")
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            avg_quality = np.mean(list(results['quality_scores'].values()))
-            quality_grade = "A" if avg_quality > 0.8 else "B" if avg_quality > 0.6 else "C" if avg_quality > 0.4 else "D"
-            st.metric("Average Quality", f"{quality_grade} ({avg_quality:.2f})")
+            avg_quality = np.mean([data['quality_assessments']['overall']['grade_numeric'] 
+                                 for data in banks_quality_data.values()])
+            st.metric("Average Quality", f"{avg_quality:.1f}/10")
         
         with col2:
-            total_adjustment = results['total_adjustment']
-            st.metric("Total Weight Adjustment", f"{total_adjustment:.3f}")
+            total_adjustments = sum([len(data['weight_changes']) 
+                                   for data in banks_quality_data.values()])
+            st.metric("Weight Adjustments", total_adjustments)
         
         with col3:
-            components_analyzed = len(results['weights'])
-            st.metric("Components Analyzed", components_analyzed)
+            banks_analyzed = len(banks_quality_data)
+            st.metric("Banks Analyzed", f"{banks_analyzed}/{len(ASX_BANKS)}")
         
         with col4:
-            best_component = max(results['quality_scores'], key=results['quality_scores'].get)
-            st.metric("Best Component", best_component.title())
+            avg_confidence = np.mean([data['confidence'] 
+                                    for data in banks_quality_data.values()])
+            st.metric("Avg Confidence", f"{avg_confidence:.1%}")
         
-        # Dynamic weights comparison
-        st.markdown("#### ⚖️ Dynamic Weight Comparison")
+        # Quality matrix visualization
+        st.markdown("#### 📈 Component Quality Matrix")
         
-        # Create comparison DataFrame
-        weight_data = []
-        for component in analyzer.base_weights.keys():
-            base_weight = analyzer.base_weights[component] * 100
-            quality_score = results['quality_scores'][component]
-            new_weight = results['weights'][component] * 100
-            change = new_weight - base_weight
+        # Create quality matrix data
+        components = ['news', 'reddit', 'marketaux', 'events', 'volume', 'momentum', 'ml_trading']
+        quality_matrix = []
+        
+        for bank, data in banks_quality_data.items():
+            bank_row = [bank.replace('.AX', '')]
+            for component in components:
+                if component in data['quality_assessments']:
+                    grade = data['quality_assessments'][component].get('grade_numeric', 5.0)
+                    bank_row.append(grade)
+                else:
+                    bank_row.append(5.0)  # Default neutral grade
+            quality_matrix.append(bank_row)
+        
+        if quality_matrix:
+            quality_df = pd.DataFrame(quality_matrix, 
+                                    columns=['Bank'] + [c.title() for c in components])
             
-            weight_data.append({
-                'Component': component.title(),
-                'Base Weight (%)': f"{base_weight:.1f}%",
-                'Quality Score': f"{quality_score:.3f}",
-                'New Weight (%)': f"{new_weight:.1f}%",
-                'Change': f"{change:+.1f}%",
-                'Quality Grade': "A" if quality_score > 0.8 else "B" if quality_score > 0.6 else "C" if quality_score > 0.4 else "D"
-            })
-        
-        weight_df = pd.DataFrame(weight_data)
-        st.dataframe(weight_df, use_container_width=True, hide_index=True)
-        
-        # Quality scores visualization
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Quality scores bar chart
-            quality_chart_data = pd.DataFrame([
-                {'Component': k.title(), 'Quality Score': v}
-                for k, v in results['quality_scores'].items()
-            ])
-            
-            fig = px.bar(
-                quality_chart_data,
-                x='Component',
-                y='Quality Score',
-                title="Component Quality Scores",
-                color='Quality Score',
+            # Create heatmap
+            fig = px.imshow(
+                quality_df.set_index('Bank').values,
+                x=[c.title() for c in components],
+                y=quality_df['Bank'].values,
                 color_continuous_scale='RdYlGn',
-                range_y=[0, 1]
+                title="Quality Grades by Component and Bank (0-10 scale)",
+                aspect='auto',
+                text_auto=True
             )
+            fig.update_layout(height=400)
             st.plotly_chart(fig, use_container_width=True)
         
-        with col2:
-            # Weight adjustment visualization
-            weight_chart_data = pd.DataFrame([
-                {
-                    'Component': k.title(), 
-                    'Base Weight': analyzer.base_weights[k] * 100,
-                    'Adjusted Weight': v * 100
-                }
-                for k, v in results['weights'].items()
-            ])
-            
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                name='Base Weight',
-                x=weight_chart_data['Component'],
-                y=weight_chart_data['Base Weight'],
-                marker_color='lightblue'
-            ))
-            fig.add_trace(go.Bar(
-                name='Adjusted Weight',
-                x=weight_chart_data['Component'],
-                y=weight_chart_data['Adjusted Weight'],
-                marker_color='darkblue'
-            ))
-            fig.update_layout(
-                title='Weight Comparison: Base vs Quality-Adjusted',
-                barmode='group',
-                yaxis_title='Weight (%)'
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Quality report
-        st.markdown("#### 📋 Detailed Quality Report")
-        quality_report = analyzer.get_quality_report()
-        st.text(quality_report)
-        
-        # Key insights
+        # Summary insights
         st.markdown("#### 💡 Key Insights")
+        insights = []
         
-        # Component performance analysis
-        best_component = max(results['quality_scores'], key=results['quality_scores'].get)
-        worst_component = min(results['quality_scores'], key=results['quality_scores'].get)
-        
-        insights = [
-            f"🥇 **Best performing component**: {best_component.title()} (Quality: {results['quality_scores'][best_component]:.3f})",
-            f"📉 **Needs improvement**: {worst_component.title()} (Quality: {results['quality_scores'][worst_component]:.3f})",
-            f"📊 **System adaptation**: {results['total_adjustment']:.3f} total weight adjustment",
-            f"⚖️ **Dynamic balancing**: Weights automatically adjusted based on real-time quality"
-        ]
-        
-        # Add specific insights based on components
-        if results['quality_scores']['reddit'] < 0.3:
-            insights.append("🔴 **Reddit sentiment**: Very low quality detected - reduced weight applied")
-        
-        if results['quality_scores']['marketaux'] > 0.7:
-            insights.append("🟢 **MarketAux**: High quality professional news source - weight boosted")
-        
-        if results['quality_scores']['ml_trading'] > 0.6:
-            insights.append("🤖 **ML confidence**: Good model performance - maintaining weight")
+        for bank, data in banks_quality_data.items():
+            quality = data['quality_assessments']['overall']['grade_numeric']
+            confidence = data['confidence']
+            
+            if quality >= 8.0:
+                insights.append(f"✅ **{bank}**: Excellent quality ({quality:.1f}/10) with {confidence:.1%} confidence")
+            elif quality >= 6.0:
+                insights.append(f"🟡 **{bank}**: Good quality ({quality:.1f}/10) with {confidence:.1%} confidence")
+            else:
+                insights.append(f"🔴 **{bank}**: Needs attention ({quality:.1f}/10) with {confidence:.1%} confidence")
         
         for insight in insights:
             st.write(insight)
-        
-        # System benefits
-        with st.expander("🎯 **Benefits of Quality-Based Weighting**", expanded=False):
-            st.markdown("""
-            **🔄 Automatic Adaptation:**
-            - System automatically adjusts to changing data quality
-            - Poor quality components get reduced influence
-            - High quality components get enhanced weight
-            
-            **📊 Real-time Quality Assessment:**
-            - Continuous monitoring of all sentiment components
-            - Machine learning validates each data source
-            - Historical performance tracking improves over time
-            
-            **�️ Risk Reduction:**
-            - Prevents overreliance on any single data source
-            - Reduces impact of unreliable or stale data
-            - Maintains balanced portfolio view
-            
-            **🎯 Enhanced Accuracy:**
-            - Higher confidence in final sentiment scores
-            - Better prediction performance through quality focus
-            - Transparent quality metrics for analysis
-            """)
         
     except ImportError as e:
         st.error(f"Quality analysis module not available: {e}")
@@ -2225,7 +1677,7 @@ def render_quality_based_weighting_section():
         weights dynamically for more accurate predictions.
         
         **Features include:**
-        - 📊 Component quality grading (0-1 scale)
+        - 📊 Component quality grading (0-10 scale)
         - ⚖️ Dynamic weight adjustment based on quality
         - 📈 Real-time quality monitoring
         - 🎯 Confidence scoring with quality factors
@@ -2235,667 +1687,6 @@ def render_quality_based_weighting_section():
     except Exception as e:
         st.error(f"Error in quality analysis: {e}")
         st.info("The quality analysis system may be initializing. Please try refreshing in a moment.")
-
-def render_feature_development_sections():
-    """
-    Render placeholder sections for features under development
-    Only shows if respective feature flags are enabled
-    """
-    st.markdown("---")
-    st.markdown("### 🚀 Feature Development (Beta)")
-    
-    # Phase 1 Features
-    if is_feature_enabled('CONFIDENCE_CALIBRATION'):
-        with st.expander("🎯 **Predictive Confidence Calibration** (BETA)", expanded=False):
-            st.markdown("**Dynamic ML confidence adjustment based on market conditions**")
-            render_confidence_calibration_section()
-    
-    if is_feature_enabled('ANOMALY_DETECTION'):
-        with st.expander("⚡ **Real-Time Anomaly Detection** (BETA)", expanded=False):
-            st.markdown("**Breaking news and market anomaly detection system**")
-            render_anomaly_detection_section()
-    
-    if is_feature_enabled('BACKTESTING_ENGINE'):
-        with st.expander("🎛️ **Strategy Backtesting Engine** (BETA)", expanded=False):
-            st.markdown("**Comprehensive strategy validation and optimization**")
-            render_backtesting_section()
-    
-    # Phase 2 Features
-    if is_feature_enabled('MULTI_ASSET_CORRELATION'):
-        with st.expander("📊 **Multi-Asset Correlation Analysis** (BETA)", expanded=False):
-            st.markdown("**Cross-asset correlation and sector rotation detection**")
-            render_multi_asset_placeholder()
-    
-    if is_feature_enabled('INTRADAY_PATTERNS'):
-        with st.expander("📈 **Intraday Pattern Recognition** (BETA)", expanded=False):
-            st.markdown("**Time-based pattern analysis and optimization**")
-            render_intraday_patterns_placeholder()
-    
-    # Phase 3 Features
-    if is_feature_enabled('ENSEMBLE_MODELS'):
-        with st.expander("🔮 **Ensemble Prediction Models** (BETA)", expanded=False):
-            st.markdown("**Multiple ML model combination for higher accuracy**")
-            render_ensemble_models_placeholder()
-    
-    if is_feature_enabled('POSITION_SIZING'):
-        with st.expander("🎪 **Dynamic Position Sizing** (BETA)", expanded=False):
-            st.markdown("**Intelligent position sizing based on risk and volatility**")
-            render_position_sizing_placeholder()
-    
-    # Additional Features
-    if is_feature_enabled('MOBILE_ALERTS'):
-        with st.expander("📱 **Mobile Alert System** (BETA)", expanded=False):
-            st.markdown("**SMS, email, and push notification alerts**")
-            render_mobile_alerts_placeholder()
-    
-    if is_feature_enabled('SENTIMENT_MOMENTUM'):
-        with st.expander("📊 **Sentiment Momentum Tracking** (BETA)", expanded=False):
-            st.markdown("**Sentiment velocity and acceleration analysis**")
-            render_sentiment_momentum_placeholder()
-    
-    # Show feature enabling instructions if no features are enabled
-    enabled_count = len([f for f in ['CONFIDENCE_CALIBRATION', 'ANOMALY_DETECTION', 'BACKTESTING_ENGINE', 
-                                    'MULTI_ASSET_CORRELATION', 'INTRADAY_PATTERNS', 'ENSEMBLE_MODELS',
-                                    'POSITION_SIZING', 'MOBILE_ALERTS', 'SENTIMENT_MOMENTUM'] 
-                        if is_feature_enabled(f)])
-    
-    if enabled_count == 0:
-        st.info("""
-        🎛️ **No development features currently enabled**
-        
-        To enable features for testing:
-        1. Copy `.env.example` to `.env`
-        2. Set desired features to `true`
-        3. Refresh the dashboard
-        
-        **Available features:**
-        - 🎯 Confidence Calibration
-        - ⚡ Anomaly Detection
-        - 🎛️ Backtesting Engine
-        - 📊 Multi-Asset Correlation
-        - 📈 Intraday Patterns
-        - 🔮 Ensemble Models
-        - 🎪 Position Sizing
-        - 📱 Mobile Alerts
-        - 📊 Sentiment Momentum
-        """)
-
-# Phase 1 Feature Implementations
-def render_confidence_calibration_section():
-    """Real confidence calibration feature implementation"""
-    try:
-        from simple_confidence_calibration import SimpleConfidenceCalibrator
-        
-        st.markdown("**🎯 Predictive Confidence Calibration System**")
-        st.info("🚀 **LIVE FEATURE** - Dynamically adjusting ML confidence based on real-time conditions")
-        
-        calibrator = SimpleConfidenceCalibrator()
-        
-        # Get current market conditions
-        with st.spinner("Analyzing confidence calibration factors..."):
-            conditions = calibrator.get_current_market_conditions()
-        
-        if conditions.get('data_available', False):
-            # Current conditions display
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                time_factor = conditions['current_time_factor']
-                time_status = "🟢 Optimal" if time_factor > 1.1 else "🟡 Good" if time_factor > 0.9 else "🔴 Poor"
-                st.metric("Time Factor", f"{time_factor:.2f}", f"{time_status}")
-            
-            with col2:
-                st.metric("Market Status", conditions['market_status'])
-            
-            with col3:
-                if conditions.get('avg_sentiment') is not None:
-                    sentiment_trend = "📈 Positive" if conditions['avg_sentiment'] > 0.1 else "📉 Negative" if conditions['avg_sentiment'] < -0.1 else "➡️ Neutral"
-                    st.metric("Sentiment Trend", f"{conditions['avg_sentiment']:+.3f}", sentiment_trend)
-                else:
-                    st.metric("Sentiment Trend", "N/A", "Building baseline")
-            
-            with col4:
-                if conditions.get('sentiment_volatility') is not None:
-                    vol_status = "🔴 High" if conditions['sentiment_volatility'] > 0.2 else "🟡 Medium" if conditions['sentiment_volatility'] > 0.1 else "🟢 Low"
-                    st.metric("Volatility", f"{conditions['sentiment_volatility']:.3f}", vol_status)
-                else:
-                    st.metric("Volatility", "N/A", "Limited data")
-            
-            # Sample calibration for current sentiment data
-            st.markdown("#### 🏦 Live Confidence Calibration by Bank")
-            
-            try:
-                current_sentiment = fetch_current_sentiment_scores()
-                
-                if not current_sentiment.empty:
-                    calibration_results = []
-                    for _, row in current_sentiment.iterrows():
-                        result = calibrator.calibrate_confidence(
-                            original_confidence=row['Confidence'],
-                            symbol=row['Symbol'],
-                            sentiment_score=row['Sentiment Score'],
-                            technical_score=row.get('Technical Score', 0.0)
-                        )
-                        
-                        calibration_results.append({
-                            'Symbol': row['Symbol'],
-                            'Original Confidence': f"{result['original_confidence']:.1%}",
-                            'Calibrated Confidence': f"{result['calibrated_confidence']:.1%}",
-                            'Adjustment': f"{result['adjustment_percent']:+.1f}%",
-                            'Time Factor': f"{result['factors'].get('time_factor', 1.0):.2f}",
-                            'Volatility Factor': f"{result['factors'].get('volatility_factor', 1.0):.2f}",
-                            'Sentiment Factor': f"{result['factors'].get('sentiment_factor', 1.0):.2f}",
-                            'Status': '🟢 Boosted' if result['adjustment'] > 0 else '🔴 Reduced' if result['adjustment'] < 0 else '🟡 Unchanged'
-                        })
-                    
-                    calibration_df = pd.DataFrame(calibration_results)
-                    st.dataframe(calibration_df, use_container_width=True, hide_index=True)
-                    
-                    # Show calibration insights
-                    st.markdown("#### 💡 Calibration Insights")
-                    
-                    boosted_count = len([r for r in calibration_results if '🟢' in r['Status']])
-                    reduced_count = len([r for r in calibration_results if '🔴' in r['Status']])
-                    
-                    insights = []
-                    insights.append(f"📈 **Confidence boosted**: {boosted_count}/{len(calibration_results)} stocks")
-                    insights.append(f"📉 **Confidence reduced**: {reduced_count}/{len(calibration_results)} stocks")
-                    insights.append(f"⏰ **Time factor**: {time_factor:.2f} ({'High confidence period' if time_factor > 1.1 else 'Low confidence period' if time_factor < 0.9 else 'Normal confidence period'})")
-                    insights.append(f"📊 **System status**: Active with real-time calibration")
-                    
-                    for insight in insights:
-                        st.write(insight)
-                else:
-                    st.warning("No current sentiment data available for calibration demo")
-                
-            except Exception as e:
-                st.warning(f"Could not load current sentiment for calibration demo: {e}")
-        
-        else:
-            st.warning("Limited market data available. Calibration system active with time-based factors only.")
-            time_factor = conditions.get('current_time_factor', 1.0)
-            market_status = conditions.get('market_status', 'Unknown')
-            st.write(f"**Current Time Factor**: {time_factor:.2f}")
-            st.write(f"**Market Status**: {market_status}")
-        
-        # Performance impact information
-        with st.expander("📊 **Calibration Performance Impact**", expanded=False):
-            st.markdown("""
-            **🎯 Expected Performance Improvements:**
-            - **Time-based adjustment**: 10-20% improvement during optimal trading hours
-            - **Volatility adjustment**: 15-25% better risk management in volatile conditions  
-            - **Sentiment strength**: 10-15% better signal quality assessment
-            - **Trend adjustment**: 5-10% improved adaptation to market trends
-            
-            **📈 Overall Impact**: Expected to boost success rate from 60% → 70%+
-            
-            **🔄 Dynamic Benefits:**
-            - Real-time adaptation to market conditions
-            - Reduced overconfidence in poor conditions
-            - Enhanced confidence in optimal conditions
-            - Better risk-adjusted returns
-            
-            **⚙️ Current Factors:**
-            - **Time-based**: Market hours vs after-hours adjustment
-            - **Volatility**: Based on technical indicator strength
-            - **Sentiment Strength**: Signal quality assessment
-            - **Trend**: Historical sentiment pattern analysis
-            """)
-    
-    except ImportError as e:
-        st.error(f"Confidence calibration module not available: {e}")
-    except Exception as e:
-        st.error(f"Error in confidence calibration: {e}")
-
-def render_anomaly_detection_section():
-    """Real anomaly detection feature implementation"""
-    try:
-        from simple_anomaly_detection import SimpleAnomalyDetector, AnomalyType, AnomalySeverity
-        
-        st.markdown("**⚡ Real-Time Anomaly Detection System**")
-        st.info("🚀 **LIVE FEATURE** - Detecting market anomalies and unusual trading conditions")
-        
-        detector = SimpleAnomalyDetector()
-        
-        # Get current data for anomaly detection
-        with st.spinner("Scanning for market anomalies..."):
-            current_sentiment = fetch_current_sentiment_scores()
-            
-            all_anomalies = []
-            risk_levels = []
-            
-            if not current_sentiment.empty:
-                for _, row in current_sentiment.iterrows():
-                    current_data = {
-                        'symbol': row['Symbol'],
-                        'sentiment_score': row['Sentiment Score'],
-                        'technical_score': row.get('Technical Score', 0.0),
-                        'news_count': row.get('News Count', 0),
-                        'confidence': row['Confidence']
-                    }
-                    
-                    detection_results = detector.run_detection(current_data)
-                    all_anomalies.extend(detection_results['anomalies'])
-                    risk_levels.append((row['Symbol'], detection_results['risk_level']))
-        
-        # Overall risk assessment
-        st.markdown("#### 🚨 Market Risk Assessment")
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            total_anomalies = len(all_anomalies)
-            st.metric("Total Anomalies", total_anomalies)
-        
-        with col2:
-            critical_count = len([a for a in all_anomalies if a.severity == AnomalySeverity.CRITICAL])
-            st.metric("Critical Alerts", critical_count, 
-                     "🚨" if critical_count > 0 else "✅")
-        
-        with col3:
-            high_count = len([a for a in all_anomalies if a.severity == AnomalySeverity.HIGH])
-            st.metric("High Priority", high_count,
-                     "⚠️" if high_count > 0 else "✅")
-        
-        with col4:
-            max_impact = max([a.impact_score for a in all_anomalies]) if all_anomalies else 0.0
-            impact_status = "🚨 Critical" if max_impact > 0.8 else "⚠️ High" if max_impact > 0.6 else "🟡 Medium" if max_impact > 0.3 else "✅ Low"
-            st.metric("Max Impact", f"{max_impact:.2f}", impact_status)
-        
-        # Risk level by stock
-        if risk_levels:
-            st.markdown("#### 🏦 Risk Level by Stock")
-            
-            risk_colors = {
-                'NORMAL': '🟢',
-                'LOW': '🟡',
-                'MEDIUM': '🟠',
-                'HIGH': '🔴',
-                'CRITICAL': '🚨'
-            }
-            
-            risk_display = []
-            for symbol, risk_level in risk_levels:
-                color = risk_colors.get(risk_level, '❓')
-                risk_display.append({
-                    'Bank': symbol,
-                    'Risk Level': f"{color} {risk_level}",
-                    'Status': risk_level
-                })
-            
-            risk_display_df = pd.DataFrame(risk_display)
-            st.dataframe(risk_display_df[['Bank', 'Risk Level']], use_container_width=True, hide_index=True)
-        
-        # Active anomalies
-        if all_anomalies:
-            st.markdown("#### 🔍 Active Anomalies Detected")
-            
-            # Sort by impact score
-            all_anomalies.sort(key=lambda x: x.impact_score, reverse=True)
-            
-            for i, anomaly in enumerate(all_anomalies[:8]):  # Show top 8
-                severity_color = {
-                    AnomalySeverity.CRITICAL: "🚨",
-                    AnomalySeverity.HIGH: "🔴", 
-                    AnomalySeverity.MEDIUM: "🟡",
-                    AnomalySeverity.LOW: "🟢"
-                }.get(anomaly.severity, "❓")
-                
-                anomaly_type_emoji = {
-                    AnomalyType.SENTIMENT_EXTREME: "💥",
-                    AnomalyType.NEWS_SPIKE: "📰",
-                    AnomalyType.SIGNAL_DIVERGENCE: "📈",
-                    AnomalyType.CONFIDENCE_ANOMALY: "🎯",
-                    AnomalyType.TECHNICAL_EXTREME: "⚙️"
-                }.get(anomaly.type, "❓")
-                
-                with st.expander(f"{severity_color} {anomaly_type_emoji} {anomaly.symbol}: {anomaly.description}", expanded=i < 2):
-                    
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        st.write(f"**Severity**: {anomaly.severity.value.title()}")
-                        st.write(f"**Type**: {anomaly.type.value.replace('_', ' ').title()}")
-                    
-                    with col2:
-                        st.write(f"**Impact Score**: {anomaly.impact_score:.3f}")
-                        st.write(f"**Confidence**: {anomaly.confidence:.3f}")
-                    
-                    with col3:
-                        st.write(f"**Timestamp**: {anomaly.timestamp.strftime('%H:%M:%S')}")
-                        st.write(f"**Symbol**: {anomaly.symbol}")
-                    
-                    # Show anomaly-specific data
-                    if anomaly.data:
-                        st.write("**Anomaly Data:**")
-                        for key, value in anomaly.data.items():
-                            if isinstance(value, float):
-                                st.write(f"• {key.replace('_', ' ').title()}: {value:.3f}")
-                            else:
-                                st.write(f"• {key.replace('_', ' ').title()}: {value}")
-        
-        else:
-            st.success("✅ **No anomalies detected** - Market conditions appear normal")
-        
-        # Anomaly detection insights
-        with st.expander("💡 **Anomaly Detection Insights**", expanded=False):
-            st.markdown("""
-            **🔍 What We Monitor:**
-            - **Sentiment Extremes**: Unusual positive/negative sentiment (>2σ from mean)
-            - **Confidence Anomalies**: Suspiciously high confidence levels (>90%)
-            - **News Volume Spikes**: 5x+ normal news volume indicating major events
-            - **Signal Divergence**: Sentiment vs technical signal conflicts
-            - **Technical Extremes**: Unusual technical indicator values
-            
-            **⚡ Detection Benefits:**
-            - **Early Warning**: Detect major moves before they happen
-            - **Risk Management**: Identify high-risk trading conditions
-            - **Opportunity Identification**: Spot unusual market conditions for profit
-            - **System Protection**: Prevent trading in anomalous conditions
-            
-            **🎯 Current Status**: Active monitoring with baseline from {detector.get_baseline_stats().get('total_records', 0)} data points
-            """)
-    
-    except ImportError as e:
-        st.error(f"Anomaly detection module not available: {e}")
-    except Exception as e:
-        st.error(f"Error in anomaly detection: {e}")
-
-def render_backtesting_section():
-    """Real backtesting engine feature implementation"""
-    try:
-        from simple_backtesting import SimpleBacktestingEngine, StrategyType
-        
-        st.markdown("**🎛️ Strategy Backtesting Engine**")
-        st.info("🚀 **LIVE FEATURE** - Strategy validation and signal analysis with available data")
-        
-        engine = SimpleBacktestingEngine()
-        
-        # Backtesting controls
-        st.markdown("#### ⚙️ Strategy Analysis Configuration")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Strategy selection
-            strategy_options = {
-                'Sentiment Only': StrategyType.SENTIMENT_ONLY,
-                'Technical Only': StrategyType.TECHNICAL_ONLY, 
-                'Combined Signal': StrategyType.COMBINED,
-                'High Confidence': StrategyType.HIGH_CONFIDENCE
-            }
-            
-            selected_strategies = st.multiselect(
-                "Select Strategies to Analyze",
-                options=list(strategy_options.keys()),
-                default=['Sentiment Only', 'Combined Signal'],
-                help="Choose which strategies to analyze and compare"
-            )
-        
-        with col2:
-            st.write("**Strategy Parameters:**")
-            st.write("• Sentiment threshold: ±0.1")
-            st.write("• Technical threshold: ±0.1") 
-            st.write("• High confidence: 85%+ filter")
-            st.write("• Combined: 60% sentiment + 40% technical")
-        
-        # Run analysis button
-        if st.button("🚀 Run Strategy Analysis", type="primary") and selected_strategies:
-            strategies_to_test = [strategy_options[name] for name in selected_strategies]
-            
-            with st.spinner("Running strategy signal analysis..."):
-                try:
-                    results = engine.compare_strategies(strategies_to_test)
-                    
-                    comparison_df = results['comparison_table']
-                    
-                    if comparison_df.empty or comparison_df['total_signals'].sum() == 0:
-                        st.warning("⚠️ No trading signals generated with current parameters")
-                        st.info("This could indicate conservative thresholds or limited market activity. Consider adjusting parameters.")
-                    else:
-                        # Strategy comparison results
-                        st.markdown("#### 📊 Strategy Signal Analysis")
-                        
-                        # Performance metrics table
-                        display_df = comparison_df.copy()
-                        display_df['strategy'] = display_df['strategy'].str.replace('_', ' ').str.title()
-                        display_df['buy_rate'] = display_df['buy_rate'].apply(lambda x: f"{x:.1%}")
-                        display_df['sell_rate'] = display_df['sell_rate'].apply(lambda x: f"{x:.1%}")
-                        display_df['avg_confidence'] = display_df['avg_confidence'].apply(lambda x: f"{x:.1%}")
-                        display_df['avg_sentiment'] = display_df['avg_sentiment'].apply(lambda x: f"{x:+.3f}")
-                        display_df['avg_technical'] = display_df['avg_technical'].apply(lambda x: f"{x:+.3f}")
-                        
-                        # Rename columns for display
-                        display_df.columns = ['Strategy', 'Total Signals', 'Buy Signals', 'Sell Signals', 
-                                            'Buy Rate', 'Sell Rate', 'Avg Confidence', 'Avg Sentiment', 'Avg Technical']
-                        
-                        st.dataframe(display_df, use_container_width=True, hide_index=True)
-                        
-                        # Most active strategy highlight
-                        if results['most_active_strategy']:
-                            most_active = results['most_active_strategy'].replace('_', ' ').title()
-                            active_signals = comparison_df[comparison_df['strategy'] == results['most_active_strategy']]['total_signals'].iloc[0]
-                            st.success(f"🏆 **Most Active Strategy**: {most_active} ({active_signals} signals)")
-                        
-                        # Visualization
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            # Signal count comparison
-                            fig = px.bar(
-                                comparison_df,
-                                x='strategy',
-                                y='total_signals',
-                                title="Total Signals by Strategy",
-                                color='avg_confidence',
-                                color_continuous_scale='viridis'
-                            )
-                            fig.update_layout(xaxis_title="Strategy", yaxis_title="Total Signals")
-                            st.plotly_chart(fig, use_container_width=True)
-                        
-                        with col2:
-                            # Buy vs Sell distribution
-                            fig = px.bar(
-                                comparison_df,
-                                x='strategy',
-                                y=['buy_signals', 'sell_signals'],
-                                title="Buy vs Sell Signal Distribution",
-                                barmode='group'
-                            )
-                            fig.update_layout(xaxis_title="Strategy", yaxis_title="Signal Count")
-                            st.plotly_chart(fig, use_container_width=True)
-                        
-                        # Get strategy insights
-                        insights = engine.get_strategy_insights(results)
-                        
-                        st.markdown("#### � Strategy Analysis Insights")
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            st.write(f"**Total Data Points**: {insights['total_data_points']}")
-                            st.write(f"**Most Active Strategy**: {insights['most_active_strategy'].replace('_', ' ').title()}")
-                        
-                        with col2:
-                            st.write("**Recommendations**:")
-                            for rec in insights['recommendations'][:3]:
-                                st.write(f"• {rec}")
-                        
-                        # Detailed signal distribution
-                        st.markdown("#### 📋 Signal Distribution by Stock")
-                        
-                        for strategy_name, result in results['individual_results'].items():
-                            if result.total_signals > 0:
-                                with st.expander(f"📈 {strategy_name.replace('_', ' ').title()} - Stock Distribution", expanded=False):
-                                    
-                                    # Create distribution data
-                                    dist_data = []
-                                    for symbol, dist in result.signal_distribution.items():
-                                        dist_data.append({
-                                            'Symbol': symbol,
-                                            'Buy Signals': dist['BUY'],
-                                            'Sell Signals': dist['SELL'],
-                                            'Hold Signals': dist['HOLD'],
-                                            'Total': dist['total'],
-                                            'Buy Rate': f"{dist['BUY']/dist['total']*100:.0f}%" if dist['total'] > 0 else "0%",
-                                            'Sell Rate': f"{dist['SELL']/dist['total']*100:.0f}%" if dist['total'] > 0 else "0%"
-                                        })
-                                    
-                                    dist_df = pd.DataFrame(dist_data)
-                                    st.dataframe(dist_df, use_container_width=True, hide_index=True)
-                
-                except Exception as e:
-                    st.error(f"Error running strategy analysis: {e}")
-                    st.info("This might be due to insufficient data. The system works with available sentiment data.")
-        
-        # Strategy analysis features
-        with st.expander("🎯 **Strategy Analysis Features**", expanded=False):
-            st.markdown("""
-            **📊 Available Strategies:**
-            - **Sentiment Only**: Pure sentiment-based signals (buy > 0.1, sell < -0.1)
-            - **Technical Only**: Technical indicator-based signals
-            - **Combined Signal**: Weighted combination (60% sentiment + 40% technical)
-            - **High Confidence**: Lower thresholds but requires 85%+ confidence
-            
-            **📈 Analysis Metrics:**
-            - **Signal Count**: Total buy/sell signals generated
-            - **Signal Distribution**: Buy vs sell signal ratio
-            - **Confidence Level**: Average confidence of generated signals
-            - **Sentiment Bias**: Average sentiment of trading signals
-            - **Stock Distribution**: Signal breakdown by individual stocks
-            
-            **🔬 Benefits:**
-            - **Strategy Validation**: Test different approaches with real data
-            - **Signal Analysis**: Understand which strategies are most active
-            - **Parameter Optimization**: Compare threshold effectiveness
-            - **Risk Assessment**: Analyze signal distribution and bias
-            
-            **⚙️ Current Data**: Analysis based on {engine.load_historical_data().shape[0] if not engine.load_historical_data().empty else 0} historical data points
-            """)
-    
-    except ImportError as e:
-        st.error(f"Backtesting engine module not available: {e}")
-    except Exception as e:
-        st.error(f"Error in backtesting: {e}")
-
-def render_anomaly_detection_placeholder():
-    """Placeholder for anomaly detection feature"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Detection algorithms being designed
-    
-    **Features to implement:**
-    - Breaking news impact detection
-    - Volume spike alerts
-    - Sentiment-price divergence warnings
-    - Market regime change identification
-    
-    **Expected Impact:** Early warning system for major moves
-    """)
-
-def render_backtesting_placeholder():
-    """Placeholder for backtesting engine"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Framework design phase
-    
-    **Features to implement:**
-    - Walk-forward analysis
-    - Parameter optimization
-    - Monte Carlo simulation
-    - Strategy comparison matrix
-    
-    **Expected Impact:** Comprehensive strategy validation
-    """)
-
-def render_multi_asset_placeholder():
-    """Placeholder for multi-asset correlation"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Data source integration planning
-    
-    **Features to implement:**
-    - ASX sector rotation detection
-    - Currency impact analysis (AUD/USD)
-    - Global bank correlation tracking
-    - Interest rate sensitivity
-    
-    **Expected Impact:** Better risk management and timing
-    """)
-
-def render_intraday_patterns_placeholder():
-    """Placeholder for intraday patterns"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Pattern recognition research phase
-    
-    **Features to implement:**
-    - Opening gap analysis
-    - Lunch hour volatility patterns
-    - Close auction behavior
-    - Day-of-week effects
-    
-    **Expected Impact:** Improved entry/exit timing
-    """)
-
-def render_ensemble_models_placeholder():
-    """Placeholder for ensemble models"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Model architecture design
-    
-    **Features to implement:**
-    - LSTM + Random Forest + XGBoost combination
-    - Dynamic model weighting
-    - Confidence intervals
-    - Uncertainty quantification
-    
-    **Expected Impact:** Higher prediction accuracy
-    """)
-
-def render_position_sizing_placeholder():
-    """Placeholder for position sizing"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Risk modeling framework
-    
-    **Features to implement:**
-    - Kelly Criterion optimization
-    - Volatility regime adjustment
-    - Correlation-based limits
-    - Drawdown protection
-    
-    **Expected Impact:** Better risk-adjusted returns
-    """)
-
-def render_mobile_alerts_placeholder():
-    """Placeholder for mobile alerts"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Notification system design
-    
-    **Features to implement:**
-    - SMS/email integration
-    - Slack/Discord webhooks
-    - Push notifications
-    - Alert fatigue prevention
-    
-    **Expected Impact:** Real-time decision support
-    """)
-
-def render_sentiment_momentum_placeholder():
-    """Placeholder for sentiment momentum"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Momentum calculation algorithms
-    
-    **Features to implement:**
-    - Sentiment velocity tracking
-    - Acceleration/deceleration detection
-    - Contrarian signal identification
-    - Momentum-based timing
-    
-    **Expected Impact:** Better trend following and reversal detection
-    """)
 
 def main():
     """
@@ -2932,28 +1723,6 @@ def main():
     st.sidebar.write(f"**Data Source:** {DATABASE_PATH}")
     st.sidebar.write(f"**Banks Tracked:** {len(ASX_BANKS)}")
     
-    # Feature Flag Status
-    if FEATURE_FLAGS:
-        st.sidebar.markdown("---")
-        st.sidebar.header("🎛️ Feature Flags")
-        enabled_features = FEATURE_FLAGS.get_enabled_features()
-        total_features = len(FEATURE_FLAGS.available_features)
-        
-        st.sidebar.write(f"**Status:** {len(enabled_features)}/{total_features} enabled")
-        
-        if enabled_features:
-            st.sidebar.write("**🟢 Enabled:**")
-            for feature in enabled_features[:5]:  # Show first 5
-                st.sidebar.write(f"• {feature.replace('_', ' ').title()}")
-            if len(enabled_features) > 5:
-                st.sidebar.write(f"• ... and {len(enabled_features) - 5} more")
-        
-        st.sidebar.write("**💡 Enable features in .env file**")
-        
-        if st.sidebar.button("🔄 Refresh Flags"):
-            FEATURE_FLAGS._refresh_cache()
-            st.rerun()
-    
     # Add data freshness check
     try:
         conn = get_database_connection()
@@ -2984,14 +1753,9 @@ def main():
             feature_analysis = fetch_ml_feature_analysis()
             timeline_df = fetch_prediction_timeline()
             correlation_data = fetch_portfolio_correlation_data()
-            returns_df = fetch_hypothetical_returns_data(30)  # Last 30 days
         
         # Render dashboard sections
         render_ml_performance_section(ml_metrics)
-        st.markdown("---")
-        
-        # NEW: Hypothetical Returns Analysis
-        render_hypothetical_returns_analysis(returns_df)
         st.markdown("---")
         
         render_portfolio_correlation_section(correlation_data)
@@ -3019,13 +1783,7 @@ def main():
         # Quality-Based Dynamic Weighting Analysis - at the bottom for safety
         with st.expander("🔬 **Quality-Based Dynamic Weighting Analysis**", expanded=False):
             st.markdown("**Advanced sentiment component quality analysis with dynamic weighting**")
-            if is_feature_enabled('ADVANCED_VISUALIZATIONS'):
-                render_quality_based_weighting_section()
-            else:
-                st.info("🎛️ This feature is disabled. Enable FEATURE_ADVANCED_VISUALIZATIONS in .env to unlock.")
-        
-        # Feature Development Sections
-        render_feature_development_sections()
+            render_quality_based_weighting_section()
         
         # Footer
         st.markdown("---")

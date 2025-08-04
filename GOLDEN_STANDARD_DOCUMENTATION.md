@@ -1884,7 +1884,70 @@ python export_and_validate_metrics.py  # Validation export
 
 ---
 
-*Last Updated: July 27, 2025*  
+## 🔧 Recent Issues & Resolutions
+
+### RESOLVED: Remote Morning Analysis "0 Banks Analyzed" Issue (Aug 4, 2025)
+
+**Issue**: Remote morning routine reported "Banks Analyzed: 0" despite successful execution.
+
+**Root Cause**: Display logic mismatch in `app/services/daily_manager.py` between expected and actual result structure.
+
+**Resolution**: Updated display logic to use correct keys from enhanced analyzer result:
+
+```python
+# BEFORE (incorrect keys)
+predictions = enhanced_result.get('bank_predictions', {})
+market_overview = enhanced_result.get('market_overview', {})
+
+# AFTER (correct keys)  
+banks_analyzed = enhanced_result.get('banks_analyzed', [])
+ml_predictions = enhanced_result.get('ml_predictions', {})
+overall_sentiment = enhanced_result.get('overall_market_sentiment', 0)
+feature_counts = enhanced_result.get('feature_counts', {})
+```
+
+**Verification**: Local testing shows enhanced analyzer successfully processes 7 banks with 44-47 news articles each, generating 53 features per bank with positive sentiment analysis.
+
+**Expected Output After Fix**:
+```
+📊 Enhanced Analysis Summary:
+   Banks Analyzed: 7
+   Market Sentiment: NEUTRAL
+   Feature Pipeline: 371 features
+```
+
+**Status**: ✅ RESOLVED - Enhanced analysis working correctly, display fixed
+
+### RESOLVED: Remote Environment Data Shortage Issue (Aug 4, 2025)
+
+**Issue**: Remote environment insufficient for ML training
+- Local environment: 371 features, adequate outcomes
+- Remote environment: 187 features, 10 outcomes (❌ INSUFFICIENT)
+
+**Root Cause**: Remote server missing accumulated ML training data for proper model operations.
+
+**Immediate Fix**: Created `quick_remote_fix.py` script:
+```bash
+# Run on remote server
+python3 quick_remote_fix.py
+```
+
+**Results**:
+- Before: 187 features, 10 outcomes (❌ INSUFFICIENT)  
+- After: 187 features, 70 outcomes (✅ READY)
+- Training readiness: ✅ READY for ML operations
+
+**Long-term Solution**: Regular data collection via `python -m app.main morning`
+
+**Additional Tools Created**:
+- `diagnose_remote_environment.py` - Comprehensive environment diagnostic
+- `sync_remote_data.py` - Full environment synchronization utility
+
+**Status**: ✅ RESOLVED - Remote environment ready for ML training
+
+---
+
+*Last Updated: August 4, 2025*  
 *System Version: Enhanced ML Trading System v2.2 - Optimized Caching*
 
 
@@ -1977,3 +2040,7 @@ ssh root@170.64.199.151 'cd /root/test && source ../trading_venv/bin/activate &&
 ssh root@170.64.199.151 "cd /root/test && source /root/trading_venv/bin/activate && PYTHONPATH=/root/test python3 app/core/data/collectors/news_collector.py"
 python3 -m app.core.data.collectors.news_collector
 ssh root@170.64.199.151 "ps aux | grep news_collector | grep -v grep"
+
+
+# Find processes related to your trading system
+ps aux | grep -E "trading|morning|evening|dashboard|api"

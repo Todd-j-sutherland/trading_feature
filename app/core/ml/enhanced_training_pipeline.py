@@ -616,7 +616,7 @@ class EnhancedMLTrainingPipeline:
                    eo.optimal_action, eo.confidence_score
             FROM enhanced_features ef
             INNER JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
-            WHERE eo.price_direction_1h IS NOT NULL
+            WHERE eo.price_direction_4h IS NOT NULL
             ORDER BY ef.timestamp
         '''
         
