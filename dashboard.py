@@ -98,6 +98,102 @@ def get_database_connection() -> sqlite3.Connection:
     except sqlite3.Error as e:
         raise DatabaseError(f"Failed to connect to database: {e}")
 
+def fetch_enhanced_ml_training_metrics() -> Dict:
+    """
+    Fetch enhanced ML training progression metrics from model_performance_enhanced table
+    Returns training samples, accuracy progression, and training status
+    """
+    conn = get_database_connection()
+    
+    try:
+        # Get latest model performance data
+        cursor = conn.execute("""
+            SELECT 
+                training_samples,
+                direction_accuracy_4h,
+                magnitude_mae_1d,
+                created_at
+            FROM model_performance_enhanced 
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """)
+        
+        latest_performance = cursor.fetchone()
+        
+        # Get historical progression (last 10 training sessions)
+        cursor = conn.execute("""
+            SELECT 
+                training_samples,
+                direction_accuracy_4h,
+                magnitude_mae_1d,
+                created_at
+            FROM model_performance_enhanced 
+            ORDER BY created_at DESC 
+            LIMIT 10
+        """)
+        
+        historical_performance = cursor.fetchall()
+        
+        # Get current training data status
+        cursor = conn.execute("SELECT COUNT(*) as total_features FROM enhanced_features")
+        features_count = cursor.fetchone()['total_features']
+        
+        cursor = conn.execute("SELECT COUNT(*) as total_outcomes FROM enhanced_outcomes WHERE price_direction_4h IS NOT NULL")
+        outcomes_count = cursor.fetchone()['total_outcomes']
+        
+        # Calculate metrics
+        if latest_performance:
+            current_samples = latest_performance['training_samples']
+            current_accuracy = latest_performance['direction_accuracy_4h']
+            current_mae = latest_performance['magnitude_mae_1d']
+            last_training = latest_performance['created_at']
+            
+            # Determine status based on thresholds
+            status = "EXCELLENT" if (current_samples >= 50 and current_accuracy >= 0.60) else \
+                    "GOOD" if (current_samples >= 30 and current_accuracy >= 0.55) else \
+                    "NEEDS_IMPROVEMENT"
+            
+            # Calculate progression trend
+            if len(historical_performance) > 1:
+                recent_accuracy = [row['direction_accuracy_4h'] for row in historical_performance[:3]]
+                accuracy_trend = (recent_accuracy[0] - recent_accuracy[-1]) if len(recent_accuracy) > 1 else 0
+                
+                recent_samples = [row['training_samples'] for row in historical_performance[:3]]
+                samples_trend = (recent_samples[0] - recent_samples[-1]) if len(recent_samples) > 1 else 0
+            else:
+                accuracy_trend = 0
+                samples_trend = 0
+        else:
+            current_samples = 0
+            current_accuracy = 0
+            current_mae = 0
+            last_training = None
+            status = "NO_DATA"
+            accuracy_trend = 0
+            samples_trend = 0
+        
+        enhanced_metrics = {
+            'training_samples': current_samples,
+            'direction_accuracy_4h': current_accuracy,
+            'magnitude_mae_1d': current_mae,
+            'last_training': last_training,
+            'status': status,
+            'total_features': features_count,
+            'total_outcomes': outcomes_count,
+            'accuracy_trend': accuracy_trend,
+            'samples_trend': samples_trend,
+            'historical_performance': historical_performance,
+            'samples_threshold': 50,
+            'accuracy_threshold': 0.60
+        }
+        
+        return enhanced_metrics
+        
+    except sqlite3.Error as e:
+        raise DatabaseError(f"Failed to fetch enhanced ML training metrics: {e}")
+    finally:
+        conn.close()
+
 def fetch_ml_performance_metrics() -> Dict:
     """
     Fetch ML model performance metrics from database
@@ -923,9 +1019,166 @@ def render_portfolio_correlation_section(correlation_data: Dict):
 
 def render_ml_performance_section(metrics: Dict):
     """
-    Render ML performance metrics section
+    Render ML performance metrics section with enhanced training progression
     """
-    st.subheader("🤖 Machine Learning Performance")
+    st.subheader("🤖 Machine Learning Performance & Training Progression")
+    
+    # Get enhanced ML training metrics
+    try:
+        enhanced_metrics = fetch_enhanced_ml_training_metrics()
+    except Exception as e:
+        st.warning(f"Could not load enhanced ML metrics: {e}")
+        enhanced_metrics = None
+    
+    # Enhanced ML Training Status Section
+    if enhanced_metrics:
+        st.markdown("### 🧠 **Enhanced ML Training Status**")
+        
+        # Status indicator with color coding
+        status = enhanced_metrics['status']
+        status_colors = {
+            'EXCELLENT': '🟢',
+            'GOOD': '🟡', 
+            'NEEDS_IMPROVEMENT': '🟠',
+            'NO_DATA': '🔴'
+        }
+        
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        with col1:
+            st.metric(
+                "Training Status",
+                f"{status_colors.get(status, '⚪')} {status}",
+                help=f"Current ML model training status based on samples (≥{enhanced_metrics['samples_threshold']}) and accuracy (≥{enhanced_metrics['accuracy_threshold']:.0%})"
+            )
+        
+        with col2:
+            samples_delta = f"+{enhanced_metrics['samples_trend']:.0f}" if enhanced_metrics['samples_trend'] > 0 else f"{enhanced_metrics['samples_trend']:.0f}" if enhanced_metrics['samples_trend'] != 0 else None
+            st.metric(
+                "Training Samples",
+                f"{enhanced_metrics['training_samples']:,}",
+                delta=samples_delta,
+                help=f"Current training dataset size (target: {enhanced_metrics['samples_threshold']}+)"
+            )
+        
+        with col3:
+            accuracy_delta = f"+{enhanced_metrics['accuracy_trend']:.1%}" if enhanced_metrics['accuracy_trend'] > 0 else f"{enhanced_metrics['accuracy_trend']:.1%}" if enhanced_metrics['accuracy_trend'] != 0 else None
+            st.metric(
+                "4h Direction Accuracy",
+                f"{enhanced_metrics['direction_accuracy_4h']:.1%}",
+                delta=accuracy_delta,
+                help=f"Accuracy predicting 4-hour price direction (target: {enhanced_metrics['accuracy_threshold']:.0%}+)"
+            )
+        
+        with col4:
+            st.metric(
+                "Available Features",
+                f"{enhanced_metrics['total_features']:,}",
+                help="Total features collected for training"
+            )
+        
+        with col5:
+            st.metric(
+                "Available Outcomes", 
+                f"{enhanced_metrics['total_outcomes']:,}",
+                help="Outcomes with valid 4-hour price direction data"
+            )
+        
+        # Training progression chart
+        if enhanced_metrics['historical_performance']:
+            st.markdown("### 📈 **Training Progression Over Time**")
+            
+            col_chart1, col_chart2 = st.columns(2)
+            
+            with col_chart1:
+                # Training samples progression
+                hist_data = enhanced_metrics['historical_performance']
+                dates = [row['created_at'] for row in reversed(hist_data)]
+                samples = [row['training_samples'] for row in reversed(hist_data)]
+                
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=dates, y=samples,
+                    mode='lines+markers',
+                    name='Training Samples',
+                    line=dict(color='blue', width=3),
+                    marker=dict(size=8)
+                ))
+                fig.add_hline(y=enhanced_metrics['samples_threshold'], 
+                             line_dash="dash", line_color="green",
+                             annotation_text=f"Target: {enhanced_metrics['samples_threshold']}")
+                fig.update_layout(
+                    title="Training Dataset Size Growth",
+                    xaxis_title="Training Date",
+                    yaxis_title="Number of Samples",
+                    height=400
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col_chart2:
+                # Accuracy progression
+                accuracies = [row['direction_accuracy_4h'] for row in reversed(hist_data)]
+                
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=dates, y=accuracies,
+                    mode='lines+markers',
+                    name='4h Direction Accuracy',
+                    line=dict(color='green', width=3),
+                    marker=dict(size=8)
+                ))
+                fig.add_hline(y=enhanced_metrics['accuracy_threshold'], 
+                             line_dash="dash", line_color="red",
+                             annotation_text=f"Target: {enhanced_metrics['accuracy_threshold']:.0%}")
+                fig.update_layout(
+                    title="Model Accuracy Improvement",
+                    xaxis_title="Training Date",
+                    yaxis_title="Accuracy (%)",
+                    yaxis=dict(tickformat='.0%'),
+                    height=400
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Training insights
+        st.markdown("### 🔍 **Training Insights**")
+        insight_col1, insight_col2, insight_col3 = st.columns(3)
+        
+        with insight_col1:
+            data_completeness = (enhanced_metrics['total_outcomes'] / max(enhanced_metrics['total_features'], 1)) * 100
+            st.metric(
+                "Data Completeness",
+                f"{data_completeness:.1f}%",
+                help="Percentage of features with corresponding price outcomes"
+            )
+        
+        with insight_col2:
+            if enhanced_metrics['last_training']:
+                from datetime import datetime
+                last_training_dt = datetime.fromisoformat(enhanced_metrics['last_training'].replace('Z', '+00:00'))
+                hours_ago = (datetime.now() - last_training_dt.replace(tzinfo=None)).total_seconds() / 3600
+                st.metric(
+                    "Last Training",
+                    f"{hours_ago:.1f}h ago" if hours_ago < 48 else f"{hours_ago/24:.1f}d ago",
+                    help=f"Last model training: {enhanced_metrics['last_training']}"
+                )
+            else:
+                st.metric("Last Training", "Never", help="No training records found")
+        
+        with insight_col3:
+            if enhanced_metrics['direction_accuracy_4h'] > 0:
+                mae_status = "🟢 Excellent" if enhanced_metrics['magnitude_mae_1d'] < 0.02 else "🟡 Good" if enhanced_metrics['magnitude_mae_1d'] < 0.05 else "🟠 Needs Work"
+                st.metric(
+                    "Price Magnitude Error",
+                    f"{enhanced_metrics['magnitude_mae_1d']:.3f}",
+                    help=f"Mean Absolute Error for 1-day price predictions: {mae_status}"
+                )
+            else:
+                st.metric("Price Magnitude Error", "N/A", help="No training data available")
+        
+        st.markdown("---")
+    
+    # Standard ML Performance Metrics
+    st.markdown("### 📊 **Prediction Performance (Last 30 Days)**")
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -957,7 +1210,7 @@ def render_ml_performance_section(metrics: Dict):
             help="Number of completed trades with outcomes"
         )
     
-    # Signal distribution
+    # Signal distribution and performance charts
     col5, col6 = st.columns(2)
     
     with col5:
