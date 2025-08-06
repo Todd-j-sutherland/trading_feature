@@ -63,7 +63,7 @@ class EnhancedMLTrainingPipeline:
         self.ensure_directories()
         
         # Initialize database for training data
-        self.db_path = os.path.join(self.data_dir, "enhanced_training_data.db")
+        self.db_path = os.path.join(self.data_dir, "trading_unified.db")
         self.init_database()
         
         # Initialize technical analyzer

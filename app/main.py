@@ -409,7 +409,7 @@ def show_trading_history():
         import os
         from datetime import datetime
         
-        db_path = 'data/position_tracking/position_outcomes.db'
+        db_path = 'data/trading_unified.db'
         
         if not os.path.exists(db_path):
             print("❌ No trading history database found")
@@ -420,7 +420,7 @@ def show_trading_history():
         cursor = conn.cursor()
         
         # Check if there are any positions
-        cursor.execute("SELECT COUNT(*) FROM position_outcomes")
+        cursor.execute("SELECT COUNT(*) FROM positions")
         total_positions = cursor.fetchone()[0]
         
         if total_positions == 0:
@@ -450,9 +450,9 @@ def show_trading_history():
                 ELSE NULL
             END as return_pct,
             exit_reason,
-            ROUND(confidence_at_entry * 100, 1) as ml_confidence,
+            ROUND(ml_confidence * 100, 1) as ml_confidence,
             ROUND(sentiment_at_entry, 2) as sentiment_score
-        FROM position_outcomes 
+        FROM positions 
         ORDER BY entry_date DESC
         """
         

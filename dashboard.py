@@ -70,8 +70,8 @@ except ImportError:
         else:
             return 0.3
 
-# Configuration - FIXED: Use correct database path
-DATABASE_PATH = "./data/ml_models/enhanced_training_data.db"
+# Configuration - UPDATED: Use unified database path
+DATABASE_PATH = "./data/trading_unified.db"
 ASX_BANKS = ["CBA.AX", "ANZ.AX", "WBC.AX", "NAB.AX", "MQG.AX", "SUN.AX", "QBE.AX"]
 
 class DatabaseError(Exception):
