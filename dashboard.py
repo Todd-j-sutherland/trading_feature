@@ -1349,6 +1349,212 @@ def render_ml_performance_section(metrics: Dict):
         **Current status:** System rebuilding - collecting data for future analysis
         """)
 
+def render_enhanced_ml_training_details():
+    """
+    Render detailed ML training samples table and success rate analysis
+    """
+    st.subheader("🔬 **Detailed ML Training Analysis**")
+    
+    try:
+        conn = get_database_connection()
+        
+        # Training samples breakdown by stock
+        st.markdown("### 📊 **Training Samples by Stock**")
+        
+        training_query = """
+        SELECT 
+            eo.symbol,
+            COUNT(*) as samples,
+            AVG(eo.confidence_score) as avg_confidence,
+            SUM(CASE WHEN eo.optimal_action = 'BUY' THEN 1 ELSE 0 END) as buy_signals,
+            SUM(CASE WHEN eo.optimal_action = 'SELL' THEN 1 ELSE 0 END) as sell_signals,
+            SUM(CASE WHEN eo.optimal_action = 'HOLD' THEN 1 ELSE 0 END) as hold_signals,
+            AVG(CASE 
+                WHEN eo.optimal_action = 'SELL' THEN eo.return_pct * -100  -- Invert for short positions
+                ELSE eo.return_pct * 100 
+            END) as avg_return_pct,
+            COUNT(CASE 
+                WHEN eo.optimal_action = 'SELL' AND eo.return_pct < 0 THEN 1  -- SELL profits when return_pct is negative
+                WHEN eo.optimal_action != 'SELL' AND eo.return_pct > 0 THEN 1  -- BUY/HOLD profit when positive
+            END) * 100.0 / COUNT(*) as success_rate
+        FROM enhanced_outcomes eo
+        WHERE eo.price_direction_4h IS NOT NULL 
+        GROUP BY eo.symbol
+        ORDER BY samples DESC
+        """
+        
+        training_df = pd.read_sql_query(training_query, conn)
+        
+        if not training_df.empty:
+            # Format the dataframe for display
+            display_df = training_df.copy()
+            display_df['avg_confidence'] = display_df['avg_confidence'].apply(lambda x: f"{x:.1%}")
+            display_df['avg_return_pct'] = display_df['avg_return_pct'].apply(lambda x: f"{x:.2f}%")
+            display_df['success_rate'] = display_df['success_rate'].apply(lambda x: f"{x:.1f}%")
+            
+            display_df.columns = ['Stock', 'Training Samples', 'Avg Confidence', 'BUY', 'SELL', 'HOLD', 'Avg Return %', 'Success Rate']
+            
+            st.dataframe(
+                display_df,
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # Summary metrics
+            total_samples = training_df['samples'].sum()
+            overall_success = (training_df['samples'] * training_df['success_rate']).sum() / training_df['samples'].sum()
+            overall_return = (training_df['samples'] * training_df['avg_return_pct']).sum() / training_df['samples'].sum()
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Training Samples", f"{total_samples:,}")
+            with col2:
+                st.metric("Overall Success Rate", f"{overall_success:.1f}%")
+            with col3:
+                st.metric("Overall Avg Return", f"{overall_return:.2f}%")
+            with col4:
+                best_stock = training_df.loc[training_df['success_rate'].idxmax(), 'symbol']
+                best_rate = training_df['success_rate'].max()
+                st.metric("Best Performer", f"{best_stock} ({best_rate:.1f}%)")
+        
+        # Recent predictions and outcomes table
+        st.markdown("### 🎯 **Recent ML Predictions & Outcomes**")
+        
+        recent_predictions_query = """
+        SELECT 
+            eo.symbol,
+            eo.prediction_timestamp,
+            eo.optimal_action,
+            eo.confidence_score,
+            eo.price_direction_4h,
+            CASE 
+                WHEN eo.price_direction_4h = 1 THEN 'UP'
+                WHEN eo.price_direction_4h = -1 THEN 'DOWN'
+                ELSE 'FLAT'
+            END as actual_direction,
+            CASE 
+                WHEN eo.optimal_action = 'SELL' THEN eo.return_pct * -100  -- Invert for short positions
+                ELSE eo.return_pct * 100 
+            END as return_pct,
+            CASE 
+                WHEN (eo.optimal_action = 'BUY' AND eo.price_direction_4h = 1) OR
+                     (eo.optimal_action = 'SELL' AND eo.price_direction_4h = -1)
+                THEN '✅ Correct'
+                WHEN eo.optimal_action = 'HOLD' AND abs(eo.return_pct * 100) <= 2.0
+                THEN '✅ Correct'  -- HOLD correct for small movements (<=2%)
+                WHEN eo.optimal_action = 'HOLD' AND eo.return_pct < 0
+                THEN '🛡️ Protected'  -- HOLD saved from losses
+                ELSE '❌ Wrong'
+            END as prediction_accuracy
+        FROM enhanced_outcomes eo
+        WHERE eo.price_direction_4h IS NOT NULL
+        ORDER BY eo.prediction_timestamp DESC
+        LIMIT 20
+        """
+        
+        recent_df = pd.read_sql_query(recent_predictions_query, conn)
+        
+        if not recent_df.empty:
+            # Format the dataframe
+            display_recent = recent_df.copy()
+            display_recent['prediction_timestamp'] = pd.to_datetime(display_recent['prediction_timestamp']).dt.strftime('%m/%d %H:%M')
+            display_recent['confidence_score'] = display_recent['confidence_score'].apply(lambda x: f"{x:.1%}")
+            display_recent['return_pct'] = display_recent['return_pct'].apply(lambda x: f"{x:.2f}%")
+            
+            display_recent.columns = ['Stock', 'Time', 'ML Action', 'Confidence', 'Direction', 'Actual', 'Return %', 'Accuracy']
+            
+            # Color code the accuracy column
+            def highlight_accuracy(val):
+                if '✅' in str(val):
+                    return 'background-color: #d4edda; color: #155724'
+                elif '❌' in str(val):
+                    return 'background-color: #f8d7da; color: #721c24'
+                return ''
+            
+            styled_df = display_recent.style.applymap(highlight_accuracy, subset=['Accuracy'])
+            
+            st.dataframe(
+                styled_df,
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # Accuracy metrics
+            correct_predictions = len(recent_df[recent_df['prediction_accuracy'].str.contains('✅|🛡️')])
+            total_predictions = len(recent_df)
+            accuracy_rate = (correct_predictions / total_predictions * 100) if total_predictions > 0 else 0
+            
+            st.info(f"📊 **Recent Accuracy**: {correct_predictions}/{total_predictions} predictions correct ({accuracy_rate:.1f}% accuracy)")
+            
+            # HOLD explanation
+            hold_count = len(recent_df[recent_df['optimal_action'] == 'HOLD'])
+            if hold_count > 0:
+                st.info(f"ℹ️ **HOLD Actions ({hold_count} shown)**: No position taken due to low confidence or unclear signals. Returns show opportunity cost - negative returns indicate avoided losses (good decisions!)")
+        
+        # Model performance by time horizon
+        st.markdown("### ⏱️ **Model Performance by Time Horizon**")
+        
+        time_horizon_query = """
+        SELECT 
+            '1 Hour' as horizon,
+            COUNT(CASE WHEN price_direction_1h IS NOT NULL THEN 1 END) as samples,
+            AVG(ABS(price_magnitude_1h)) * 100 as avg_magnitude,
+            COUNT(CASE WHEN 
+                (optimal_action = 'BUY' AND price_direction_1h = 1) OR
+                (optimal_action = 'SELL' AND price_direction_1h = -1)
+                THEN 1 END) * 100.0 / COUNT(CASE WHEN price_direction_1h IS NOT NULL THEN 1 END) as accuracy
+        FROM enhanced_outcomes
+        WHERE price_direction_1h IS NOT NULL
+        
+        UNION ALL
+        
+        SELECT 
+            '4 Hours' as horizon,
+            COUNT(CASE WHEN price_direction_4h IS NOT NULL THEN 1 END) as samples,
+            AVG(ABS(price_magnitude_4h)) * 100 as avg_magnitude,
+            COUNT(CASE WHEN 
+                (optimal_action = 'BUY' AND price_direction_4h = 1) OR
+                (optimal_action = 'SELL' AND price_direction_4h = -1)
+                THEN 1 END) * 100.0 / COUNT(CASE WHEN price_direction_4h IS NOT NULL THEN 1 END) as accuracy
+        FROM enhanced_outcomes
+        WHERE price_direction_4h IS NOT NULL
+        
+        UNION ALL
+        
+        SELECT 
+            '1 Day' as horizon,
+            COUNT(CASE WHEN price_direction_1d IS NOT NULL THEN 1 END) as samples,
+            AVG(ABS(price_magnitude_1d)) * 100 as avg_magnitude,
+            COUNT(CASE WHEN 
+                (optimal_action = 'BUY' AND price_direction_1d = 1) OR
+                (optimal_action = 'SELL' AND price_direction_1d = -1)
+                THEN 1 END) * 100.0 / COUNT(CASE WHEN price_direction_1d IS NOT NULL THEN 1 END) as accuracy
+        FROM enhanced_outcomes
+        WHERE price_direction_1d IS NOT NULL
+        """
+        
+        horizon_df = pd.read_sql_query(time_horizon_query, conn)
+        
+        if not horizon_df.empty:
+            # Format the dataframe
+            display_horizon = horizon_df.copy()
+            display_horizon['avg_magnitude'] = display_horizon['avg_magnitude'].apply(lambda x: f"{x:.2f}%")
+            display_horizon['accuracy'] = display_horizon['accuracy'].apply(lambda x: f"{x:.1f}%")
+            
+            display_horizon.columns = ['Time Horizon', 'Samples', 'Avg Price Movement', 'Prediction Accuracy']
+            
+            st.dataframe(
+                display_horizon,
+                use_container_width=True,
+                hide_index=True
+            )
+        
+        conn.close()
+        
+    except Exception as e:
+        st.error(f"Error loading ML training details: {e}")
+        st.info("📝 This analysis requires enhanced ML training data. Run the evening routine to generate this data.")
+
 def render_hypothetical_returns_analysis(returns_df: pd.DataFrame):
     """
     Render comprehensive hypothetical returns analysis
@@ -3241,6 +3447,10 @@ def main():
         
         # Render dashboard sections
         render_ml_performance_section(ml_metrics)
+        st.markdown("---")
+        
+        # NEW: Enhanced ML Training Details
+        render_enhanced_ml_training_details()
         st.markdown("---")
         
         # NEW: Hypothetical Returns Analysis
