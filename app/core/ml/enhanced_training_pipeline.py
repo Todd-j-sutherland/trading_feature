@@ -643,14 +643,14 @@ class EnhancedMLTrainingPipeline:
         # Handle missing values
         X = X.fillna(0)
         
-        # Prepare multi-output targets
+        # Prepare multi-output targets with NaN handling
         y = {
-            'direction_1h': df['price_direction_1h'].values,
-            'direction_4h': df['price_direction_4h'].values,
-            'direction_1d': df['price_direction_1d'].values,
-            'magnitude_1h': df['price_magnitude_1h'].values,
-            'magnitude_4h': df['price_magnitude_4h'].values,
-            'magnitude_1d': df['price_magnitude_1d'].values
+            'direction_1h': df['price_direction_1h'].fillna(0).values,
+            'direction_4h': df['price_direction_4h'].fillna(0).values,
+            'direction_1d': df['price_direction_1d'].fillna(0).values,
+            'magnitude_1h': df['price_magnitude_1h'].fillna(0.0).values,
+            'magnitude_4h': df['price_magnitude_4h'].fillna(0.0).values,
+            'magnitude_1d': df['price_magnitude_1d'].fillna(0.0).values
         }
         
         logger.info(f"Prepared enhanced training dataset: {len(X)} samples, {len(available_features)} features")
@@ -848,22 +848,29 @@ class EnhancedMLTrainingPipeline:
             # Determine optimal action
             action = self._determine_optimal_action(direction_pred, magnitude_pred, avg_confidence)
             
+            # Safe conversion with NaN handling
+            def safe_int_convert(value):
+                return int(value) if not np.isnan(value) else 0
+            
+            def safe_float_convert(value):
+                return float(value) if not np.isnan(value) else 0.0
+            
             return {
                 'direction_predictions': {
-                    '1h': int(direction_pred[0]),
-                    '4h': int(direction_pred[1]),
-                    '1d': int(direction_pred[2])
+                    '1h': safe_int_convert(direction_pred[0]),
+                    '4h': safe_int_convert(direction_pred[1]),
+                    '1d': safe_int_convert(direction_pred[2])
                 },
                 'magnitude_predictions': {
-                    '1h': float(magnitude_pred[0]),
-                    '4h': float(magnitude_pred[1]),
-                    '1d': float(magnitude_pred[2])
+                    '1h': safe_float_convert(magnitude_pred[0]),
+                    '4h': safe_float_convert(magnitude_pred[1]),
+                    '1d': safe_float_convert(magnitude_pred[2])
                 },
                 'confidence_scores': {
-                    '1h': float(direction_confidence[0]),
-                    '4h': float(direction_confidence[1]),
-                    '1d': float(direction_confidence[2]),
-                    'average': float(avg_confidence)
+                    '1h': safe_float_convert(direction_confidence[0]),
+                    '4h': safe_float_convert(direction_confidence[1]),
+                    '1d': safe_float_convert(direction_confidence[2]),
+                    'average': safe_float_convert(avg_confidence)
                 },
                 'optimal_action': action,
                 'timestamp': datetime.now().isoformat()
