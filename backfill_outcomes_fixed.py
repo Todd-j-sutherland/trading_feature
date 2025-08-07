@@ -9,7 +9,7 @@ import time
 
 class OutcomeBackfiller:
     def __init__(self):
-        self.db_path = 'data/ml_models/enhanced_training_data.db'
+        self.db_path = 'data/trading_unified.db'
     
     def get_price_data(self, symbol, start_time, end_time):
         """Get price data for outcome calculation"""

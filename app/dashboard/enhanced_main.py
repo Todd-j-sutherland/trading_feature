@@ -1415,13 +1415,13 @@ def display_ml_predictions(ml_pipeline, bank_analyses):
         # Show training data status
         try:
             import sqlite3
-            db_path = "data/ml_models/training_data.db"
+            db_path = "data/trading_unified.db"
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
-            cursor.execute('SELECT COUNT(*) FROM sentiment_features')
+            cursor.execute('SELECT COUNT(*) FROM enhanced_features')
             total_samples = cursor.fetchone()[0]
             
-            cursor.execute('SELECT COUNT(*) FROM trading_outcomes')
+            cursor.execute('SELECT COUNT(*) FROM enhanced_outcomes')
             completed_samples = cursor.fetchone()[0]
             conn.close()
         except Exception as e:

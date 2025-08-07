@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class SQLDashboardManager:
     """Direct SQL-based data manager for dashboard - eliminates JSON file inconsistencies"""
     
-    def __init__(self, db_path: str = "data/ml_models/training_data.db"):
+    def __init__(self, db_path: str = "data/trading_unified.db"):
         self.db_path = Path(db_path)
         self.connection = None
         
