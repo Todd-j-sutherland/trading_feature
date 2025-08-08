@@ -50,73 +50,94 @@ def fix_ml_training():
     
     print(f"✅ Cleaned data: {len(X_clean)} samples with valid targets")
     
-    # Try training with only the direction_4h target first
-    if best_target == 'direction_4h':
-        print("🚀 Training with 4-hour direction prediction...")
+    # Try training with the best available target
+    print(f"🚀 Training with {best_target} prediction...")
+    
+    # Prepare single-target training data
+    y_target = y_clean[best_target]
+    valid_target_mask = ~np.isnan(y_target)
+    
+    if np.sum(valid_target_mask) >= 50:
+        X_final = X_clean[valid_target_mask]
+        y_final = y_target[valid_target_mask]
         
-        # Prepare single-target training data
-        y_direction_4h = y_clean['direction_4h']
-        valid_direction_mask = ~np.isnan(y_direction_4h)
+        print(f"Final training set: {len(X_final)} samples")
         
-        if np.sum(valid_direction_mask) >= 50:
-            X_final = X_clean[valid_direction_mask]
-            y_final = y_direction_4h[valid_direction_mask]
-            
-            print(f"Final training set: {len(X_final)} samples")
-            
-            # Simple training approach - just the direction model
-            from sklearn.ensemble import RandomForestClassifier
-            from sklearn.model_selection import train_test_split
-            from sklearn.metrics import accuracy_score
-            
-            X_train, X_test, y_train, y_test = train_test_split(
-                X_final, y_final, test_size=0.2, random_state=42, stratify=y_final
+        # Simple training approach - just the direction model
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.model_selection import train_test_split
+        from sklearn.metrics import accuracy_score
+        
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_final, y_final, test_size=0.2, random_state=42, stratify=y_final
+        )
+        
+        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        model.fit(X_train, y_train)
+        
+        y_pred = model.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        
+        print(f"✅ Model trained successfully!")
+        print(f"   Training samples: {len(X_train)}")
+        print(f"   Test samples: {len(X_test)}")
+        print(f"   {best_target} accuracy: {accuracy:.3f}")
+        
+        # Save performance to database
+        import sqlite3
+        import datetime
+        
+        # Use the correct database path to match the system
+        conn = sqlite3.connect('data/trading_unified.db')
+        cursor = conn.cursor()
+        
+        # Create performance table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS model_performance_enhanced (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                training_samples INTEGER,
+                direction_accuracy_1h REAL,
+                direction_accuracy_4h REAL,
+                direction_accuracy_1d REAL,
+                magnitude_mae_1h REAL,
+                magnitude_mae_4h REAL,
+                magnitude_mae_1d REAL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-            
-            model = RandomForestClassifier(n_estimators=100, random_state=42)
-            model.fit(X_train, y_train)
-            
-            y_pred = model.predict(X_test)
-            accuracy = accuracy_score(y_test, y_pred)
-            
-            print(f"✅ Model trained successfully!")
-            print(f"   Training samples: {len(X_train)}")
-            print(f"   Test samples: {len(X_test)}")
-            print(f"   4-hour direction accuracy: {accuracy:.3f}")
-            
-            # Save performance to database
-            import sqlite3
-            import datetime
-            
-            # Use the correct database path to match the system
-            conn = sqlite3.connect('data/ml_models/enhanced_training_data.db')
-            cursor = conn.cursor()
-            
-            # Create performance table if it doesn't exist
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS model_performance_enhanced (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    training_samples INTEGER,
-                    direction_accuracy_4h REAL,
-                    magnitude_mae_1d REAL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            
-            # Insert performance record
-            cursor.execute('''
-                INSERT INTO model_performance_enhanced 
-                (training_samples, direction_accuracy_4h, magnitude_mae_1d) 
-                VALUES (?, ?, ?)
-            ''', (len(X_train), accuracy, 0.0))  # Use 0 for magnitude_mae_1d for now
-            
-            conn.commit()
-            conn.close()
-            
-            print(f"✅ Performance saved to database")
-            return True
-        else:
-            print(f"❌ Insufficient valid direction_4h samples: {np.sum(valid_direction_mask)}")
+        ''')
+        
+        # Determine which accuracy field to update
+        accuracy_field = f"direction_accuracy_{best_target.split('_')[1]}" if 'direction' in best_target else 'magnitude_mae_1d'
+        
+        # Insert performance record
+        if 'direction' in best_target:
+            timeframe = best_target.split('_')[1]
+            if timeframe == '1h':
+                cursor.execute('''
+                    INSERT INTO model_performance_enhanced 
+                    (training_samples, direction_accuracy_1h) 
+                    VALUES (?, ?)
+                ''', (len(X_train), accuracy))
+            elif timeframe == '4h':
+                cursor.execute('''
+                    INSERT INTO model_performance_enhanced 
+                    (training_samples, direction_accuracy_4h) 
+                    VALUES (?, ?)
+                ''', (len(X_train), accuracy))
+            elif timeframe == '1d':
+                cursor.execute('''
+                    INSERT INTO model_performance_enhanced 
+                    (training_samples, direction_accuracy_1d) 
+                    VALUES (?, ?)
+                ''', (len(X_train), accuracy))
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"✅ Performance saved to database")
+        return True
+    else:
+        print(f"❌ Insufficient valid {best_target} samples: {np.sum(valid_target_mask)}")
     
     return False
 

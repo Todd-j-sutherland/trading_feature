@@ -106,7 +106,7 @@ def fetch_enhanced_ml_training_metrics() -> Dict:
     conn = get_database_connection()
     
     try:
-        # Get latest model performance data
+        # Get latest SUCCESSFUL model performance data (where direction_accuracy_4h is not NULL)
         cursor = conn.execute("""
             SELECT 
                 training_samples,
@@ -114,6 +114,7 @@ def fetch_enhanced_ml_training_metrics() -> Dict:
                 magnitude_mae_1d,
                 created_at
             FROM model_performance_enhanced 
+            WHERE direction_accuracy_4h IS NOT NULL
             ORDER BY created_at DESC 
             LIMIT 1
         """)
@@ -143,22 +144,23 @@ def fetch_enhanced_ml_training_metrics() -> Dict:
         
         # Calculate metrics
         if latest_performance:
-            current_samples = latest_performance['training_samples']
-            current_accuracy = latest_performance['direction_accuracy_4h']
-            current_mae = latest_performance['magnitude_mae_1d']
+            current_samples = latest_performance['training_samples'] or 0
+            current_accuracy = latest_performance['direction_accuracy_4h'] or 0
+            current_mae = latest_performance['magnitude_mae_1d'] or 0
             last_training = latest_performance['created_at']
             
-            # Determine status based on thresholds
+            # Determine status based on thresholds (handle None values)
             status = "EXCELLENT" if (current_samples >= 50 and current_accuracy >= 0.60) else \
                     "GOOD" if (current_samples >= 30 and current_accuracy >= 0.55) else \
                     "NEEDS_IMPROVEMENT"
             
             # Calculate progression trend
             if len(historical_performance) > 1:
-                recent_accuracy = [row['direction_accuracy_4h'] for row in historical_performance[:3]]
+                # Filter out None values and ensure we have valid numbers
+                recent_accuracy = [row['direction_accuracy_4h'] for row in historical_performance[:3] if row['direction_accuracy_4h'] is not None]
                 accuracy_trend = (recent_accuracy[0] - recent_accuracy[-1]) if len(recent_accuracy) > 1 else 0
                 
-                recent_samples = [row['training_samples'] for row in historical_performance[:3]]
+                recent_samples = [row['training_samples'] for row in historical_performance[:3] if row['training_samples'] is not None]
                 samples_trend = (recent_samples[0] - recent_samples[-1]) if len(recent_samples) > 1 else 0
             else:
                 accuracy_trend = 0
