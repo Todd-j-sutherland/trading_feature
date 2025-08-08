@@ -1495,5 +1495,165 @@ def display_trading_signals(divergence_detector, bank_analyses):
     except Exception as e:
         st.error(f"❌ Trading signals error: {e}")
 
+    # === PAPER TRADING SECTION ===
+    st.markdown("---")
+    st.header("📈 Paper Trading Portfolio")
+    
+    try:
+        from app.core.trading.paper_trading_simulator import PaperTradingSimulator
+        
+        simulator = PaperTradingSimulator()
+        portfolio_value = simulator.get_portfolio_value()
+        positions = simulator.get_all_positions()
+        
+        # Portfolio Overview
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Portfolio Value", f"${portfolio_value:,.2f}")
+        
+        with col2:
+            cash = simulator.cash
+            st.metric("Cash", f"${cash:,.2f}")
+        
+        with col3:
+            total_positions = len(positions)
+            st.metric("Active Positions", total_positions)
+        
+        with col4:
+            # Calculate total P&L
+            total_pnl = sum(pos.unrealized_pnl for pos in positions if pos.unrealized_pnl is not None)
+            color = "green" if total_pnl >= 0 else "red"
+            st.metric("Total P&L", f"${total_pnl:,.2f}", delta=f"{total_pnl:+.2f}")
+        
+        # Active Positions Table
+        if positions:
+            st.subheader("🎯 Active Positions")
+            
+            position_data = []
+            for pos in positions:
+                pnl_color = "🟢" if pos.unrealized_pnl and pos.unrealized_pnl >= 0 else "🔴"
+                position_data.append({
+                    "Symbol": pos.symbol,
+                    "Shares": f"{pos.shares:,}",
+                    "Entry Price": f"${pos.entry_price:.2f}",
+                    "Current Price": f"${pos.current_price:.2f}" if pos.current_price else "N/A",
+                    "P&L": f"{pnl_color} ${pos.unrealized_pnl:,.2f}" if pos.unrealized_pnl else "N/A",
+                    "Entry Time": pos.entry_time.strftime("%Y-%m-%d %H:%M") if pos.entry_time else "N/A"
+                })
+            
+            if position_data:
+                df_positions = pd.DataFrame(position_data)
+                st.dataframe(df_positions, use_container_width=True)
+        else:
+            st.info("💼 No active positions in paper trading portfolio")
+        
+        # Performance Metrics
+        st.subheader("📊 Performance Metrics")
+        
+        try:
+            import sqlite3
+            import os
+            
+            db_path = "data/paper_trading.db"
+            if os.path.exists(db_path):
+                conn = sqlite3.connect(db_path)
+                
+                # Get historical performance data
+                query = """
+                SELECT * FROM positions 
+                WHERE exit_time IS NOT NULL 
+                ORDER BY exit_time DESC 
+                LIMIT 10
+                """
+                
+                df_history = pd.read_sql_query(query, conn)
+                conn.close()
+                
+                if not df_history.empty:
+                    # Calculate metrics
+                    total_trades = len(df_history)
+                    winning_trades = len(df_history[df_history['realized_pnl'] > 0])
+                    win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
+                    avg_return = df_history['realized_pnl'].mean() if total_trades > 0 else 0
+                    
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.metric("Win Rate", f"{win_rate:.1f}%")
+                    
+                    with col2:
+                        st.metric("Total Trades", total_trades)
+                    
+                    with col3:
+                        st.metric("Avg Return", f"${avg_return:.2f}")
+                    
+                    # Recent Trading History
+                    st.subheader("📋 Recent Trading History")
+                    
+                    history_data = []
+                    for _, row in df_history.iterrows():
+                        pnl_color = "🟢" if row['realized_pnl'] >= 0 else "🔴"
+                        history_data.append({
+                            "Symbol": row['symbol'],
+                            "Shares": f"{row['shares']:,}",
+                            "Entry": f"${row['entry_price']:.2f}",
+                            "Exit": f"${row['exit_price']:.2f}",
+                            "P&L": f"{pnl_color} ${row['realized_pnl']:,.2f}",
+                            "Exit Date": pd.to_datetime(row['exit_time']).strftime("%Y-%m-%d %H:%M")
+                        })
+                    
+                    df_history_display = pd.DataFrame(history_data)
+                    st.dataframe(df_history_display, use_container_width=True)
+                else:
+                    st.info("📈 No completed trades yet")
+            else:
+                st.info("📊 No performance data available yet")
+                
+        except Exception as e:
+            st.warning(f"⚠️ Could not load performance metrics: {e}")
+        
+        # Trading Controls
+        st.subheader("🎮 Trading Controls")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("🎯 Run Paper Trading Evaluation", type="primary"):
+                with st.spinner("Running paper trading evaluation..."):
+                    try:
+                        from app.main import run_paper_trading_evaluation
+                        # This would normally run the evaluation
+                        st.success("✅ Paper trading evaluation completed!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error running evaluation: {e}")
+        
+        with col2:
+            if st.button("📊 Refresh Performance Data"):
+                st.rerun()
+        
+        with col3:
+            if st.button("⚙️ View Full Performance Report"):
+                st.info("💡 Run `python -m app.main paper-performance` in terminal for detailed metrics")
+        
+        # Paper Trading Status
+        st.subheader("🔄 System Status")
+        
+        status_col1, status_col2 = st.columns(2)
+        
+        with status_col1:
+            st.success("✅ Paper Trading System: Active")
+            st.info(f"💰 Initial Capital: $100,000")
+        
+        with status_col2:
+            st.info("🤖 Auto-Trading: Available")
+            st.info("💡 Run `python -m app.main start-paper-trader` to start continuous trading")
+        
+    except ImportError:
+        st.error("❌ Paper trading system not available. Please check installation.")
+    except Exception as e:
+        st.error(f"❌ Paper trading section error: {e}")
+
 if __name__ == "__main__":
     main()

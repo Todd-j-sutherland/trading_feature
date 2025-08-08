@@ -3463,6 +3463,198 @@ def render_position_sizing_placeholder():
     **Expected Impact:** Better risk-adjusted returns
     """)
 
+def render_paper_trading_section():
+    """Render paper trading portfolio dashboard section"""
+    st.subheader("📋 Paper Trading Portfolio")
+    
+    try:
+        from app.core.trading.paper_trading_simulator import PaperTradingSimulator
+        
+        # Initialize paper trading simulator
+        simulator = PaperTradingSimulator()
+        
+        # Get portfolio data
+        portfolio_value = simulator.get_portfolio_value()
+        performance_metrics = simulator.get_performance_metrics()
+        
+        # Display portfolio metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Portfolio Value", f"${portfolio_value:,.2f}")
+        
+        with col2:
+            positions_count = len(simulator.positions)
+            st.metric("Active Positions", positions_count)
+        
+        with col3:
+            total_pl = performance_metrics.get('total_profit_loss', 0) or 0
+            st.metric("Total P&L", f"${total_pl:+,.2f}")
+        
+        with col4:
+            win_rate = performance_metrics.get('win_rate', 0) or 0
+            st.metric("Win Rate", f"{win_rate:.1%}")
+        
+        # Performance breakdown
+        st.markdown("#### 📊 Performance Overview")
+        
+        if performance_metrics:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**Trading Statistics:**")
+                total_trades = performance_metrics.get('total_trades', 0) or 0
+                winning_trades = performance_metrics.get('winning_trades', 0) or 0
+                losing_trades = performance_metrics.get('losing_trades', 0) or 0
+                avg_win = performance_metrics.get('average_win', 0) or 0
+                avg_loss = performance_metrics.get('average_loss', 0) or 0
+                
+                st.write(f"• Total Trades: {total_trades}")
+                st.write(f"• Winning Trades: {winning_trades}")
+                st.write(f"• Losing Trades: {losing_trades}")
+                st.write(f"• Average Win: ${avg_win:.2f}")
+                st.write(f"• Average Loss: ${avg_loss:.2f}")
+            
+            with col2:
+                st.markdown("**Risk Metrics:**")
+                max_drawdown = performance_metrics.get('max_drawdown', 0) or 0
+                profit_factor = performance_metrics.get('profit_factor', 0) or 0
+                sharpe_ratio = performance_metrics.get('sharpe_ratio', 0) or 0
+                roi = performance_metrics.get('roi', 0) or 0
+                
+                st.write(f"• Total Return: {roi:+.2%}")
+                st.write(f"• Max Drawdown: {max_drawdown:.2%}")
+                st.write(f"• Profit Factor: {profit_factor:.2f}")
+                st.write(f"• Sharpe Ratio: {sharpe_ratio:.2f}")
+        
+        # Active positions table
+        if simulator.positions:
+            st.markdown("#### 💼 Active Positions")
+            
+            # Create positions dataframe
+            positions_data = []
+            for symbol, position in simulator.positions.items():
+                current_price = simulator.get_current_price(symbol) or 0
+                entry_price = position.entry_price or 0
+                quantity = position.quantity or 0
+                
+                if entry_price > 0 and current_price > 0:
+                    unrealized_pl = (current_price - entry_price) * quantity
+                    unrealized_pct = ((current_price - entry_price) / entry_price) * 100
+                else:
+                    unrealized_pl = 0
+                    unrealized_pct = 0
+                
+                positions_data.append({
+                    'Symbol': symbol,
+                    'Side': position.position_type.upper() if position.position_type else 'N/A',
+                    'Quantity': f"{quantity:,.0f}",
+                    'Entry Price': f"${entry_price:.2f}",
+                    'Current Price': f"${current_price:.2f}",
+                    'Unrealized P&L': f"${unrealized_pl:+,.2f}",
+                    'Return %': f"{unrealized_pct:+.2f}%",
+                    'Entry Date': position.entry_date.strftime('%Y-%m-%d') if position.entry_date else 'N/A'
+                })
+            
+            if positions_data:
+                df_positions = pd.DataFrame(positions_data)
+                st.dataframe(df_positions, use_container_width=True)
+        else:
+            st.info("📝 No active positions. Paper trading evaluations will create positions when signals are generated.")
+        
+        # Trading history from database
+        st.markdown("#### 📈 Recent Trading History")
+        
+        try:
+            with simulator.data_manager.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT symbol, position_type, entry_price, exit_price, position_size, 
+                           entry_date, exit_date, profit_loss, ml_confidence
+                    FROM positions 
+                    WHERE exit_date IS NOT NULL 
+                    ORDER BY exit_date DESC 
+                    LIMIT 10
+                """)
+                
+                history_rows = cursor.fetchall()
+                
+                if history_rows:
+                    history_data = []
+                    for row in history_rows:
+                        symbol, position_type, entry_price, exit_price, position_size, entry_date, exit_date, profit_loss, ml_confidence = row
+                        
+                        return_pct = ((exit_price - entry_price) / entry_price) * 100 if entry_price and exit_price else 0
+                        
+                        history_data.append({
+                            'Date': exit_date[:10] if exit_date else 'N/A',
+                            'Symbol': symbol or 'N/A',
+                            'Side': position_type.upper() if position_type else 'N/A',
+                            'Quantity': f"{position_size:,.0f}" if position_size else '0',
+                            'Entry': f"${entry_price:.2f}" if entry_price else '$0.00',
+                            'Exit': f"${exit_price:.2f}" if exit_price else '$0.00',
+                            'P&L': f"${profit_loss:+,.2f}" if profit_loss else '$0.00',
+                            'Return %': f"{return_pct:+.2f}%",
+                            'ML Confidence': f"{ml_confidence:.1%}" if ml_confidence else 'N/A'
+                        })
+                    
+                    df_history = pd.DataFrame(history_data)
+                    st.dataframe(df_history, use_container_width=True)
+                else:
+                    st.info("📊 No completed trades yet. Run paper trading commands to generate trading history.")
+        except Exception as e:
+            st.warning(f"Could not load trading history: {e}")
+            st.info("📊 Trading history will appear here after completing trades.")
+        
+        # Control buttons
+        st.markdown("#### 🎮 Paper Trading Controls")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("📊 Run Single Evaluation", use_container_width=True):
+                with st.spinner("Running paper trading evaluation..."):
+                    st.info("Use: `python -m app.main paper-trading` to run a single evaluation")
+        
+        with col2:
+            if st.button("📈 View Performance", use_container_width=True):
+                with st.spinner("Loading performance metrics..."):
+                    st.info("Use: `python -m app.main paper-performance` to view detailed metrics")
+        
+        with col3:
+            if st.button("🚀 Start Continuous Trading", use_container_width=True):
+                st.info("Use: `python -m app.main start-paper-trader` to run continuous paper trading")
+        
+        # Info section
+        with st.expander("ℹ️ About Paper Trading", expanded=False):
+            st.markdown("""
+            **Paper Trading System Overview:**
+            
+            - 💰 **Virtual Capital**: $100,000 starting portfolio
+            - 🎯 **Real Analysis**: Uses live news sentiment, ML scores, and economic analysis
+            - 📊 **7 Bank Coverage**: All major ASX banks (CBA, ANZ, WBC, NAB, MQG, QBE, SUN)
+            - 🤖 **ML-Driven**: Positions based on comprehensive analysis including 40+ news articles per bank
+            - 📈 **Performance Tracking**: Complete P&L tracking with risk metrics
+            
+            **Commands:**
+            - `python -m app.main paper-trading` - Single evaluation
+            - `python -m app.main paper-performance` - View metrics  
+            - `python -m app.main start-paper-trader` - Continuous mode
+            
+            **Analysis Components:**
+            - News sentiment analysis (47+ articles per bank)
+            - ML scores (40-50/100 range)
+            - Economic sentiment evaluation
+            - Technical analysis integration
+            """)
+    
+    except ImportError as e:
+        st.error(f"❌ Paper Trading module not available: {e}")
+        st.info("Please ensure the paper trading simulator is properly installed.")
+    except Exception as e:
+        st.error(f"❌ Error loading paper trading data: {e}")
+        st.info("Paper trading data will appear here once you start running paper trading commands.")
+
+
 def render_comprehensive_positions_table():
     """Render comprehensive positions table with entry and outcome data"""
     st.subheader("📊 Comprehensive Trading Positions")
@@ -3815,6 +4007,10 @@ def main():
         # st.markdown("---")
         
         render_prediction_timeline(timeline_df)
+        st.markdown("---")
+        
+        # NEW: Paper Trading Portfolio
+        render_paper_trading_section()
         st.markdown("---")
         
         # NEW: Comprehensive Positions Table

@@ -692,17 +692,23 @@ def show_paper_trading_performance():
         print(f"   Current Capital:     ${metrics['current_capital']:,.2f}")
         print(f"   Portfolio Value:     ${metrics['portfolio_value']:,.2f}")
         print(f"   Total Return:        {metrics['total_return_pct']:+.2f}%")
-        print(f"   Total P&L:           ${metrics['total_profit_loss']:+,.2f}")
+        total_pl = metrics.get('total_profit_loss', 0) or 0
+        print(f"   Total P&L:           ${total_pl:+,.2f}")
         
         # Trading Statistics
         print(f"\n📈 Trading Statistics:")
         print(f"   Total Trades:        {metrics['total_trades']}")
-        print(f"   Winning Trades:      {metrics['winning_trades']}")
+        winning_trades = metrics.get('winning_trades') or 0
+        print(f"   Winning Trades:      {winning_trades}")
         print(f"   Win Rate:            {metrics['win_rate']:.1f}%")
-        print(f"   Average P&L:         ${metrics['avg_profit_loss']:+.2f}")
-        print(f"   Average Return:      {metrics['avg_return_pct']:+.2f}%")
-        print(f"   Best Trade:          {metrics['best_trade_pct']:+.2f}%")
-        print(f"   Worst Trade:         {metrics['worst_trade_pct']:+.2f}%")
+        avg_pl = metrics.get('avg_profit_loss', 0) or 0
+        avg_return = metrics.get('avg_return_pct', 0) or 0
+        best_trade = metrics.get('best_trade_pct', 0) or 0
+        worst_trade = metrics.get('worst_trade_pct', 0) or 0
+        print(f"   Average P&L:         ${avg_pl:+.2f}")
+        print(f"   Average Return:      {avg_return:+.2f}%")
+        print(f"   Best Trade:          {best_trade:+.2f}%")
+        print(f"   Worst Trade:         {worst_trade:+.2f}%")
         print(f"   Active Positions:    {metrics['active_positions']}")
         
         # Show active positions if any
