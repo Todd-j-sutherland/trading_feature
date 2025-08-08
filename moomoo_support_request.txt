@@ -1,0 +1,38 @@
+Subject: Request to Enable OpenAPI Access for Algorithmic Trading
+
+Dear Moomoo Support Team,
+
+I am writing to request OpenAPI access for my Moomoo Australia account for algorithmic trading purposes.
+
+Account Details:
+- Email: sutho100@gmail.com
+- Region: Australia
+- Account Type: [Your account type if known]
+- Purpose: Paper trading with automated trading algorithms
+
+Request:
+I need OpenAPI access enabled for my account to connect algorithmic trading software to your platform. I have:
+1. Successfully downloaded and installed OpenD
+2. Configured OpenD with my account credentials
+3. Set up paper trading environment (trade_env=1)
+
+However, when OpenD attempts to start the API server, it appears that API access is not enabled for my account.
+
+Specifically, I need:
+- OpenAPI access enabled
+- Paper trading API permissions
+- Australian market data access via API
+- Permission to place simulation trades through the API
+
+Technical Details:
+- OpenD Version: Latest from moomoo.com/download/OpenAPI
+- Intended Use: Automated sentiment analysis and ML-based paper trading
+- Trading Symbols: ASX bank stocks (CBA, WBC, ANZ, NAB, MQG)
+- Environment: Simulation/Paper trading only
+
+I understand there may be terms and conditions to accept or additional verification required. Please let me know what steps I need to complete to enable OpenAPI access for my account.
+
+Thank you for your assistance.
+
+Best regards,
+[Your name]

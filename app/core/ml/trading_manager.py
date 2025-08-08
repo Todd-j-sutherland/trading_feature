@@ -52,10 +52,24 @@ class MLTradingManager:
                 logger.warning(f"ML tracker not available: {tracker_error}")
                 self.ml_tracker = None
             
-            # Try to initialize Alpaca, but continue if it fails
+            # Try to initialize trading platforms, preferring Moomoo for ASX
+            self.moomoo_trader = None
+            self.alpaca_trader = None
+            
+            # Initialize Moomoo for ASX trading
+            try:
+                from app.core.trading.moomoo_integration import MoomooMLTrader
+                self.moomoo_trader = MoomooMLTrader(paper=True)
+                logger.info("Moomoo ASX integration initialized")
+            except Exception as moomoo_error:
+                logger.warning(f"Moomoo integration not available: {moomoo_error}")
+                self.moomoo_trader = None
+            
+            # Initialize Alpaca as fallback for US markets
             try:
                 from app.core.trading.alpaca_integration import AlpacaMLTrader
                 self.alpaca_trader = AlpacaMLTrader(paper=True)
+                logger.info("Alpaca US integration initialized")
             except Exception as alpaca_error:
                 logger.warning(f"Alpaca integration not available: {alpaca_error}")
                 self.alpaca_trader = None
@@ -199,23 +213,38 @@ class MLTradingManager:
         
         # Execute trades if requested
         if execute_trades:
-            print(f"\n💰 Executing trades via Alpaca...")
+            print(f"\n💰 Executing trades...")
             
-            if self.alpaca_trader.is_available():
+            # Prefer Moomoo for ASX trading
+            if self.moomoo_trader and self.moomoo_trader.is_available():
+                print(f"   Using Moomoo for ASX trading...")
+                ml_scores = analysis_results.get('ml_scores', {})
+                execution_results = self.moomoo_trader.execute_ml_trading_strategy(ml_scores)
+                session_results['trading_execution'] = execution_results
+                
+                orders_placed = execution_results.get('summary', {}).get('orders_placed', 0)
+                print(f"   📊 Orders placed via Moomoo: {orders_placed}")
+                
+                # Get performance update
+                performance = self.moomoo_trader.get_ml_trade_performance()
+                session_results['performance'] = performance
+                
+            elif self.alpaca_trader and self.alpaca_trader.is_available():
+                print(f"   Using Alpaca fallback...")
                 ml_scores = analysis_results.get('ml_scores', {})
                 execution_results = self.alpaca_trader.execute_ml_trading_strategy(ml_scores)
                 session_results['trading_execution'] = execution_results
                 
                 orders_placed = execution_results.get('summary', {}).get('orders_placed', 0)
-                print(f"   📊 Orders placed: {orders_placed}")
+                print(f"   📊 Orders placed via Alpaca: {orders_placed}")
                 
                 # Get performance update
                 performance = self.alpaca_trader.get_ml_trade_performance()
                 session_results['performance'] = performance
                 
             else:
-                print(f"   ❌ Alpaca trading not available")
-                session_results['trading_execution'] = {'error': 'Alpaca not available'}
+                print(f"   ❌ No trading platform available")
+                session_results['trading_execution'] = {'error': 'No trading platform available'}
         else:
             print(f"\n📊 Trade execution skipped (dry run)")
         

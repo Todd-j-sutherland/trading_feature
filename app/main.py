@@ -36,7 +36,7 @@ Examples:
     
     parser.add_argument(
         'command',
-        choices=['morning', 'evening', 'status', 'weekly', 'restart', 'test', 'dashboard', 'enhanced-dashboard', 'professional-dashboard', 'news', 'divergence', 'economic', 'ml-scores', 'ml-trading', 'pre-trade', 'alpaca-setup', 'alpaca-test', 'start-trading', 'trading-history'],
+        choices=['morning', 'evening', 'status', 'weekly', 'restart', 'test', 'dashboard', 'enhanced-dashboard', 'professional-dashboard', 'news', 'divergence', 'economic', 'ml-scores', 'ml-trading', 'pre-trade', 'alpaca-setup', 'alpaca-test', 'start-trading', 'trading-history', 'paper-trading', 'paper-performance', 'start-paper-trader'],
         help='Command to execute'
     )
     
@@ -628,6 +628,141 @@ def run_pre_trade_analysis(symbol: str = None):
     except Exception as e:
         print(f"❌ Pre-trade analysis error: {e}")
 
+def run_paper_trading_evaluation():
+    """Run a single paper trading evaluation cycle."""
+    print("📊 Paper Trading Evaluation")
+    print("=" * 50)
+    
+    try:
+        from app.core.trading.paper_trading_simulator import PaperTradingSimulator
+        
+        # Initialize simulator
+        simulator = PaperTradingSimulator()
+        
+        # Run 4-hour evaluation
+        results = simulator.run_4hour_evaluation()
+        
+        # Display summary
+        print(f"\n📈 Evaluation Summary:")
+        print(f"   Symbols Evaluated: {len(results['evaluations'])}")
+        print(f"   Trades Executed: {len(results['trades_executed'])}")
+        print(f"   Errors: {len(results['errors'])}")
+        print(f"   Portfolio Value: ${simulator.get_portfolio_value():,.2f}")
+        print(f"   Active Positions: {len(simulator.positions)}")
+        
+        if results['trades_executed']:
+            print(f"\n💼 Trades Executed:")
+            for trade in results['trades_executed']:
+                action = trade['action']
+                symbol = trade['symbol']
+                price = trade.get('entry_price') or trade.get('exit_price', 0)
+                size = trade.get('position_size', 0)
+                print(f"   {action} {symbol}: {size} shares @ ${price:.2f}")
+                
+                if 'profit_loss' in trade:
+                    pl = trade['profit_loss']
+                    print(f"      P&L: ${pl:+.2f} ({trade.get('return_percentage', 0):+.1f}%)")
+        
+        print(f"\n📊 Use 'python -m app.main paper-performance' to see detailed metrics")
+        
+    except Exception as e:
+        print(f"❌ Paper trading evaluation error: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def show_paper_trading_performance():
+    """Show comprehensive paper trading performance metrics."""
+    print("📊 Paper Trading Performance Report")
+    print("=" * 50)
+    
+    try:
+        from app.core.trading.paper_trading_simulator import PaperTradingSimulator
+        
+        simulator = PaperTradingSimulator()
+        metrics = simulator.get_performance_metrics()
+        
+        if 'error' in metrics:
+            print(f"❌ Error getting metrics: {metrics['error']}")
+            return
+        
+        # Portfolio Overview
+        print(f"\n💰 Portfolio Overview:")
+        print(f"   Initial Capital:     ${metrics['initial_capital']:,.2f}")
+        print(f"   Current Capital:     ${metrics['current_capital']:,.2f}")
+        print(f"   Portfolio Value:     ${metrics['portfolio_value']:,.2f}")
+        print(f"   Total Return:        {metrics['total_return_pct']:+.2f}%")
+        print(f"   Total P&L:           ${metrics['total_profit_loss']:+,.2f}")
+        
+        # Trading Statistics
+        print(f"\n📈 Trading Statistics:")
+        print(f"   Total Trades:        {metrics['total_trades']}")
+        print(f"   Winning Trades:      {metrics['winning_trades']}")
+        print(f"   Win Rate:            {metrics['win_rate']:.1f}%")
+        print(f"   Average P&L:         ${metrics['avg_profit_loss']:+.2f}")
+        print(f"   Average Return:      {metrics['avg_return_pct']:+.2f}%")
+        print(f"   Best Trade:          {metrics['best_trade_pct']:+.2f}%")
+        print(f"   Worst Trade:         {metrics['worst_trade_pct']:+.2f}%")
+        print(f"   Active Positions:    {metrics['active_positions']}")
+        
+        # Show active positions if any
+        if simulator.positions:
+            print(f"\n📋 Active Positions:")
+            for symbol, position in simulator.positions.items():
+                current_price = simulator.get_current_price(symbol)
+                unrealized_pl = (current_price - position.entry_price) * position.position_size
+                unrealized_pct = (unrealized_pl / (position.entry_price * position.position_size)) * 100
+                
+                hours_held = (datetime.now() - position.entry_date).total_seconds() / 3600
+                
+                print(f"   {symbol} {position.position_type}:")
+                print(f"      Entry: {position.position_size} shares @ ${position.entry_price:.2f}")
+                print(f"      Current: ${current_price:.2f}")
+                print(f"      Unrealized P&L: ${unrealized_pl:+.2f} ({unrealized_pct:+.1f}%)")
+                print(f"      Hold Duration: {hours_held:.1f} hours")
+        
+        print(f"\n💡 Next Steps:")
+        print(f"   • Run 'python -m app.main paper-trading' for new evaluation")
+        print(f"   • Run 'python -m app.main start-paper-trader' for continuous trading")
+        
+    except Exception as e:
+        print(f"❌ Error showing performance: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def start_paper_trading_background():
+    """Start the background paper trading process."""
+    print("🚀 Starting Background Paper Trading Process")
+    print("=" * 50)
+    
+    try:
+        from app.core.trading.paper_trading_simulator import PaperTradingSimulator
+        
+        print("⚙️ Initializing paper trading simulator...")
+        simulator = PaperTradingSimulator()
+        
+        print("📊 Current Portfolio Status:")
+        metrics = simulator.get_performance_metrics()
+        print(f"   Portfolio Value: ${metrics['portfolio_value']:,.2f}")
+        print(f"   Active Positions: {metrics['active_positions']}")
+        print(f"   Total Return: {metrics.get('total_return_pct', 0):+.2f}%")
+        
+        print(f"\n🔄 Starting 4-hour evaluation cycle...")
+        print(f"   - Evaluations run every 4 hours")
+        print(f"   - Combines news + technical + ML analysis")
+        print(f"   - Automatically opens/closes positions based on signals")
+        print(f"   - Press Ctrl+C to stop")
+        print(f"\n🎯 Background process starting now...")
+        
+        # Start the background trading process
+        simulator.start_background_trading(interval_hours=4)
+        
+    except Exception as e:
+        print(f"❌ Error starting background trader: {e}")
+        import traceback
+        traceback.print_exc()
+
 def main():
     """Main application entry point"""
     parser = setup_cli()
@@ -721,6 +856,12 @@ def main():
             start_continuous_trading()
         elif args.command == 'trading-history':
             show_trading_history()
+        elif args.command == 'paper-trading':
+            run_paper_trading_evaluation()
+        elif args.command == 'paper-performance':
+            show_paper_trading_performance()
+        elif args.command == 'start-paper-trader':
+            start_paper_trading_background()
         
         logger.info(f"Command '{args.command}' completed successfully")
         print("✅ Command completed successfully")
