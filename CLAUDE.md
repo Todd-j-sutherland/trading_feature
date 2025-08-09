@@ -162,10 +162,160 @@ export PYTHONPATH=/root/test
 - All critical paths have test coverage
 - Use `pytest` with clear test organization
 
-### Data Persistence
-- SQLite databases for structured data (`data/*.db`)
+### Data Architecture (Updated August 2025)
+
+**PRIMARY DATABASE:**
+- **`data/trading_unified.db`** - Main system database (ALL operations)
+  - `enhanced_features` - ML features, sentiment data, technical indicators
+  - `enhanced_outcomes` - Trading results, predictions, position outcomes
+  - `enhanced_morning_analysis` / `enhanced_evening_analysis` - Daily routine results
+  - `positions` - Trading positions and history
+  - `sentiment_data` - Historical sentiment analysis
+  - `predictions` - ML predictions and confidence scores
+  - `ml_training_history` - Training metrics and model performance
+  - `news_sentiment_analysis` - News analysis results
+  - `bank_performance` - Bank-specific performance metrics
+
+**LEGACY DATABASES (Backed up, still referenced by some components):**
+- `data/trading_data.db` - Legacy morning/evening analysis (80KB)
+- `data/ml_models/training_data.db` - Legacy ML training data (40KB)
+- `data/ml_models/enhanced_training_data.db` - Empty legacy file (0KB)
+
+**CACHING:**
 - JSON caching for API responses (`data/cache/`)
 - ML model versioning (`data/ml_models/models/`)
+
+**IMPORTANT**: The system has been consolidated to primarily use `trading_unified.db` for all functionality. Morning/evening routines, dashboard, ML training, and trading operations all use this unified database.
+
+## Complete Database Audit - trading_unified.db (August 2025)
+
+### **Database Overview**
+- **Location**: `data/trading_unified.db`
+- **Size**: 1.5MB (actively used)
+- **Total Tables**: 13 tables
+- **Total Records**: 6,061 records across all tables
+
+### **Core Data Tables (High Volume)**
+
+#### 1. **bank_performance** (1,318 records) 🏦
+- **Purpose**: Real-time bank stock performance metrics
+- **Key Fields**: symbol, current_price, rsi, macd_signal, sma_20/50, bollinger_position
+- **Used By**: Dashboard price displays, technical analysis
+- **Data Source**: Live market data collection
+- **Sample**: CBA.AX, $172.87, RSI 40.03, HOLD signals
+
+#### 2. **news_sentiment_analysis** (3,954 records) 📰
+- **Purpose**: News headlines and sentiment scoring
+- **Key Fields**: symbol, headline, sentiment_score, confidence, category, source
+- **Used By**: Morning/evening sentiment analysis, dashboard news metrics
+- **Data Source**: News collection and FinBERT analysis
+- **Sample**: "Commonwealth Bank increases dividend" → 0.517 sentiment, 0.693 confidence
+
+#### 3. **enhanced_features** (367 records) 🎯
+- **Purpose**: ML feature engineering - combines sentiment, technical, and market data
+- **Key Fields**: 50+ features including sentiment_score, rsi, macd_line, price ratios, volume metrics
+- **Used By**: All ML training and prediction pipelines
+- **Data Source**: Consolidated from all analysis engines
+- **Critical**: This is the main ML training dataset
+
+#### 4. **enhanced_outcomes** (178 records) 📊
+- **Purpose**: Trading position outcomes and ML prediction results
+- **Key Fields**: feature_id (FK), optimal_action, confidence_score, entry_price, exit_price, return_pct
+- **Used By**: Dashboard position tables, ML performance tracking
+- **Data Source**: Trading execution and position management
+- **Relationships**: Links to enhanced_features via feature_id
+
+### **Analysis & Tracking Tables (Medium Volume)**
+
+#### 5. **enhanced_morning_analysis** (20 records) 🌅
+- **Purpose**: Results of morning routine analysis
+- **Key Fields**: timestamp, banks_analyzed, ml_predictions, technical_signals, recommendations
+- **Used By**: Morning routine (`python -m app.main morning`)
+- **Data Source**: `app/services/daily_manager.py` morning routine
+- **Complex JSON**: Stores detailed analysis results as JSON
+
+#### 6. **enhanced_evening_analysis** (22 records) 🌆
+- **Purpose**: Results of evening routine analysis  
+- **Key Fields**: timestamp, model_training, backtesting, next_day_predictions, model_comparison
+- **Used By**: Evening routine (`python -m app.main evening`)
+- **Data Source**: `app/services/daily_manager.py` evening routine
+- **Complex JSON**: Stores ML training and backtesting results
+
+#### 7. **sentiment_features** (74 records) 📈
+- **Purpose**: Processed sentiment features for ML
+- **Key Fields**: symbol, sentiment_score, confidence, news_count, reddit_sentiment
+- **Used By**: Legacy ML training components
+- **Status**: Being phased out in favor of enhanced_features
+
+#### 8. **predictions** (17 records) 🔮
+- **Purpose**: Discrete trading predictions and signals
+- **Key Fields**: date, symbol, signal, confidence, sentiment_score, status, outcome
+- **Used By**: Dashboard predictions display
+- **Data Source**: ML prediction generation
+
+### **ML Performance & Model Tables (Low Volume)**
+
+#### 9. **model_performance_enhanced** (13 records) 🤖
+- **Purpose**: Enhanced ML model performance metrics
+- **Key Fields**: model_version, direction_accuracy_1h/4h/1d, magnitude_mae, training_samples
+- **Used By**: Dashboard ML summary, model evaluation
+- **Data Source**: `app/core/ml/enhanced_training_pipeline.py`
+- **Critical**: Tracks ML model quality over time
+
+#### 10. **Empty/Unused Tables** (0 records each):
+- **positions**: Trading positions (not actively used - data in enhanced_outcomes)
+- **sentiment_data**: Legacy sentiment storage
+- **technical_scores**: Legacy technical analysis
+- **trading_outcomes**: Legacy trading results
+- **model_performance**: Legacy model tracking
+- **ml_performance_tracking**: Unused performance tracking
+
+### **Database Usage by Component**
+
+#### **Core Systems Using trading_unified.db:**
+1. **Dashboard** (`dashboard.py`, `enhanced_main.py`)
+   - Reads: enhanced_features, enhanced_outcomes, model_performance_enhanced
+   - Purpose: Real-time position tracking, ML performance display
+
+2. **ML Training Pipeline** (`enhanced_training_pipeline.py`)
+   - Reads/Writes: enhanced_features, enhanced_outcomes, model_performance_enhanced
+   - Purpose: Feature engineering, model training, outcome recording
+
+3. **Daily Manager** (`daily_manager.py`)
+   - Writes: enhanced_morning_analysis, enhanced_evening_analysis
+   - Purpose: Morning/evening routine result storage
+
+4. **SQL Data Manager** (`sql_manager.py`)
+   - Manages: All table operations
+   - Purpose: Centralized database operations
+
+5. **Backtesting** (`comprehensive_backtester.py`, `simple_backtester.py`)
+   - Reads: enhanced_morning_analysis, enhanced_evening_analysis, sentiment_data
+   - Purpose: Historical analysis and strategy testing
+
+6. **ML Components** (`ensemble_predictor.py`, `lstm_neural_network.py`)
+   - Reads/Writes: enhanced_features, enhanced_outcomes
+   - Purpose: Prediction generation and outcome tracking
+
+#### **Data Flow Architecture:**
+```
+Market Data → News Collection → Sentiment Analysis → 
+enhanced_features (ML Features) → ML Training/Prediction → 
+enhanced_outcomes (Position Results) → Dashboard Visualization
+```
+
+#### **Key Relationships:**
+- **enhanced_features.id** → **enhanced_outcomes.feature_id** (1:1)
+- **enhanced_features** serves as the master feature record
+- **enhanced_outcomes** tracks what happened after predictions
+- **Morning/evening analysis** tables store routine results
+- **Model performance** tables track ML system quality
+
+### **Critical Database Operations:**
+1. **Feature Engineering**: `enhanced_features` table population (daily)
+2. **Outcome Recording**: `enhanced_outcomes` updates (when positions close)
+3. **Performance Tracking**: `model_performance_enhanced` updates (when models retrain)
+4. **Routine Logging**: `enhanced_morning/evening_analysis` inserts (daily)
 
 ## Important Implementation Details
 

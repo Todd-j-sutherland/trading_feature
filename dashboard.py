@@ -1,3913 +1,2220 @@
 #!/usr/bin/env python3
 """
-Simplified Trading Sentiment Analysis Dashboard for ASX Banks
-Single-page dashboard with ML performance, sentiment scores, and technical analysis
-
-Requirements:
-- Python 3.12 virtual environment
-- Streamlit for UI
-- Direct SQL database queries (no JSON files)
-- Real-time data only
-- Production-ready error handling
-- Feature flag system for safe feature development
+ASX Banks Trading Sentiment Dashboard - Streamlined Version
+Real-time sentiment analysis and ML predictions for Australian bank stocks
 """
 
-# Suppress warnings for cleaner dashboard output
-import warnings
-warnings.filterwarnings('ignore', category=UserWarning)
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-warnings.filterwarnings('ignore', message='.*sklearn.*')
-warnings.filterwarnings('ignore', message='.*transformers.*')
-warnings.filterwarnings('ignore', message='.*ScriptRunContext.*')
-warnings.filterwarnings('ignore', message='.*missing ScriptRunContext.*')
-
 import streamlit as st
-import sqlite3
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+import sqlite3
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import logging
-import sys
-import os
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+import warnings
+warnings.filterwarnings('ignore')
 
-# Configure Streamlit to reduce warnings
-logging.getLogger('streamlit').setLevel(logging.ERROR)
-
-# Try to import MarketAux and enhanced confidence with fallback
-try:
-    from app.core.sentiment.marketaux_integration import MarketAuxManager
-except ImportError:
-    # Fallback if MarketAux not available
-    class MarketAuxManager:
-        def __init__(self):
-            pass
-        def get_super_batch_sentiment(self):
-            return []
-
-# Import feature flag system for safe feature development
-try:
-    from feature_flags import FeatureFlags, is_feature_enabled, feature_gate
-    FEATURE_FLAGS = FeatureFlags()
-except ImportError:
-    # Fallback if feature flags not available
-    FEATURE_FLAGS = None
-    def is_feature_enabled(feature_name): return False
-    def feature_gate(feature_name): 
-        return lambda func: lambda *args, **kwargs: None
-
-try:
-    from enhance_confidence_calculation import get_enhanced_confidence
-except ImportError:
-    # Fallback confidence calculation
-    def get_enhanced_confidence(rsi, sentiment_data, symbol):
-        if rsi < 30 or rsi > 70:
-            return 0.8
-        else:
-            return 0.3
-
-# Configuration - UPDATED: Use unified database path
-DATABASE_PATH = "./data/trading_unified.db"
-ASX_BANKS = ["CBA.AX", "ANZ.AX", "WBC.AX", "NAB.AX", "MQG.AX", "SUN.AX", "QBE.AX"]
+# Configuration
+DATABASE_PATH = "data/trading_unified.db"
+ASX_BANKS = ['CBA.AX', 'ANZ.AX', 'WBC.AX', 'NAB.AX', 'MQG.AX', 'QBE.AX', 'SUN.AX']
 
 class DatabaseError(Exception):
-    """Custom exception for database-related errors"""
     pass
 
 class DataError(Exception):
-    """Custom exception for data-related errors"""
     pass
 
 def get_database_connection() -> sqlite3.Connection:
-    """
-    Get database connection with proper error handling
-    Raises DatabaseError if connection fails
-    """
-    db_path = Path(DATABASE_PATH)
-    if not db_path.exists():
-        raise DatabaseError(f"Database not found: {DATABASE_PATH}")
-    
+    """Get connection to the unified trading database"""
     try:
-        conn = sqlite3.connect(DATABASE_PATH, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL") 
+        conn.execute("PRAGMA cache_size=10000")
+        conn.execute("PRAGMA temp_store=memory")
         return conn
-    except sqlite3.Error as e:
-        raise DatabaseError(f"Failed to connect to database: {e}")
+    except Exception as e:
+        raise DatabaseError(f"Could not connect to database {DATABASE_PATH}: {e}")
 
 def fetch_enhanced_ml_training_metrics() -> Dict:
-    """
-    Fetch enhanced ML training progression metrics from model_performance_enhanced table
-    Returns training samples, accuracy progression, and training status
-    """
-    conn = get_database_connection()
-    
+    """Fetch enhanced ML training metrics with historical performance"""
     try:
-        # Get latest SUCCESSFUL model performance data (where direction_accuracy_4h is not NULL)
-        cursor = conn.execute("""
-            SELECT 
-                training_samples,
-                direction_accuracy_4h,
-                magnitude_mae_1d,
-                created_at
-            FROM model_performance_enhanced 
-            WHERE direction_accuracy_4h IS NOT NULL
-            ORDER BY training_date DESC 
+        conn = get_database_connection()
+        
+        # Prefer the unified performance table; fall back to legacy only if present
+        has_mpe = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='model_performance_enhanced'"
+        ).fetchone()
+        table_name = 'model_performance_enhanced' if has_mpe else 'ml_training_history'
+        
+        if table_name == 'ml_training_history':
+            has_legacy = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ml_training_history'"
+            ).fetchone()
+            if not has_legacy:
+                conn.close()
+                return {
+                    'status': 'NO_DATA',
+                    'training_samples': 0,
+                    'direction_accuracy_4h': 0.0,
+                    'last_training': None,
+                    'samples_threshold': 100,
+                    'accuracy_threshold': 0.65
+                }
+        
+        # Discover columns to choose the right ordering/time field
+        col_info_rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        col_names = [r[1] for r in col_info_rows] if col_info_rows else []
+        time_col = 'created_at' if 'created_at' in col_names else ('timestamp' if 'timestamp' in col_names else None)
+        order_clause = f"ORDER BY {time_col} DESC" if time_col else "ORDER BY rowid DESC"
+        
+        # Get latest training metrics
+        cursor = conn.execute(f"""
+            SELECT * FROM {table_name}
+            {order_clause}
             LIMIT 1
         """)
+        latest_row = cursor.fetchone()
         
-        latest_performance = cursor.fetchone()
+        if not latest_row:
+            conn.close()
+            return {
+                'status': 'NO_DATA',
+                'training_samples': 0,
+                'direction_accuracy_4h': 0.0,
+                'last_training': None,
+                'samples_threshold': 100,
+                'accuracy_threshold': 0.65
+            }
         
-        # Get historical progression (last 10 training sessions)
-        cursor = conn.execute("""
-            SELECT 
-                training_samples,
-                direction_accuracy_4h,
-                magnitude_mae_1d,
-                created_at
-            FROM model_performance_enhanced 
-            ORDER BY training_date DESC 
+        latest_columns = [desc[0] for desc in cursor.description]
+        metrics_dict = dict(zip(latest_columns, latest_row))
+        
+        # Get historical performance for progression tracking
+        cursor = conn.execute(f"""
+            SELECT * FROM {table_name}
+            {order_clause}
             LIMIT 10
         """)
+        historical_rows = cursor.fetchall()
+        historical_cols = [desc[0] for desc in cursor.description]
+        historical_performance = [dict(zip(historical_cols, r)) for r in historical_rows]
         
-        historical_performance = cursor.fetchall()
+        conn.close()
         
-        # Get current training data status
-        cursor = conn.execute("SELECT COUNT(*) as total_features FROM enhanced_features")
-        features_count = cursor.fetchone()['total_features']
+        # Enhanced metrics with status
+        samples = metrics_dict.get('training_samples') or metrics_dict.get('samples') or 0
+        accuracy = metrics_dict.get('direction_accuracy_4h') or metrics_dict.get('average_direction_accuracy') or 0.0
         
-        cursor = conn.execute("SELECT COUNT(*) as total_outcomes FROM enhanced_outcomes WHERE price_direction_4h IS NOT NULL")
-        outcomes_count = cursor.fetchone()['total_outcomes']
-        
-        # Calculate metrics
-        if latest_performance:
-            current_samples = latest_performance['training_samples'] or 0
-            current_accuracy = latest_performance['direction_accuracy_4h'] or 0
-            current_mae = latest_performance['magnitude_mae_1d'] or 0
-            last_training = latest_performance['created_at']
-            
-            # Determine status based on thresholds (handle None values)
-            status = "EXCELLENT" if (current_samples >= 50 and current_accuracy >= 0.60) else \
-                    "GOOD" if (current_samples >= 30 and current_accuracy >= 0.55) else \
-                    "NEEDS_IMPROVEMENT"
-            
-            # Calculate progression trend
-            if len(historical_performance) > 1:
-                # Filter out None values and ensure we have valid numbers
-                recent_accuracy = [row['direction_accuracy_4h'] for row in historical_performance[:3] if row['direction_accuracy_4h'] is not None]
-                accuracy_trend = (recent_accuracy[0] - recent_accuracy[-1]) if len(recent_accuracy) > 1 else 0
-                
-                recent_samples = [row['training_samples'] for row in historical_performance[:3] if row['training_samples'] is not None]
-                samples_trend = (recent_samples[0] - recent_samples[-1]) if len(recent_samples) > 1 else 0
-            else:
-                accuracy_trend = 0
-                samples_trend = 0
+        if samples >= 100 and accuracy >= 0.70:
+            status = 'EXCELLENT'
+        elif samples >= 50 and accuracy >= 0.65:
+            status = 'GOOD'
+        elif samples >= 20:
+            status = 'NEEDS_IMPROVEMENT'
         else:
-            current_samples = 0
-            current_accuracy = 0
-            current_mae = 0
-            last_training = None
-            status = "NO_DATA"
-            accuracy_trend = 0
-            samples_trend = 0
-        
-        enhanced_metrics = {
-            'training_samples': current_samples,
-            'direction_accuracy_4h': current_accuracy,
-            'magnitude_mae_1d': current_mae,
-            'last_training': last_training,
-            'status': status,
-            'total_features': features_count,
-            'total_outcomes': outcomes_count,
-            'accuracy_trend': accuracy_trend,
-            'samples_trend': samples_trend,
-            'historical_performance': historical_performance,
-            'samples_threshold': 50,
-            'accuracy_threshold': 0.60
-        }
-        
-        return enhanced_metrics
-        
-    except sqlite3.Error as e:
-        raise DatabaseError(f"Failed to fetch enhanced ML training metrics: {e}")
-    finally:
-        conn.close()
-
-def fetch_ml_performance_metrics() -> Dict:
-    """
-    Fetch ML model performance metrics from database
-    Returns metrics for accuracy, success rate, and predictions
-    """
-    conn = get_database_connection()
-    
-    try:
-        # Get recent predictions for accuracy calculation
-        cursor = conn.execute("""
-            SELECT 
-                COUNT(*) as total_predictions,
-                AVG(confidence) as avg_confidence,
-                COUNT(CASE WHEN sentiment_score > 0.05 THEN 1 END) as buy_signals,
-                COUNT(CASE WHEN sentiment_score < -0.05 THEN 1 END) as sell_signals,
-                COUNT(CASE WHEN sentiment_score BETWEEN -0.05 AND 0.05 THEN 1 END) as hold_signals
-            FROM enhanced_features 
-            WHERE timestamp >= date('now', '-30 days')
-        """)
-        
-        row = cursor.fetchone()
-        if not row or row['total_predictions'] == 0:
-            raise DataError("No prediction data found in the last 30 days")
-        
-        # Get performance from enhanced outcomes
-        cursor = conn.execute("""
-            SELECT 
-                COUNT(*) as completed_trades,
-                AVG(return_pct) as avg_return,
-                COUNT(CASE WHEN return_pct > 0 THEN 1 END) as successful_trades,
-                MAX(return_pct) as best_trade,
-                MIN(return_pct) as worst_trade
-            FROM enhanced_outcomes 
-            WHERE exit_timestamp IS NOT NULL
-            AND prediction_timestamp >= date('now', '-30 days')
-        """)
-        
-        outcomes_row = cursor.fetchone()
-        
-        # Calculate derived metrics
-        success_rate = 0
-        if outcomes_row and outcomes_row['completed_trades'] > 0:
-            success_rate = (outcomes_row['successful_trades'] / outcomes_row['completed_trades'])
-        
-        metrics = {
-            'total_predictions': row['total_predictions'],
-            'avg_confidence': float(row['avg_confidence'] or 0),
-            'buy_signals': row['buy_signals'],
-            'sell_signals': row['sell_signals'], 
-            'hold_signals': row['hold_signals'],
-            'completed_trades': outcomes_row['completed_trades'] if outcomes_row else 0,
-            'success_rate': success_rate,
-            'avg_return': float(outcomes_row['avg_return'] or 0) if outcomes_row else 0,
-            'best_trade': float(outcomes_row['best_trade'] or 0) if outcomes_row else 0,
-            'worst_trade': float(outcomes_row['worst_trade'] or 0) if outcomes_row else 0
-        }
-        
-        return metrics
-        
-    except sqlite3.Error as e:
-        raise DatabaseError(f"Failed to fetch ML performance metrics: {e}")
-    finally:
-        conn.close()
-
-def fetch_hypothetical_returns_data(days: int = 30) -> pd.DataFrame:
-    """
-    Fetch hypothetical returns analysis based on actual entry/exit prices
-    Returns detailed trading scenarios with multiple timeframes
-    """
-    conn = get_database_connection()
-    
-    try:
-        # Get outcomes with detailed price information
-        cursor = conn.execute("""
-            SELECT 
-                eo.id,
-                eo.symbol,
-                eo.prediction_timestamp,
-                eo.optimal_action,
-                eo.confidence_score,
-                eo.entry_price,
-                eo.exit_price_1h,
-                eo.exit_price_4h,
-                eo.exit_price_1d,
-                eo.return_pct as actual_return,
-                eo.price_direction_1h,
-                eo.price_direction_4h,
-                eo.price_direction_1d,
-                eo.price_magnitude_1h,
-                eo.price_magnitude_4h,
-                eo.price_magnitude_1d,
-                eo.exit_timestamp,
-                ef.sentiment_score,
-                ef.rsi
-            FROM enhanced_outcomes eo
-            LEFT JOIN enhanced_features ef ON eo.feature_id = ef.id
-            WHERE eo.prediction_timestamp >= date('now', '-{} days')
-            AND eo.exit_timestamp IS NOT NULL
-            AND eo.entry_price IS NOT NULL
-            ORDER BY eo.prediction_timestamp DESC
-        """.format(days))
-        
-        results = cursor.fetchall()
-        
-        if not results:
-            return pd.DataFrame()
-        
-        # Process results into hypothetical trading scenarios
-        trades = []
-        for row in results:
-            # Base trade information
-            base_trade = {
-                'Trade_ID': row[0],
-                'Symbol': row[1],
-                'Prediction_Time': pd.to_datetime(row[2]),
-                'Signal': row[3],
-                'Confidence': float(row[4] or 0),
-                'Entry_Price': float(row[5] or 0),
-                'Actual_Return': float(row[9] or 0),
-                'Sentiment_Score': float(row[17] or 0) if row[17] else 0,
-                'RSI': float(row[18] or 0) if row[18] else 0
-            }
-            
-            # Calculate hypothetical returns for different timeframes
-            entry_price = base_trade['Entry_Price']
-            
-            if entry_price > 0:
-                # 1-hour scenario
-                if row[6]:  # exit_price_1h
-                    exit_1h = float(row[6])
-                    return_1h = ((exit_1h - entry_price) / entry_price) * 100
-                    
-                    # For SELL signals, invert the return (short position)
-                    if base_trade['Signal'] in ['SELL', 'STRONG_SELL']:
-                        return_1h = -return_1h
-                    
-                    trades.append({
-                        **base_trade,
-                        'Timeframe': '1 Hour',
-                        'Exit_Price': exit_1h,
-                        'Hypothetical_Return_%': return_1h,
-                        'Position_Type': 'Short' if base_trade['Signal'] in ['SELL', 'STRONG_SELL'] else 'Long',
-                        'Trade_Duration': '1h'
-                    })
-                
-                # 4-hour scenario
-                if row[7]:  # exit_price_4h
-                    exit_4h = float(row[7])
-                    return_4h = ((exit_4h - entry_price) / entry_price) * 100
-                    
-                    if base_trade['Signal'] in ['SELL', 'STRONG_SELL']:
-                        return_4h = -return_4h
-                    
-                    trades.append({
-                        **base_trade,
-                        'Timeframe': '4 Hours',
-                        'Exit_Price': exit_4h,
-                        'Hypothetical_Return_%': return_4h,
-                        'Position_Type': 'Short' if base_trade['Signal'] in ['SELL', 'STRONG_SELL'] else 'Long',
-                        'Trade_Duration': '4h'
-                    })
-                
-                # 1-day scenario
-                if row[8]:  # exit_price_1d
-                    exit_1d = float(row[8])
-                    return_1d = ((exit_1d - entry_price) / entry_price) * 100
-                    
-                    if base_trade['Signal'] in ['SELL', 'STRONG_SELL']:
-                        return_1d = -return_1d
-                    
-                    trades.append({
-                        **base_trade,
-                        'Timeframe': '1 Day',
-                        'Exit_Price': exit_1d,
-                        'Hypothetical_Return_%': return_1d,
-                        'Position_Type': 'Short' if base_trade['Signal'] in ['SELL', 'STRONG_SELL'] else 'Long',
-                        'Trade_Duration': '1d'
-                    })
-        
-        df = pd.DataFrame(trades)
-        
-        if not df.empty:
-            # Add additional calculated fields
-            df['Profit_Loss_$'] = df.apply(lambda row: 
-                (row['Hypothetical_Return_%'] / 100) * 10000, axis=1)  # Assuming $10k position size
-            
-            df['Trade_Success'] = df['Hypothetical_Return_%'] > 0
-            df['Signal_Strength'] = df['Signal'].map({
-                'STRONG_BUY': 5, 'BUY': 4, 'HOLD': 3, 'SELL': 2, 'STRONG_SELL': 1
-            })
-            
-            # Performance categorization
-            def categorize_performance(return_pct):
-                if return_pct > 2:
-                    return 'Excellent'
-                elif return_pct > 1:
-                    return 'Good'
-                elif return_pct > 0:
-                    return 'Profitable'
-                elif return_pct > -1:
-                    return 'Small Loss'
-                else:
-                    return 'Large Loss'
-            
-            df['Performance_Category'] = df['Hypothetical_Return_%'].apply(categorize_performance)
-        
-        return df
-        
-    except sqlite3.Error as e:
-        st.warning(f"Could not fetch hypothetical returns: {e}")
-        return pd.DataFrame()
-    finally:
-        conn.close()
-
-def fetch_performance_timeline_data(days: int = 30) -> pd.DataFrame:
-    """
-    Fetch performance timeline data for the success rate chart
-    Returns DataFrame with daily success rates and outcome counts
-    """
-    conn = get_database_connection()
-    
-    try:
-        # Get daily performance data
-        cursor = conn.execute("""
-            SELECT 
-                DATE(prediction_timestamp) as date,
-                COUNT(*) as total_outcomes,
-                COUNT(CASE WHEN return_pct > 0 THEN 1 END) as successful_outcomes,
-                ROUND(
-                    CAST(COUNT(CASE WHEN return_pct > 0 THEN 1 END) AS FLOAT) / 
-                    CAST(COUNT(*) AS FLOAT) * 100, 1
-                ) as success_rate_pct,
-                AVG(return_pct) as avg_return_pct,
-                COUNT(DISTINCT symbol) as banks_traded
-            FROM enhanced_outcomes 
-            WHERE prediction_timestamp >= date('now', '-{} days')
-            AND exit_timestamp IS NOT NULL
-            GROUP BY DATE(prediction_timestamp)
-            ORDER BY date ASC
-        """.format(days))
-        
-        results = cursor.fetchall()
-        
-        if not results:
-            # Return empty DataFrame with proper structure
-            return pd.DataFrame(columns=[
-                'Date', 'Total_Outcomes', 'Successful_Outcomes', 
-                'Success_Rate_Pct', 'Avg_Return_Pct', 'Banks_Traded'
-            ])
-        
-        data = []
-        cumulative_outcomes = 0
-        
-        for row in results:
-            cumulative_outcomes += row['total_outcomes']
-            
-            data.append({
-                'Date': pd.to_datetime(row['date']),
-                'Total_Outcomes': row['total_outcomes'],
-                'Cumulative_Outcomes': cumulative_outcomes,
-                'Successful_Outcomes': row['successful_outcomes'],
-                'Success_Rate_Pct': float(row['success_rate_pct'] or 0),
-                'Avg_Return_Pct': float(row['avg_return_pct'] or 0),
-                'Banks_Traded': row['banks_traded']
-            })
-        
-        return pd.DataFrame(data)
-        
-    except sqlite3.Error as e:
-        # Return empty DataFrame instead of raising error
-        st.warning(f"Could not fetch performance timeline: {e}")
-        return pd.DataFrame(columns=[
-            'Date', 'Total_Outcomes', 'Cumulative_Outcomes', 
-            'Successful_Outcomes', 'Success_Rate_Pct', 'Avg_Return_Pct', 'Banks_Traded'
-        ])
-    finally:
-        conn.close()
-
-def fetch_current_sentiment_scores() -> pd.DataFrame:
-    """
-    Fetch latest sentiment scores for all ASX banks
-    Returns DataFrame with current sentiment data
-    """
-    conn = get_database_connection()
-    
-    try:
-        # Get latest sentiment for each bank
-        cursor = conn.execute("""
-            SELECT 
-                s1.symbol,
-                s1.timestamp,
-                s1.sentiment_score,
-                s1.confidence,
-                s1.news_count,
-                s1.reddit_sentiment,
-                s1.event_score,
-                s1.rsi as technical_score,
-                CASE 
-                    WHEN s1.sentiment_score > 0.05 THEN 'BUY'
-                    WHEN s1.sentiment_score < -0.05 THEN 'SELL'
-                    ELSE 'HOLD'
-                END as signal
-            FROM enhanced_features s1
-            INNER JOIN (
-                SELECT symbol, MAX(timestamp) as max_timestamp
-                FROM enhanced_features
-                WHERE symbol IN ({})
-                GROUP BY symbol
-            ) s2 ON s1.symbol = s2.symbol AND s1.timestamp = s2.max_timestamp
-            ORDER BY s1.symbol
-        """.format(','.join('?' * len(ASX_BANKS))), ASX_BANKS)
-        
-        results = cursor.fetchall()
-        
-        if not results:
-            raise DataError("No current sentiment data found for any banks")
-        
-        # Convert to DataFrame
-        data = []
-        for row in results:
-            data.append({
-                'Symbol': row['symbol'],
-                'Timestamp': row['timestamp'],
-                'Sentiment Score': float(row['sentiment_score'] or 0),
-                'Confidence': float(row['confidence'] or 0),
-                'Signal': row['signal'],
-                'News Count': int(row['news_count'] or 0),
-                'Reddit Sentiment': float(row['reddit_sentiment'] or 0),
-                'Event Score': float(row['event_score'] or 0),
-                'Technical Score': float(row['technical_score'] or 0)
-            })
-        
-        return pd.DataFrame(data)
-        
-    except sqlite3.Error as e:
-        raise DatabaseError(f"Failed to fetch current sentiment scores: {e}")
-    finally:
-        conn.close()
-
-def fetch_marketaux_sentiment_comparison() -> pd.DataFrame:
-    """
-    Fetch MarketAux sentiment data and compare with existing Reddit sentiment
-    Returns DataFrame with comparison data
-    """
-    try:
-        # Initialize MarketAux manager
-        marketaux_manager = MarketAuxManager()
-        
-        # Get MarketAux sentiment data
-        marketaux_results = marketaux_manager.get_super_batch_sentiment()
-        
-        # Get current Reddit sentiment from database (which is broken/0.0)
-        reddit_df = fetch_current_sentiment_scores()
-        
-        # Create comparison data
-        comparison_data = []
-        
-        # Convert ASX_BANKS format (CBA.AX) to MarketAux format (CBA)
-        bank_mapping = {bank.replace('.AX', ''): bank for bank in ASX_BANKS}
-        
-        for marketaux_result in marketaux_results:
-            symbol = marketaux_result.symbol
-            asx_symbol = bank_mapping.get(symbol, f"{symbol}.AX")
-            
-            # Find corresponding Reddit data
-            reddit_row = reddit_df[reddit_df['Symbol'] == asx_symbol]
-            reddit_sentiment = reddit_row['Reddit Sentiment'].iloc[0] if not reddit_row.empty else 0.0
-            
-            # Calculate combined sentiment (70% MarketAux, 30% Reddit due to Reddit reliability issues)
-            combined_sentiment = (marketaux_result.sentiment_score * 0.7) + (reddit_sentiment * 0.3)
-            
-            comparison_data.append({
-                'Symbol': symbol,
-                'ASX Symbol': asx_symbol,
-                'Reddit Sentiment': reddit_sentiment,
-                'MarketAux Sentiment': marketaux_result.sentiment_score,
-                'Combined Sentiment': combined_sentiment,
-                'MarketAux Confidence': marketaux_result.confidence,
-                'News Volume': marketaux_result.news_volume,
-                'Source Quality': marketaux_result.source_quality,
-                'Key News': marketaux_result.highlights[0][:100] + "..." if marketaux_result.highlights else "No news",
-                'Sentiment Change': combined_sentiment - reddit_sentiment,
-                'Signal Strength': 'Strong' if abs(marketaux_result.sentiment_score) > 0.3 else 'Moderate' if abs(marketaux_result.sentiment_score) > 0.15 else 'Weak',
-                'Trading Signal': 'BUY' if combined_sentiment > 0.1 else 'SELL' if combined_sentiment < -0.1 else 'HOLD'
-            })
-        
-        return pd.DataFrame(comparison_data)
-        
-    except Exception as e:
-        st.error(f"Error fetching MarketAux data: {e}")
-        # Return empty DataFrame with expected columns if MarketAux fails
-        return pd.DataFrame(columns=[
-            'Symbol', 'ASX Symbol', 'Reddit Sentiment', 'MarketAux Sentiment', 
-            'Combined Sentiment', 'MarketAux Confidence', 'News Volume', 
-            'Source Quality', 'Key News', 'Sentiment Change', 'Signal Strength', 'Trading Signal'
-        ])
-
-def fetch_ml_feature_analysis() -> Dict:
-    """
-    Analyze what features the ML model is using dynamically
-    Returns feature importance and usage statistics
-    """
-    conn = get_database_connection()
-    
-    try:
-        # Get recent feature usage statistics
-        cursor = conn.execute("""
-            SELECT 
-                COUNT(*) as total_records,
-                AVG(CASE WHEN news_count > 0 THEN 1.0 ELSE 0.0 END) as news_usage,
-                AVG(CASE WHEN reddit_sentiment IS NOT NULL THEN 1.0 ELSE 0.0 END) as reddit_usage,
-                AVG(CASE WHEN event_score IS NOT NULL THEN 1.0 ELSE 0.0 END) as event_usage,
-                AVG(CASE WHEN rsi IS NOT NULL THEN 1.0 ELSE 0.0 END) as technical_usage,
-                AVG(news_count) as avg_news_count,
-                AVG(ABS(reddit_sentiment)) as avg_reddit_strength,
-                AVG(ABS(event_score)) as avg_event_strength,
-                AVG(rsi) as avg_technical_strength,
-                feature_version as ml_features
-            FROM enhanced_features 
-            WHERE timestamp >= date('now', '-30 days')
-            LIMIT 1
-        """)
-        
-        row = cursor.fetchone()
-        
-        if not row:
-            raise DataError("No ML feature data found")
-        
-        # Get detailed feature statistics from SQL instead of JSON
-        feature_details = {
-            'feature_version': row['ml_features'] or 'Unknown',
-            'total_features': 53,  # Based on schema analysis
-            'feature_categories': {
-                'Sentiment Features': ['sentiment_score', 'confidence', 'news_count', 'reddit_sentiment', 'event_score'],
-                'Technical Indicators': ['rsi', 'macd_line', 'macd_signal', 'macd_histogram', 'sma_20', 'sma_50', 'sma_200', 'ema_12', 'ema_26', 'bollinger_upper', 'bollinger_lower', 'bollinger_width'],
-                'Price Features': ['current_price', 'price_change_1h', 'price_change_4h', 'price_change_1d', 'price_change_5d', 'price_change_20d', 'price_vs_sma20', 'price_vs_sma50', 'price_vs_sma200', 'daily_range', 'atr_14', 'volatility_20d'],
-                'Volume Features': ['volume', 'volume_sma20', 'volume_ratio', 'on_balance_volume', 'volume_price_trend'],
-                'Market Context': ['asx200_change', 'sector_performance', 'aud_usd_rate', 'vix_level', 'market_breadth', 'market_momentum'],
-                'Interaction Features': ['sentiment_momentum', 'sentiment_rsi', 'volume_sentiment', 'confidence_volatility', 'news_volume_impact', 'technical_sentiment_divergence'],
-                'Time Features': ['asx_market_hours', 'asx_opening_hour', 'asx_closing_hour', 'monday_effect', 'friday_effect', 'month_end', 'quarter_end']
-            },
-            'usage_stats': {
-                'news_analysis': float(row['news_usage'] or 0) * 100,
-                'reddit_sentiment': float(row['reddit_usage'] or 0) * 100,
-                'event_scoring': float(row['event_usage'] or 0) * 100,
-                'technical_indicators': float(row['technical_usage'] or 0) * 100
-            }
-        }
-        
-        feature_analysis = {
-            'total_records': row['total_records'],
-            'feature_usage': {
-                'news_analysis': float(row['news_usage'] or 0) * 100,
-                'reddit_sentiment': float(row['reddit_usage'] or 0) * 100,
-                'event_scoring': float(row['event_usage'] or 0) * 100,
-                'technical_indicators': float(row['technical_usage'] or 0) * 100
-            },
-            'feature_strength': {
-                'avg_news_count': float(row['avg_news_count'] or 0),
-                'avg_reddit_strength': float(row['avg_reddit_strength'] or 0),
-                'avg_event_strength': float(row['avg_event_strength'] or 0),
-                'avg_technical_strength': float(row['avg_technical_strength'] or 0)
-            },
-            'ml_features': feature_details
-        }
-        
-        return feature_analysis
-        
-    except sqlite3.Error as e:
-        raise DatabaseError(f"Failed to fetch ML feature analysis: {e}")
-    finally:
-        conn.close()
-
-def fetch_portfolio_correlation_data() -> Dict:
-    """
-    Fetch portfolio correlation and concentration risk data
-    Returns correlation matrix, sector concentration, and risk metrics
-    """
-    conn = get_database_connection()
-    
-    try:
-        # Get recent sentiment scores for correlation calculation
-        cursor = conn.execute("""
-            SELECT 
-                sf.symbol,
-                sf.sentiment_score,
-                sf.rsi as technical_score,
-                sf.confidence,
-                sf.timestamp,
-                ROW_NUMBER() OVER (PARTITION BY sf.symbol ORDER BY sf.timestamp DESC) as rn
-            FROM enhanced_features sf
-            WHERE sf.timestamp >= date('now', '-30 days')
-            AND sf.symbol IN ({})
-        """.format(','.join('?' * len(ASX_BANKS))), ASX_BANKS)
-        
-        results = cursor.fetchall()
-        
-        if not results:
-            raise DataError("No recent data for portfolio correlation analysis")
-        
-        # Create DataFrame for correlation analysis
-        data = []
-        for row in results:
-            data.append({
-                'symbol': row['symbol'],
-                'sentiment_score': float(row['sentiment_score'] or 0),
-                'technical_score': float(row['technical_score'] or 0),
-                'confidence': float(row['confidence'] or 0),
-                'timestamp': row['timestamp'],
-                'rn': row['rn']
-            })
-        
-        df = pd.DataFrame(data)
-        
-        # Calculate correlation matrices
-        sentiment_pivot = df[df['rn'] <= 10].pivot_table(
-            index='timestamp', 
-            columns='symbol', 
-            values='sentiment_score', 
-            fill_value=0
-        )
-        
-        technical_pivot = df[df['rn'] <= 10].pivot_table(
-            index='timestamp', 
-            columns='symbol', 
-            values='technical_score', 
-            fill_value=0
-        )
-        
-        # Get current signal distribution for concentration analysis
-        cursor = conn.execute("""
-            SELECT 
-                s1.symbol,
-                CASE 
-                    WHEN s1.sentiment_score > 0.05 THEN 'BUY'
-                    WHEN s1.sentiment_score < -0.05 THEN 'SELL'
-                    ELSE 'HOLD'
-                END as current_signal,
-                s1.sentiment_score,
-                s1.confidence
-            FROM enhanced_features s1
-            INNER JOIN (
-                SELECT symbol, MAX(timestamp) as max_timestamp
-                FROM enhanced_features
-                WHERE symbol IN ({})
-                GROUP BY symbol
-            ) s2 ON s1.symbol = s2.symbol AND s1.timestamp = s2.max_timestamp
-        """.format(','.join('?' * len(ASX_BANKS))), ASX_BANKS)
-        
-        current_signals = cursor.fetchall()
-        
-        # Calculate portfolio metrics
-        sentiment_corr = sentiment_pivot.corr() if len(sentiment_pivot) > 1 else pd.DataFrame()
-        technical_corr = technical_pivot.corr() if len(technical_pivot) > 1 else pd.DataFrame()
-        
-        # Concentration risk analysis
-        signal_counts = {'BUY': 0, 'SELL': 0, 'HOLD': 0}
-        signal_details = []
-        
-        for signal_row in current_signals:
-            signal = signal_row['current_signal']
-            signal_counts[signal] += 1
-            signal_details.append({
-                'symbol': signal_row['symbol'],
-                'signal': signal,
-                'sentiment_score': float(signal_row['sentiment_score'] or 0),
-                'confidence': float(signal_row['confidence'] or 0)
-            })
-        
-        # Calculate concentration risk score (0-100, higher = more risk)
-        total_banks = len(ASX_BANKS)
-        max_signal_count = max(signal_counts.values())
-        concentration_risk = (max_signal_count / total_banks) * 100
-        
-        # Diversification score (0-100, higher = better diversification)
-        signal_distribution = np.array(list(signal_counts.values()))
-        diversification_score = 100 - ((np.std(signal_distribution) / np.mean(signal_distribution)) * 100) if np.mean(signal_distribution) > 0 else 0
-        diversification_score = max(0, min(100, diversification_score))
+            status = 'NO_DATA'
         
         return {
-            'sentiment_correlation': sentiment_corr,
-            'technical_correlation': technical_corr,
-            'signal_distribution': signal_counts,
-            'signal_details': signal_details,
-            'concentration_risk': concentration_risk,
-            'diversification_score': diversification_score,
-            'avg_correlation': sentiment_corr.values[sentiment_corr.values != 1.0].mean() if not sentiment_corr.empty else 0,
-            'max_correlation': sentiment_corr.values[sentiment_corr.values != 1.0].max() if not sentiment_corr.empty else 0,
-            'data_points': len(sentiment_pivot)
+            'status': status,
+            'training_samples': samples,
+            'direction_accuracy_4h': accuracy,
+            'last_training': metrics_dict.get(time_col) if time_col else None,
+            'samples_threshold': 100,
+            'accuracy_threshold': 0.65,
+            'historical_performance': historical_performance
         }
         
-    except sqlite3.Error as e:
-        raise DatabaseError(f"Failed to fetch portfolio correlation data: {e}")
-    finally:
-        conn.close()
+    except Exception as e:
+        st.warning(f"Could not fetch enhanced ML metrics: {e}")
+        return {
+            'status': 'NO_DATA',
+            'training_samples': 0,
+            'direction_accuracy_4h': 0.0,
+            'last_training': None
+        }
 
-def fetch_prediction_timeline() -> pd.DataFrame:
-    """
-    Fetch prediction timeline with actual outcomes for performance visualization
-    Returns DataFrame based on enhanced features and outcomes
-    """
-    conn = get_database_connection()
-    
+def fetch_current_sentiment_scores() -> pd.DataFrame:
+    """Fetch the most recent sentiment scores for all banks"""
     try:
-        # Get features with outcomes from the enhanced database
+        conn = get_database_connection()
+        
         query = """
-            SELECT 
-                ef.timestamp,
-                ef.symbol,
-                CASE 
-                    WHEN ef.rsi < 30 THEN 'BUY'
-                    WHEN ef.rsi > 70 THEN 'SELL'
-                    ELSE 'HOLD'
-                END as signal,
-                CASE 
-                    WHEN ef.rsi < 30 OR ef.rsi > 70 THEN 0.8
-                    ELSE 0.3
-                END as confidence,
-                ef.sentiment_score,
-                ef.rsi as technical_score,
-                eo.return_pct as actual_outcome,
-                CASE 
-                    WHEN eo.return_pct IS NOT NULL THEN 'COMPLETED'
-                    ELSE 'PENDING'
-                END as status,
-                CASE 
-                    WHEN eo.return_pct IS NOT NULL THEN
-                        CASE 
-                            WHEN (ef.rsi < 30 AND eo.return_pct > 0) OR 
-                                 (ef.rsi > 70 AND eo.return_pct < 0) OR
-                                 (ef.rsi BETWEEN 30 AND 70 AND ABS(eo.return_pct) < 0.5) 
-                            THEN 'CORRECT' 
-                            ELSE 'WRONG' 
-                        END
-                    ELSE 'PENDING'
-                END as accuracy
-            FROM enhanced_features ef
-            LEFT JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
-            WHERE ef.timestamp >= datetime('now', '-30 days')
-            ORDER BY ef.timestamp DESC
-            LIMIT 100
-        """
-        
-        cursor = conn.execute(query)
-        results = cursor.fetchall()
-        
-        if not results:
-            # Return empty DataFrame with proper structure
-            return pd.DataFrame(columns=[
-                'Timestamp', 'Symbol', 'Signal', 'Confidence', 
-                'Technical Score', 'Sentiment Score', 'Actual Outcome', 
-                'Status', 'Accuracy'
-            ])
-        
-        data = []
-        for row in results:
-            data.append({
-                'Timestamp': pd.to_datetime(row[0]),  # timestamp
-                'Symbol': row[1],                      # symbol
-                'Signal': row[2],                      # signal
-                'Confidence': float(row[3] or 0),     # confidence
-                'Sentiment Score': float(row[4] or 0), # sentiment_score
-                'Technical Score': float(row[5] or 0), # technical_score (rsi)
-                'Actual Outcome': float(row[6] or 0) if row[6] is not None else None, # actual_outcome
-                'Status': row[7] or 'PENDING',        # status
-                'Accuracy': row[8] or 'PENDING'       # accuracy
-            })
-        
-        return pd.DataFrame(data)
-        
-    except sqlite3.Error as e:
-        # Return empty DataFrame instead of raising error
-        st.warning(f"Could not fetch prediction timeline: {e}")
-        return pd.DataFrame(columns=[
-            'Timestamp', 'Symbol', 'Signal', 'Confidence', 
-            'Technical Score', 'Sentiment Score', 'Actual Outcome', 
-            'Status', 'Accuracy'
-        ])
-    finally:
-        conn.close()
-
-def render_portfolio_correlation_section(correlation_data: Dict):
-    """
-    Render portfolio correlation and concentration risk analysis
-    """
-    st.subheader("🔗 Portfolio Risk Management")
-    
-    # Key metrics overview
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        risk_color = "🔴" if correlation_data['concentration_risk'] > 70 else "🟡" if correlation_data['concentration_risk'] > 40 else "🟢"
-        st.metric(
-            "Concentration Risk",
-            f"{risk_color} {correlation_data['concentration_risk']:.1f}%",
-            help="Higher = more concentrated positions in same direction"
-        )
-    
-    with col2:
-        div_color = "🟢" if correlation_data['diversification_score'] > 60 else "🟡" if correlation_data['diversification_score'] > 30 else "🔴"
-        st.metric(
-            "Diversification Score", 
-            f"{div_color} {correlation_data['diversification_score']:.1f}%",
-            help="Higher = better signal diversification across banks"
-        )
-    
-    with col3:
-        avg_corr = correlation_data['avg_correlation']
-        corr_color = "🔴" if abs(avg_corr) > 0.7 else "🟡" if abs(avg_corr) > 0.4 else "🟢"
-        st.metric(
-            "Avg Correlation",
-            f"{corr_color} {avg_corr:.3f}",
-            help="Average correlation between bank sentiment scores"
-        )
-    
-    with col4:
-        st.metric(
-            "Data Points",
-            correlation_data['data_points'],
-            help="Number of time periods used for correlation analysis"
-        )
-    
-    # Signal distribution and correlation heatmaps
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Current signal distribution
-        signal_data = correlation_data['signal_distribution']
-        fig = px.pie(
-            values=list(signal_data.values()),
-            names=list(signal_data.keys()),
-            title="Current Signal Distribution",
-            color_discrete_map={'BUY': 'green', 'SELL': 'red', 'HOLD': 'gray'}
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Risk assessment
-        risk_level = "🔴 HIGH" if correlation_data['concentration_risk'] > 70 else "🟡 MEDIUM" if correlation_data['concentration_risk'] > 40 else "🟢 LOW"
-        st.write(f"**Portfolio Risk Level**: {risk_level}")
-        
-        if correlation_data['concentration_risk'] > 60:
-            st.warning("⚠️ High concentration risk detected - consider position adjustments")
-        elif correlation_data['concentration_risk'] > 40:
-            st.info("📊 Moderate concentration - monitor for changes")
-        else:
-            st.success("✅ Good diversification across signals")
-    
-    with col2:
-        # Sentiment correlation heatmap
-        if not correlation_data['sentiment_correlation'].empty:
-            fig = px.imshow(
-                correlation_data['sentiment_correlation'],
-                title="Sentiment Score Correlations (7-day)",
-                color_continuous_scale='RdBu_r',
-                aspect='auto',
-                zmin=-1, zmax=1
-            )
-            fig.update_layout(
-                xaxis_title="Bank",
-                yaxis_title="Bank"
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("📊 Insufficient data for correlation analysis")
-    
-    # Detailed signal breakdown
-    with st.expander("📋 **Detailed Signal Analysis**", expanded=False):
-        signal_df = pd.DataFrame(correlation_data['signal_details'])
-        
-        if not signal_df.empty:
-            # Enhanced signal table
-            signal_df['Confidence'] = signal_df['confidence'].apply(lambda x: f"{x:.1%}")
-            signal_df['Sentiment Score'] = signal_df['sentiment_score'].apply(lambda x: f"{x:+.4f}")
-            signal_df['Signal Strength'] = signal_df['sentiment_score'].abs()
-            
-            # Color coding for signals
-            def get_signal_indicator(signal):
-                return {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '🟡'}[signal]
-            
-            signal_df['Indicator'] = signal_df['signal'].apply(get_signal_indicator)
-            
-            display_df = signal_df[['symbol', 'Indicator', 'signal', 'Sentiment Score', 'Confidence']].copy()
-            display_df.columns = ['Symbol', 'Indicator', 'Signal', 'Sentiment Score', 'Confidence']
-            
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
-            
-            # Correlation warnings
-            if not correlation_data['sentiment_correlation'].empty:
-                high_corr_pairs = []
-                corr_matrix = correlation_data['sentiment_correlation']
-                
-                for i in range(len(corr_matrix.columns)):
-                    for j in range(i+1, len(corr_matrix.columns)):
-                        corr_val = corr_matrix.iloc[i, j]
-                        if abs(corr_val) > 0.7:  # High correlation threshold
-                            bank1 = corr_matrix.columns[i]
-                            bank2 = corr_matrix.columns[j]
-                            high_corr_pairs.append(f"{bank1} ↔ {bank2}: {corr_val:.3f}")
-                
-                if high_corr_pairs:
-                    st.warning("⚠️ **High Correlation Alert**:")
-                    for pair in high_corr_pairs:
-                        st.write(f"• {pair}")
-                    st.write("Consider reducing exposure to highly correlated positions")
-        else:
-            st.info("No signal data available for detailed analysis")
-    
-    # Technical correlation (if available)
-    if not correlation_data['technical_correlation'].empty:
-        with st.expander("🔧 **Technical Correlation Analysis**", expanded=False):
-            fig = px.imshow(
-                correlation_data['technical_correlation'],
-                title="Technical Score Correlations (7-day)",
-                color_continuous_scale='RdBu_r',
-                aspect='auto',
-                zmin=-1, zmax=1
-            )
-            fig.update_layout(
-                xaxis_title="Bank",
-                yaxis_title="Bank"
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-def render_ml_performance_section(metrics: Dict):
-    """
-    STREAMLINED: Render concise ML performance metrics
-    """
-    st.subheader("🤖 Multi-Factor ML Prediction System")
-    
-    # Get enhanced ML training metrics
-    try:
-        enhanced_metrics = fetch_enhanced_ml_training_metrics()
-    except Exception as e:
-        st.warning(f"Could not load enhanced ML metrics: {e}")
-        enhanced_metrics = None
-    
-    # STREAMLINED: Key ML metrics only
-    if enhanced_metrics:
-        # Essential metrics in 4 columns instead of 5
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            status = enhanced_metrics['status']
-            status_colors = {'EXCELLENT': '🟢', 'GOOD': '🟡', 'NEEDS_IMPROVEMENT': '🟠', 'NO_DATA': '🔴'}
-            st.metric("ML Status", f"{status_colors.get(status, '⚪')} {status}")
-        
-        with col2:
-            st.metric("Training Samples", f"{enhanced_metrics['training_samples']:,}")
-        
-        with col3:
-            st.metric("Success Rate", f"{enhanced_metrics['direction_accuracy_4h']:.1%}")
-        
-        with col4:
-            hours_ago = 0
-            if enhanced_metrics['last_training']:
-                from datetime import datetime
-                last_training_dt = datetime.fromisoformat(enhanced_metrics['last_training'].replace('Z', '+00:00'))
-                hours_ago = (datetime.now() - last_training_dt.replace(tzinfo=None)).total_seconds() / 3600
-            last_training_str = f"{hours_ago:.1f}h ago" if hours_ago < 24 else f"{hours_ago/24:.1f}d ago" if hours_ago > 0 else "Never"
-            st.metric("Last Training", last_training_str)
-        
-        # NEW: Multi-Factor Prediction System Overview
-        st.markdown("### 🔬 **Prediction Components**")
-        st.markdown("""
-        **Our ML system combines multiple data sources for predictions:**
-        """)
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown("""
-            **📰 News Sentiment**
-            - Professional news analysis
-            - Confidence scoring  
-            - News volume tracking
-            - Event impact analysis
-            """)
-            
-        with col2:
-            st.markdown("""
-            **📱 Social Sentiment**
-            - Reddit discussions
-            - MarketAux integration
-            - Social media trends
-            - Community sentiment
-            """)
-            
-        with col3:
-            st.markdown("""
-            **🤖 Machine Learning**
-            - RandomForest models
-            - LSTM Neural Networks  
-            - Multi-timeframe prediction
-            - 70%+ historical accuracy
-            """)
-            
-        with col4:
-            st.markdown("""
-            **📈 Technical Analysis**
-            - RSI, MACD, Bollinger Bands
-            - Moving averages (20/50/200)
-            - Volume analysis
-            - Market momentum
-            """)
-        
-        # Feature importance breakdown
-        if enhanced_metrics and enhanced_metrics.get('feature_importance'):
-            st.markdown("### 📊 **Feature Importance in Predictions**")
-            
-            importance_data = enhanced_metrics['feature_importance']
-            # Create a simple bar chart showing top features
-            
-            # Sample feature importance (replace with actual data)
-            features_df = pd.DataFrame({
-                'Feature': ['News Sentiment', 'RSI', 'Price vs SMA20', 'Volume Ratio', 'MACD', 'Market Context'],
-                'Importance': [0.28, 0.22, 0.18, 0.12, 0.10, 0.10]
-            })
-            
-            fig = px.bar(features_df, x='Importance', y='Feature', orientation='h', 
-                        title='Most Important Prediction Factors')
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # COMMENTED OUT: Complex training progression charts - move to expandable section
-        # if enhanced_metrics['historical_performance']:
-        #     st.markdown("### 📈 **Training Progression Over Time**")
-        #     col_chart1, col_chart2 = st.columns(2)
-        #     
-        #     with col_chart1:
-        #         # Training samples progression
-        #         hist_data = enhanced_metrics['historical_performance']
-        #         dates = [row['created_at'] for row in reversed(hist_data)]
-        #         samples = [row['training_samples'] for row in reversed(hist_data)]
-        #         
-        #         fig = go.Figure()
-        #         fig.add_trace(go.Scatter(
-        #             x=dates, y=samples,
-        #             mode='lines+markers',
-        #             name='Training Samples',
-        #             line=dict(color='blue', width=3),
-        #             marker=dict(size=8)
-        #         ))
-        #         fig.add_hline(y=enhanced_metrics['samples_threshold'], 
-        #                      line_dash="dash", line_color="green",
-        #                      annotation_text=f"Target: {enhanced_metrics['samples_threshold']}")
-        #         fig.update_layout(
-        #             title="Training Dataset Size Growth",
-        #             xaxis_title="Training Date",
-        #             yaxis_title="Number of Samples",
-        #             height=400
-        #         )
-        #         st.plotly_chart(fig, use_container_width=True)
-        #     
-        #     with col_chart2:
-        #         # Accuracy progression
-        #         accuracies = [row['direction_accuracy_4h'] for row in reversed(hist_data)]
-        #         
-        #         fig = go.Figure()
-        #         fig.add_trace(go.Scatter(
-        #             x=dates, y=accuracies,
-        #             mode='lines+markers',
-        #             name='4h Direction Accuracy',
-        #             line=dict(color='green', width=3),
-        #             marker=dict(size=8)
-        #         ))
-        #         fig.add_hline(y=enhanced_metrics['accuracy_threshold'], 
-        #                      line_dash="dash", line_color="red",
-        #                      annotation_text=f"Target: {enhanced_metrics['accuracy_threshold']:.0%}")
-        #         fig.update_layout(
-        #             title="Model Accuracy Improvement",
-        #             xaxis_title="Training Date",
-        #             yaxis_title="Accuracy (%)",
-        #             yaxis=dict(tickformat='.0%'),
-        #             height=400
-        #         )
-        #         st.plotly_chart(fig, use_container_width=True)
-        
-        # COMMENTED OUT: Training insights section (move to expandable)
-        # st.markdown("### 🔍 **Training Insights**")
-        # insight_col1, insight_col2, insight_col3 = st.columns(3)
-        # 
-        # with insight_col1:
-        #     data_completeness = (enhanced_metrics['total_outcomes'] / max(enhanced_metrics['total_features'], 1)) * 100
-        #     st.metric(
-        #         "Data Completeness",
-        #         f"{data_completeness:.1f}%",
-        #         help="Percentage of features with corresponding price outcomes"
-        #     )
-        # 
-        # with insight_col2:
-        #     if enhanced_metrics['last_training']:
-        #         from datetime import datetime
-        #         last_training_dt = datetime.fromisoformat(enhanced_metrics['last_training'].replace('Z', '+00:00'))
-        #         hours_ago = (datetime.now() - last_training_dt.replace(tzinfo=None)).total_seconds() / 3600
-        #         st.metric(
-        #             "Last Training",
-        #             f"{hours_ago:.1f}h ago" if hours_ago < 48 else f"{hours_ago/24:.1f}d ago",
-        #             help=f"Last model training: {enhanced_metrics['last_training']}"
-        #         )
-        #     else:
-        #         st.metric("Last Training", "Never", help="No training records found")
-        # 
-        # with insight_col3:
-        #     if enhanced_metrics['direction_accuracy_4h'] > 0:
-        #         mae_status = "🟢 Excellent" if enhanced_metrics['magnitude_mae_1d'] < 0.02 else "🟡 Good" if enhanced_metrics['magnitude_mae_1d'] < 0.05 else "🟠 Needs Work"
-        #         st.metric(
-        #             "Price Magnitude Error",
-        #             f"{enhanced_metrics['magnitude_mae_1d']:.3f}",
-        #             help=f"Mean Absolute Error for 1-day price predictions: {mae_status}"
-        #         )
-        #     else:
-        #         st.metric("Price Magnitude Error", "N/A", help="No training data available")
-        # 
-        # st.markdown("---")
-    
-    else:
-        # Fallback metrics if enhanced ML data not available
-        st.info("💡 Enhanced ML metrics not available - showing basic metrics")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric(
-            "Predictions (7d)",
-            metrics['total_predictions'],
-            help="Total predictions made in the last 7 days"
-        )
-    
-    with col2:
-        st.metric(
-            "Average Confidence", 
-            f"{metrics['avg_confidence']:.1%}",
-            help="Average confidence score across all predictions"
-        )
-    
-    with col3:
-        st.metric(
-            "Success Rate",
-            f"{metrics['success_rate']:.1%}",
-            help="Percentage of profitable trades in the last 30 days"
-        )
-    
-    with col4:
-        st.metric(
-            "Completed Trades",
-            metrics['completed_trades'],
-            help="Number of completed trades with outcomes"
-        )
-    
-    # Signal distribution and performance charts
-    col5, col6 = st.columns(2)
-    
-    with col5:
-        signal_data = {
-            'Signal': ['BUY', 'SELL', 'HOLD'],
-            'Count': [metrics['buy_signals'], metrics['sell_signals'], metrics['hold_signals']]
-        }
-        fig = px.bar(signal_data, x='Signal', y='Count', 
-                    title="Signal Distribution (7 days)",
-                    color='Signal',
-                    color_discrete_map={'BUY': 'green', 'SELL': 'red', 'HOLD': 'gray'})
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col6:
-        if metrics['completed_trades'] > 0:
-            perf_data = {
-                'Metric': ['Average Return', 'Best Trade', 'Worst Trade'],
-                'Value': [metrics['avg_return'], metrics['best_trade'], metrics['worst_trade']]
-            }
-            fig = px.bar(perf_data, x='Metric', y='Value',
-                        title="Trading Performance (%)",
-                        color='Value',
-                        color_continuous_scale=['red', 'gray', 'green'])
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No completed trades for performance analysis")
-    
-    # Performance Timeline Chart
-    st.markdown("---")
-    st.subheader("📈 Performance Timeline")
-    
-    # Time scale selector
-    time_scale = st.selectbox(
-        "Select Time Scale:",
-        options=['Daily (30 days)', 'Weekly (12 weeks)', 'Monthly (6 months)'],
-        index=0,
-        help="Choose the time period and granularity for the performance chart"
-    )
-    
-    # Determine days based on selection
-    if 'Daily' in time_scale:
-        days = 30
-        group_by = 'day'
-    elif 'Weekly' in time_scale:
-        days = 84  # 12 weeks
-        group_by = 'week'
-    else:  # Monthly
-        days = 180  # 6 months
-        group_by = 'month'
-    
-    # Fetch timeline data
-    timeline_data = fetch_performance_timeline_data(days)
-    
-    if not timeline_data.empty:
-        # Create dual-axis chart
-        fig = make_subplots(
-            specs=[[{"secondary_y": True}]],
-            subplot_titles=("AI Performance Over Time",)
-        )
-        
-        # Add success rate line (left y-axis)
-        fig.add_trace(
-            go.Scatter(
-                x=timeline_data['Date'],
-                y=timeline_data['Success_Rate_Pct'],
-                mode='lines+markers',
-                name='Success Rate %',
-                line=dict(color='#1f77b4', width=3),
-                marker=dict(size=6),
-                hovertemplate='<b>%{x}</b><br>Success Rate: %{y}%<br><extra></extra>'
-            ),
-            secondary_y=False,
-        )
-        
-        # Add cumulative outcomes line (right y-axis)
-        fig.add_trace(
-            go.Scatter(
-                x=timeline_data['Date'],
-                y=timeline_data['Cumulative_Outcomes'],
-                mode='lines+markers',
-                name='Total Outcomes',
-                line=dict(color='#2ca02c', width=3),
-                marker=dict(size=6),
-                hovertemplate='<b>%{x}</b><br>Total Outcomes: %{y}<br><extra></extra>'
-            ),
-            secondary_y=True,
-        )
-        
-        # Set x-axis title
-        fig.update_xaxes(title_text="Date")
-        
-        # Set y-axes titles
-        fig.update_yaxes(title_text="Success Rate (%)", color='#1f77b4', secondary_y=False)
-        fig.update_yaxes(title_text="Cumulative Outcomes", color='#2ca02c', secondary_y=True)
-        
-        # Update layout
-        fig.update_layout(
-            title=f"Performance Timeline ({time_scale})",
-            hovermode='x unified',
-            height=400,
-            showlegend=True,
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Summary statistics
-        if len(timeline_data) > 1:
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                avg_success = timeline_data['Success_Rate_Pct'].mean()
-                st.metric("Avg Success Rate", f"{avg_success:.1f}%")
-            
-            with col2:
-                total_outcomes = timeline_data['Cumulative_Outcomes'].iloc[-1]
-                st.metric("Total Outcomes", int(total_outcomes))
-            
-            with col3:
-                best_day = timeline_data['Success_Rate_Pct'].max()
-                st.metric("Best Day", f"{best_day:.1f}%")
-            
-            with col4:
-                trend = "📈" if timeline_data['Success_Rate_Pct'].iloc[-1] > timeline_data['Success_Rate_Pct'].iloc[0] else "📉"
-                st.metric("Trend", trend)
-        
-    else:
-        st.info(f"""
-        📊 **Performance timeline data will appear here once outcomes accumulate**
-        
-        **What you'll see:**
-        - 📈 **Blue line**: Daily/weekly success rate percentage  
-        - 📊 **Green line**: Cumulative number of trading outcomes
-        - 🎛️ **Time scale**: Switch between daily, weekly, and monthly views
-        
-        **Current status:** System rebuilding - collecting data for future analysis
-        """)
-
-def render_enhanced_ml_training_details():
-    """
-    Render detailed ML training samples table and success rate analysis
-    """
-    st.subheader("🔬 **Detailed ML Training Analysis**")
-    
-    try:
-        conn = get_database_connection()
-        
-        # Training samples breakdown by stock
-        st.markdown("### 📊 **Training Samples by Stock**")
-        
-        training_query = """
-        SELECT 
-            eo.symbol,
-            COUNT(*) as samples,
-            AVG(eo.confidence_score) as avg_confidence,
-            SUM(CASE WHEN eo.optimal_action = 'BUY' THEN 1 ELSE 0 END) as buy_signals,
-            SUM(CASE WHEN eo.optimal_action = 'SELL' THEN 1 ELSE 0 END) as sell_signals,
-            SUM(CASE WHEN eo.optimal_action = 'HOLD' THEN 1 ELSE 0 END) as hold_signals,
-            AVG(CASE 
-                WHEN eo.optimal_action = 'SELL' THEN eo.return_pct * -100  -- Invert for short positions
-                ELSE eo.return_pct * 100 
-            END) as avg_return_pct,
-            COUNT(CASE 
-                WHEN eo.optimal_action = 'SELL' AND eo.return_pct < 0 THEN 1  -- SELL profits when return_pct is negative
-                WHEN eo.optimal_action != 'SELL' AND eo.return_pct > 0 THEN 1  -- BUY/HOLD profit when positive
-            END) * 100.0 / COUNT(*) as success_rate
-        FROM enhanced_outcomes eo
-        WHERE eo.price_direction_4h IS NOT NULL 
-        GROUP BY eo.symbol
-        ORDER BY samples DESC
-        """
-        
-        training_df = pd.read_sql_query(training_query, conn)
-        
-        if not training_df.empty:
-            # Format the dataframe for display
-            display_df = training_df.copy()
-            display_df['avg_confidence'] = display_df['avg_confidence'].apply(lambda x: f"{x:.1%}")
-            display_df['avg_return_pct'] = display_df['avg_return_pct'].apply(lambda x: f"{x:.2f}%")
-            display_df['success_rate'] = display_df['success_rate'].apply(lambda x: f"{x:.1f}%")
-            
-            display_df.columns = ['Stock', 'Training Samples', 'Avg Confidence', 'BUY', 'SELL', 'HOLD', 'Avg Return %', 'Success Rate']
-            
-            st.dataframe(
-                display_df,
-                use_container_width=True,
-                hide_index=True
-            )
-            
-            # Summary metrics
-            total_samples = training_df['samples'].sum()
-            overall_success = (training_df['samples'] * training_df['success_rate']).sum() / training_df['samples'].sum()
-            overall_return = (training_df['samples'] * training_df['avg_return_pct']).sum() / training_df['samples'].sum()
-            
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Total Training Samples", f"{total_samples:,}")
-            with col2:
-                st.metric("Overall Success Rate", f"{overall_success:.1f}%")
-            with col3:
-                st.metric("Overall Avg Return", f"{overall_return:.2f}%")
-            with col4:
-                best_stock = training_df.loc[training_df['success_rate'].idxmax(), 'symbol']
-                best_rate = training_df['success_rate'].max()
-                st.metric("Best Performer", f"{best_stock} ({best_rate:.1f}%)")
-        
-        # Recent predictions and outcomes table
-        st.markdown("### 🎯 **Recent ML Predictions & Outcomes**")
-        
-        recent_predictions_query = """
-        SELECT 
-            eo.symbol,
-            eo.prediction_timestamp,
-            eo.optimal_action,
-            eo.confidence_score,
-            eo.price_direction_4h,
-            CASE 
-                WHEN eo.price_direction_4h = 1 THEN 'UP'
-                WHEN eo.price_direction_4h = -1 THEN 'DOWN'
-                ELSE 'FLAT'
-            END as actual_direction,
-            CASE 
-                WHEN eo.optimal_action = 'SELL' THEN eo.return_pct * -100  -- Invert for short positions
-                ELSE eo.return_pct * 100 
-            END as return_pct,
-            CASE 
-                WHEN (eo.optimal_action = 'BUY' AND eo.price_direction_4h = 1) OR
-                     (eo.optimal_action = 'SELL' AND eo.price_direction_4h = -1)
-                THEN '✅ Correct'
-                WHEN eo.optimal_action = 'HOLD' AND abs(eo.return_pct * 100) <= 2.0
-                THEN '✅ Correct'  -- HOLD correct for small movements (<=2%)
-                WHEN eo.optimal_action = 'HOLD' AND eo.return_pct < 0
-                THEN '🛡️ Protected'  -- HOLD saved from losses
-                ELSE '❌ Wrong'
-            END as prediction_accuracy
-        FROM enhanced_outcomes eo
-        WHERE eo.price_direction_4h IS NOT NULL
-        ORDER BY eo.prediction_timestamp DESC
-        LIMIT 20
-        """
-        
-        recent_df = pd.read_sql_query(recent_predictions_query, conn)
-        
-        if not recent_df.empty:
-            # Format the dataframe
-            display_recent = recent_df.copy()
-            display_recent['prediction_timestamp'] = pd.to_datetime(display_recent['prediction_timestamp']).dt.strftime('%m/%d %H:%M')
-            display_recent['confidence_score'] = display_recent['confidence_score'].apply(lambda x: f"{x:.1%}")
-            display_recent['return_pct'] = display_recent['return_pct'].apply(lambda x: f"{x:.2f}%")
-            
-            display_recent.columns = ['Stock', 'Time', 'ML Action', 'Confidence', 'Direction', 'Actual', 'Return %', 'Accuracy']
-            
-            # Color code the accuracy column
-            def highlight_accuracy(val):
-                if '✅' in str(val):
-                    return 'background-color: #d4edda; color: #155724'
-                elif '❌' in str(val):
-                    return 'background-color: #f8d7da; color: #721c24'
-                return ''
-            
-            styled_df = display_recent.style.applymap(highlight_accuracy, subset=['Accuracy'])
-            
-            st.dataframe(
-                styled_df,
-                use_container_width=True,
-                hide_index=True
-            )
-            
-            # Accuracy metrics
-            correct_predictions = len(recent_df[recent_df['prediction_accuracy'].str.contains('✅|🛡️')])
-            total_predictions = len(recent_df)
-            accuracy_rate = (correct_predictions / total_predictions * 100) if total_predictions > 0 else 0
-            
-            st.info(f"📊 **Recent Accuracy**: {correct_predictions}/{total_predictions} predictions correct ({accuracy_rate:.1f}% accuracy)")
-            
-            # HOLD explanation
-            hold_count = len(recent_df[recent_df['optimal_action'] == 'HOLD'])
-            if hold_count > 0:
-                st.info(f"ℹ️ **HOLD Actions ({hold_count} shown)**: No position taken due to low confidence or unclear signals. Returns show opportunity cost - negative returns indicate avoided losses (good decisions!)")
-        
-        # Model performance by time horizon
-        st.markdown("### ⏱️ **Model Performance by Time Horizon**")
-        
-        time_horizon_query = """
-        SELECT 
-            '1 Hour' as horizon,
-            COUNT(CASE WHEN price_direction_1h IS NOT NULL THEN 1 END) as samples,
-            AVG(ABS(price_magnitude_1h)) * 100 as avg_magnitude,
-            COUNT(CASE WHEN 
-                (optimal_action = 'BUY' AND price_direction_1h = 1) OR
-                (optimal_action = 'SELL' AND price_direction_1h = -1)
-                THEN 1 END) * 100.0 / COUNT(CASE WHEN price_direction_1h IS NOT NULL THEN 1 END) as accuracy
-        FROM enhanced_outcomes
-        WHERE price_direction_1h IS NOT NULL
-        
-        UNION ALL
-        
-        SELECT 
-            '4 Hours' as horizon,
-            COUNT(CASE WHEN price_direction_4h IS NOT NULL THEN 1 END) as samples,
-            AVG(ABS(price_magnitude_4h)) * 100 as avg_magnitude,
-            COUNT(CASE WHEN 
-                (optimal_action = 'BUY' AND price_direction_4h = 1) OR
-                (optimal_action = 'SELL' AND price_direction_4h = -1)
-                THEN 1 END) * 100.0 / COUNT(CASE WHEN price_direction_4h IS NOT NULL THEN 1 END) as accuracy
-        FROM enhanced_outcomes
-        WHERE price_direction_4h IS NOT NULL
-        
-        UNION ALL
-        
-        SELECT 
-            '1 Day' as horizon,
-            COUNT(CASE WHEN price_direction_1d IS NOT NULL THEN 1 END) as samples,
-            AVG(ABS(price_magnitude_1d)) * 100 as avg_magnitude,
-            COUNT(CASE WHEN 
-                (optimal_action = 'BUY' AND price_direction_1d = 1) OR
-                (optimal_action = 'SELL' AND price_direction_1d = -1)
-                THEN 1 END) * 100.0 / COUNT(CASE WHEN price_direction_1d IS NOT NULL THEN 1 END) as accuracy
-        FROM enhanced_outcomes
-        WHERE price_direction_1d IS NOT NULL
-        """
-        
-        horizon_df = pd.read_sql_query(time_horizon_query, conn)
-        
-        if not horizon_df.empty:
-            # Format the dataframe
-            display_horizon = horizon_df.copy()
-            display_horizon['avg_magnitude'] = display_horizon['avg_magnitude'].apply(lambda x: f"{x:.2f}%")
-            display_horizon['accuracy'] = display_horizon['accuracy'].apply(lambda x: f"{x:.1f}%")
-            
-            display_horizon.columns = ['Time Horizon', 'Samples', 'Avg Price Movement', 'Prediction Accuracy']
-            
-            st.dataframe(
-                display_horizon,
-                use_container_width=True,
-                hide_index=True
-            )
-        
-        conn.close()
-        
-    except Exception as e:
-        st.error(f"Error loading ML training details: {e}")
-        st.info("📝 This analysis requires enhanced ML training data. Run the evening routine to generate this data.")
-
-def render_hypothetical_returns_analysis(returns_df: pd.DataFrame):
-    """
-    STREAMLINED: Render concise trading performance
-    """
-    st.subheader("💰 Trading Performance")
-    
-    if returns_df.empty:
-        st.info("""
-        📊 **Hypothetical returns analysis will appear here once trading outcomes accumulate**
-        
-        **What you'll see:**
-        - 💰 Profit/loss calculations across multiple timeframes
-        - 📈 Performance by signal type and confidence level
-        - 🎯 Success rate analysis by trading strategy
-        - 📊 Portfolio simulation with different position sizes
-        
-        **Current status:** System needs more completed trades for analysis
-        """)
-        return
-    
-    # Summary metrics
-    st.markdown("#### 📊 Trading Performance Summary")
-    
-    total_trades = len(returns_df)
-    profitable_trades = len(returns_df[returns_df['Hypothetical_Return_%'] > 0])
-    total_return = returns_df['Hypothetical_Return_%'].sum()
-    avg_return = returns_df['Hypothetical_Return_%'].mean()
-    best_trade = returns_df['Hypothetical_Return_%'].max()
-    worst_trade = returns_df['Hypothetical_Return_%'].min()
-    
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        success_rate = (profitable_trades / total_trades) * 100 if total_trades > 0 else 0
-        st.metric(
-            "Success Rate",
-            f"{success_rate:.1f}%",
-            f"{profitable_trades}/{total_trades} trades"
-        )
-    
-    with col2:
-        st.metric(
-            "Total Return",
-            f"{total_return:.2f}%",
-            "Cumulative"
-        )
-    
-    with col3:
-        st.metric(
-            "Average Return",
-            f"{avg_return:.2f}%",
-            "Per trade"
-        )
-    
-    with col4:
-        st.metric(
-            "Best Trade",
-            f"+{best_trade:.2f}%",
-            "Single trade"
-        )
-    
-    with col5:
-        st.metric(
-            "Worst Trade",
-            f"{worst_trade:.2f}%",
-            "Single trade"
-        )
-    
-    # Portfolio simulation
-    st.markdown("#### 💼 Portfolio Simulation")
-    
-    # Position size selector
-    position_sizes = [1000, 5000, 10000, 25000, 50000]
-    selected_position = st.selectbox(
-        "Select hypothetical position size ($):",
-        position_sizes,
-        index=2,  # Default to $10,000
-        help="Choose how much you would invest per trade"
-    )
-    
-    # Calculate portfolio performance
-    returns_df['Position_Value'] = selected_position
-    returns_df['Profit_Loss_$'] = (returns_df['Hypothetical_Return_%'] / 100) * selected_position
-    
-    portfolio_performance = returns_df.groupby('Timeframe').agg({
-        'Hypothetical_Return_%': ['count', 'mean', 'sum'],
-        'Profit_Loss_$': ['sum', 'mean'],
-        'Trade_Success': 'sum'
-    }).round(2)
-    
-    portfolio_performance.columns = ['Total_Trades', 'Avg_Return_%', 'Cumulative_Return_%', 
-                                   'Total_Profit_$', 'Avg_Profit_$', 'Successful_Trades']
-    portfolio_performance['Success_Rate_%'] = (
-        portfolio_performance['Successful_Trades'] / portfolio_performance['Total_Trades'] * 100
-    ).round(1)
-    
-    st.dataframe(portfolio_performance, use_container_width=True)
-    
-    # Visualization section
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Returns distribution by timeframe
-        fig = px.box(
-            returns_df,
-            x='Timeframe',
-            y='Hypothetical_Return_%',
-            color='Position_Type',
-            title=f"Return Distribution by Timeframe (${selected_position:,} positions)",
-            hover_data=['Symbol', 'Signal', 'Confidence']
-        )
-        fig.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.5)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        # Performance by signal type
-        signal_performance = returns_df.groupby('Signal').agg({
-            'Hypothetical_Return_%': ['count', 'mean'],
-            'Trade_Success': 'sum'
-        }).round(2)
-        signal_performance.columns = ['Trade_Count', 'Avg_Return_%', 'Successful_Trades']
-        signal_performance['Success_Rate_%'] = (
-            signal_performance['Successful_Trades'] / signal_performance['Trade_Count'] * 100
-        ).round(1)
-        signal_performance.reset_index(inplace=True)
-        
-        fig = px.scatter(
-            signal_performance,
-            x='Success_Rate_%',
-            y='Avg_Return_%',
-            size='Trade_Count',
-            color='Signal',
-            title="Signal Performance: Success Rate vs Average Return",
-            hover_data=['Trade_Count']
-        )
-        fig.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.5)
-        fig.add_vline(x=50, line_dash="dash", line_color="black", opacity=0.5)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Detailed trades table
-    st.markdown("#### 📋 Detailed Trading Records")
-    
-    # Filter options
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        timeframe_filter = st.selectbox(
-            "Filter by Timeframe:",
-            ['All'] + list(returns_df['Timeframe'].unique()),
-            index=0
-        )
-    
-    with col2:
-        signal_filter = st.selectbox(
-            "Filter by Signal:",
-            ['All'] + list(returns_df['Signal'].unique()),
-            index=0
-        )
-    
-    with col3:
-        performance_filter = st.selectbox(
-            "Filter by Performance:",
-            ['All', 'Profitable', 'Losses'],
-            index=0
-        )
-    
-    # Apply filters
-    filtered_df = returns_df.copy()
-    
-    if timeframe_filter != 'All':
-        filtered_df = filtered_df[filtered_df['Timeframe'] == timeframe_filter]
-    
-    if signal_filter != 'All':
-        filtered_df = filtered_df[filtered_df['Signal'] == signal_filter]
-    
-    if performance_filter == 'Profitable':
-        filtered_df = filtered_df[filtered_df['Hypothetical_Return_%'] > 0]
-    elif performance_filter == 'Losses':
-        filtered_df = filtered_df[filtered_df['Hypothetical_Return_%'] <= 0]
-    
-    # Format display data
-    display_df = filtered_df.copy()
-    display_df['Date'] = display_df['Prediction_Time'].dt.strftime('%Y-%m-%d %H:%M')
-    display_df['Entry Price'] = display_df['Entry_Price'].apply(lambda x: f"${x:.2f}")
-    display_df['Exit Price'] = display_df['Exit_Price'].apply(lambda x: f"${x:.2f}")
-    display_df['Return %'] = display_df['Hypothetical_Return_%'].apply(lambda x: f"{x:+.2f}%")
-    display_df['Profit/Loss'] = display_df['Profit_Loss_$'].apply(lambda x: f"${x:+.2f}")
-    display_df['Confidence'] = display_df['Confidence'].apply(lambda x: f"{x:.1%}")
-    
-    # Add result indicator
-    def get_result_indicator(return_pct):
-        if return_pct > 1:
-            return '🟢 Excellent'
-        elif return_pct > 0:
-            return '✅ Profit'
-        elif return_pct > -1:
-            return '🟡 Small Loss'
-        else:
-            return '🔴 Large Loss'
-    
-    display_df['Result'] = display_df['Hypothetical_Return_%'].apply(get_result_indicator)
-    
-    # Select columns for display
-    display_columns = [
-        'Date', 'Symbol', 'Signal', 'Timeframe', 'Position_Type',
-        'Entry Price', 'Exit Price', 'Return %', 'Profit/Loss', 
-        'Confidence', 'Result'
-    ]
-    
-    st.dataframe(
-        display_df[display_columns].head(20),  # Limit to 20 most recent
-        use_container_width=True,
-        hide_index=True
-    )
-    
-    if len(filtered_df) > 20:
-        st.info(f"Showing 20 most recent trades. Total filtered trades: {len(filtered_df)}")
-    
-    # Performance insights
-    st.markdown("#### 💡 Trading Strategy Insights")
-    
-    if len(filtered_df) > 0:
-        insights = []
-        
-        # Best performing timeframe
-        timeframe_returns = filtered_df.groupby('Timeframe')['Hypothetical_Return_%'].mean()
-        best_timeframe = timeframe_returns.idxmax()
-        best_timeframe_return = timeframe_returns.max()
-        insights.append(f"🎯 **Best timeframe**: {best_timeframe} (Avg: {best_timeframe_return:+.2f}%)")
-        
-        # Best performing signal
-        signal_returns = filtered_df.groupby('Signal')['Hypothetical_Return_%'].mean()
-        best_signal = signal_returns.idxmax()
-        best_signal_return = signal_returns.max()
-        insights.append(f"📈 **Best signal type**: {best_signal} (Avg: {best_signal_return:+.2f}%)")
-        
-        # High confidence trades
-        high_conf_trades = filtered_df[filtered_df['Confidence'] > 0.7]
-        if len(high_conf_trades) > 0:
-            high_conf_return = high_conf_trades['Hypothetical_Return_%'].mean()
-            insights.append(f"🎪 **High confidence trades** (>70%): {len(high_conf_trades)} trades, Avg: {high_conf_return:+.2f}%")
-        
-        # Best performing bank
-        bank_returns = filtered_df.groupby('Symbol')['Hypothetical_Return_%'].mean()
-        best_bank = bank_returns.idxmax()
-        best_bank_return = bank_returns.max()
-        insights.append(f"🏦 **Best performing bank**: {best_bank} (Avg: {best_bank_return:+.2f}%)")
-        
-        # Risk analysis
-        volatility = filtered_df['Hypothetical_Return_%'].std()
-        insights.append(f"📊 **Strategy volatility**: {volatility:.2f}% (lower is less risky)")
-        
-        for insight in insights:
-            st.write(insight)
-    
-    # Risk metrics
-    with st.expander("⚠️ **Risk Analysis**", expanded=False):
-        if len(filtered_df) > 0:
-            # Sharpe ratio approximation (assuming risk-free rate of 4%)
-            excess_return = filtered_df['Hypothetical_Return_%'].mean() - (4/365)  # Daily risk-free rate
-            volatility = filtered_df['Hypothetical_Return_%'].std()
-            sharpe_ratio = excess_return / volatility if volatility > 0 else 0
-            
-            # Maximum drawdown
-            cumulative_returns = (1 + filtered_df['Hypothetical_Return_%'] / 100).cumprod()
-            running_max = cumulative_returns.expanding().max()
-            drawdown = (cumulative_returns - running_max) / running_max
-            max_drawdown = drawdown.min() * 100
-            
-            # Win/loss streaks
-            win_streak = 0
-            loss_streak = 0
-            current_win_streak = 0
-            current_loss_streak = 0
-            
-            for return_pct in filtered_df['Hypothetical_Return_%']:
-                if return_pct > 0:
-                    current_win_streak += 1
-                    current_loss_streak = 0
-                    win_streak = max(win_streak, current_win_streak)
-                else:
-                    current_loss_streak += 1
-                    current_win_streak = 0
-                    loss_streak = max(loss_streak, current_loss_streak)
-            
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Sharpe Ratio", f"{sharpe_ratio:.2f}")
-            
-            with col2:
-                st.metric("Max Drawdown", f"{max_drawdown:.2f}%")
-            
-            with col3:
-                st.metric("Longest Win Streak", f"{win_streak} trades")
-            
-            with col4:
-                st.metric("Longest Loss Streak", f"{loss_streak} trades")
-            
-            st.markdown("""
-            **Risk Metrics Explained:**
-            - **Sharpe Ratio**: Risk-adjusted return (>1.0 is good, >2.0 is excellent)
-            - **Max Drawdown**: Largest peak-to-trough decline in portfolio value
-            - **Win/Loss Streaks**: Consecutive profitable/unprofitable trades
-            """)
-
-def render_marketaux_sentiment_comparison():
-    """
-    Render sentiment comparison: Reddit vs MarketAux vs Combined
-    """
-    st.subheader("🔄 Sentiment Analysis Comparison: Before vs After MarketAux")
-    st.markdown("**Compare broken Reddit sentiment with professional MarketAux news sentiment**")
-    
-    try:
-        # Get comparison data
-        comparison_df = fetch_marketaux_sentiment_comparison()
-        
-        if comparison_df.empty:
-            st.warning("MarketAux data not available. Please check API configuration.")
-            return
-        
-        # Summary metrics
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            reddit_signals = len(comparison_df[comparison_df['Reddit Sentiment'] != 0])
-            st.metric(
-                "Reddit Working Signals",
-                f"{reddit_signals}/{len(comparison_df)}",
-                f"{reddit_signals/len(comparison_df)*100:.0f}%"
-            )
-        
-        with col2:
-            marketaux_signals = len(comparison_df[comparison_df['MarketAux Sentiment'] != 0])
-            st.metric(
-                "MarketAux Active Signals", 
-                f"{marketaux_signals}/{len(comparison_df)}",
-                f"{marketaux_signals/len(comparison_df)*100:.0f}%"
-            )
-        
-        with col3:
-            strong_signals = len(comparison_df[comparison_df['Signal Strength'] == 'Strong'])
-            st.metric(
-                "Strong Trading Signals",
-                strong_signals,
-                f"From MarketAux news"
-            )
-        
-        with col4:
-            total_news = comparison_df['News Volume'].sum()
-            st.metric(
-                "News Articles Analyzed",
-                int(total_news),
-                "Professional sources"
-            )
-        
-        # Comparison visualization
-        st.markdown("### 📈 Sentiment Score Comparison")
-        
-        # Create comparison chart
-        fig = go.Figure()
-        
-        # Add Reddit sentiment (broken system)
-        fig.add_trace(go.Bar(
-            name='Reddit Sentiment (Broken)',
-            x=comparison_df['Symbol'],
-            y=comparison_df['Reddit Sentiment'],
-            marker_color='lightcoral',
-            opacity=0.7
-        ))
-        
-        # Add MarketAux sentiment
-        fig.add_trace(go.Bar(
-            name='MarketAux Professional News',
-            x=comparison_df['Symbol'],
-            y=comparison_df['MarketAux Sentiment'],
-            marker_color='lightblue',
-            opacity=0.8
-        ))
-        
-        # Add combined sentiment
-        fig.add_trace(go.Bar(
-            name='Combined Sentiment (70% MarketAux + 30% Reddit)',
-            x=comparison_df['Symbol'],
-            y=comparison_df['Combined Sentiment'],
-            marker_color='green',
-            opacity=0.9
-        ))
-        
-        fig.update_layout(
-            title='Sentiment Score Comparison: Reddit vs MarketAux vs Combined',
-            xaxis_title='Bank Symbol',
-            yaxis_title='Sentiment Score',
-            barmode='group',
-            height=400,
-            yaxis=dict(range=[-1, 1]),
-            hovermode='x unified'
-        )
-        
-        # Add zero line
-        fig.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.5)
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Detailed comparison table
-        st.markdown("### 📋 Detailed Sentiment Analysis")
-        
-        # Format the data for display
-        display_df = comparison_df.copy()
-        display_df['Reddit Sentiment'] = display_df['Reddit Sentiment'].apply(lambda x: f"{x:.3f}")
-        display_df['MarketAux Sentiment'] = display_df['MarketAux Sentiment'].apply(lambda x: f"{x:.3f}")
-        display_df['Combined Sentiment'] = display_df['Combined Sentiment'].apply(lambda x: f"{x:.3f}")
-        display_df['Sentiment Change'] = display_df['Sentiment Change'].apply(lambda x: f"{x:+.3f}")
-        display_df['MarketAux Confidence'] = display_df['MarketAux Confidence'].apply(lambda x: f"{x:.2f}")
-        
-        # Add signal indicators
-        def get_signal_indicator(signal):
-            return {'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'HOLD': '🟡 HOLD'}[signal]
-        
-        display_df['Trading Signal'] = display_df['Trading Signal'].apply(get_signal_indicator)
-        
-        # Select columns for display
-        display_columns = [
-            'Symbol', 'Reddit Sentiment', 'MarketAux Sentiment', 'Combined Sentiment',
-            'Sentiment Change', 'Trading Signal', 'Signal Strength', 'News Volume', 'Key News'
-        ]
-        
-        st.dataframe(
-            display_df[display_columns],
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        # Impact analysis
-        st.markdown("### 💡 Impact Analysis")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("**🔴 BEFORE (Reddit Only):**")
-            reddit_working = len(comparison_df[comparison_df['Reddit Sentiment'] != 0])
-            reddit_strength = comparison_df['Reddit Sentiment'].abs().sum()
-            st.write(f"• Working signals: {reddit_working}/{len(comparison_df)} stocks")
-            st.write(f"• Total signal strength: {reddit_strength:.3f}")
-            st.write(f"• Data quality: Social media noise")
-            st.write(f"• Reliability: System broken (mostly 0.0 values)")
-            st.write(f"• Update frequency: Irregular/broken")
-        
-        with col2:
-            st.markdown("**🟢 AFTER (With MarketAux):**")
-            marketaux_working = len(comparison_df[comparison_df['MarketAux Sentiment'] != 0])
-            marketaux_strength = comparison_df['MarketAux Sentiment'].abs().sum()
-            combined_strength = comparison_df['Combined Sentiment'].abs().sum()
-            st.write(f"• Active signals: {marketaux_working}/{len(comparison_df)} stocks")
-            st.write(f"• MarketAux signal strength: {marketaux_strength:.3f}")
-            st.write(f"• Combined signal strength: {combined_strength:.3f}")
-            st.write(f"• Data quality: Professional financial news")
-            st.write(f"• Reliability: High (professional sources)")
-            st.write(f"• Update frequency: Real-time market hours")
-        
-        # Trading recommendations
-        st.markdown("### 🎯 Trading Recommendations Based on Combined Sentiment")
-        
-        bullish_stocks = comparison_df[comparison_df['Combined Sentiment'] > 0.1]
-        bearish_stocks = comparison_df[comparison_df['Combined Sentiment'] < -0.1]
-        neutral_stocks = comparison_df[
-            (comparison_df['Combined Sentiment'] >= -0.1) & 
-            (comparison_df['Combined Sentiment'] <= 0.1)
-        ]
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.markdown("**🟢 BULLISH SIGNALS**")
-            if not bullish_stocks.empty:
-                for _, stock in bullish_stocks.iterrows():
-                    st.write(f"• **{stock['Symbol']}**: {stock['Combined Sentiment']:.3f}")
-                    st.write(f"  News: {stock['News Volume']} articles")
-            else:
-                st.write("No bullish signals detected")
-        
-        with col2:
-            st.markdown("**🔴 BEARISH SIGNALS**")
-            if not bearish_stocks.empty:
-                for _, stock in bearish_stocks.iterrows():
-                    st.write(f"• **{stock['Symbol']}**: {stock['Combined Sentiment']:.3f}")
-                    st.write(f"  News: {stock['News Volume']} articles")
-            else:
-                st.write("No bearish signals detected")
-        
-        with col3:
-            st.markdown("**🟡 NEUTRAL/HOLD**")
-            if not neutral_stocks.empty:
-                for _, stock in neutral_stocks.iterrows():
-                    st.write(f"• **{stock['Symbol']}**: {stock['Combined Sentiment']:.3f}")
-            else:
-                st.write("No neutral signals")
-        
-    except Exception as e:
-        st.error(f"Error rendering sentiment comparison: {e}")
-        st.info("MarketAux integration may not be properly configured.")
-
-def render_sentiment_dashboard(sentiment_df: pd.DataFrame):
-    """
-    STREAMLINED: Render concise sentiment analysis
-    """
-    st.subheader("📊 Trading Signals & Sentiment")
-    
-    # STREAMLINED: Simple table with key information
-    display_df = sentiment_df.copy()
-    
-    # Create signal indicators and format columns
-    signal_colors = {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '🟡'}
-    display_df['Action'] = display_df['Signal'].apply(lambda x: f"{signal_colors[x]} {x}")
-    display_df['Sentiment'] = display_df['Sentiment Score'].apply(lambda x: f"{x:+.3f}")
-    display_df['Confidence'] = display_df['Confidence'].apply(lambda x: f"{x:.0%}")
-    display_df['Technical'] = display_df['Technical Score'].apply(lambda x: f"{x:+.2f}")
-    
-    # Show concise table with essential columns
-    essential_cols = ['Symbol', 'Action', 'Sentiment', 'Confidence', 'Technical', 'News Count']
-    
-    st.dataframe(
-        display_df[essential_cols],
-        use_container_width=True,
-        hide_index=True
-    )
-
-def render_technical_analysis(sentiment_df: pd.DataFrame):
-    """
-    Render technical analysis indicators
-    """
-    st.subheader("📈 Technical Analysis Indicators")
-    
-    # Technical scores overview
-    tech_data = sentiment_df[['Symbol', 'Technical Score', 'Event Score', 'Reddit Sentiment']].copy()
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Technical scores heatmap-style display
-        fig = px.imshow(
-            tech_data.set_index('Symbol')[['Technical Score', 'Event Score', 'Reddit Sentiment']].T,
-            title="Technical Indicators Heatmap",
-            color_continuous_scale='RdYlGn',
-            aspect='auto'
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        # Combined indicator strength
-        tech_data['Combined Strength'] = (
-            tech_data['Technical Score'].abs() + 
-            tech_data['Event Score'].abs() + 
-            tech_data['Reddit Sentiment'].abs()
-        ) / 3
-        
-        fig = px.bar(
-            tech_data,
-            x='Symbol',
-            y='Combined Strength',
-            title="Combined Indicator Strength",
-            color='Combined Strength',
-            color_continuous_scale='viridis'
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-def render_ml_features_explanation(feature_analysis: Dict):
-    """
-    Render dynamic ML features explanation
-    """
-    st.subheader("🔍 ML Model Feature Analysis")
-    
-    st.write(f"**Analysis based on {feature_analysis['total_records']} recent predictions**")
-    
-    # Feature usage statistics
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.write("**Feature Usage Rates:**")
-        usage = feature_analysis['feature_usage']
-        for feature, rate in usage.items():
-            st.metric(feature.replace('_', ' ').title(), f"{rate:.1f}%")
-    
-    with col2:
-        st.write("**Feature Strength (Average):**")
-        strength = feature_analysis['feature_strength']
-        for feature, value in strength.items():
-            if 'count' in feature:
-                st.metric(feature.replace('_', ' ').title(), f"{value:.1f}")
-            else:
-                st.metric(feature.replace('_', ' ').title(), f"{value:.3f}")
-    
-    # Feature importance visualization
-    usage_data = pd.DataFrame([
-        {'Feature': k.replace('_', ' ').title(), 'Usage Rate': v}
-        for k, v in feature_analysis['feature_usage'].items()
-    ])
-    
-    fig = px.bar(
-        usage_data,
-        x='Feature',
-        y='Usage Rate',
-        title="ML Feature Usage Rates (%)",
-        color='Usage Rate',
-        color_continuous_scale='blues'
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # ML Features details
-    if feature_analysis['ml_features']:
-        with st.expander("🔧 Detailed ML Features"):
-            ml_features = feature_analysis['ml_features']
-            
-            # Feature version and overview
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Feature Version", ml_features['feature_version'])
-            with col2:
-                st.metric("Total Features", ml_features['total_features'])
-            with col3:
-                st.metric("Categories", len(ml_features['feature_categories']))
-            
-            # Feature categories breakdown
-            st.subheader("📊 Feature Categories")
-            for category, features in ml_features['feature_categories'].items():
-                with st.expander(f"{category} ({len(features)} features)"):
-                    # Display features in columns for better readability
-                    cols = st.columns(3)
-                    for i, feature in enumerate(features):
-                        cols[i % 3].write(f"• {feature}")
-            
-            # Usage statistics
-            st.subheader("📈 Feature Usage Statistics")
-            usage_stats = ml_features['usage_stats']
-            
-            usage_df = pd.DataFrame([
-                {"Feature Type": "News Analysis", "Usage Rate": usage_stats['news_analysis']},
-                {"Feature Type": "Reddit Sentiment", "Usage Rate": usage_stats['reddit_sentiment']},
-                {"Feature Type": "Event Scoring", "Usage Rate": usage_stats['event_scoring']},
-                {"Feature Type": "Technical Indicators", "Usage Rate": usage_stats['technical_indicators']}
-            ])
-            
-            fig_usage = px.bar(
-                usage_df,
-                x='Feature Type',
-                y='Usage Rate',
-                title="Feature Usage Rates (%)",
-                color='Usage Rate',
-                color_continuous_scale='viridis'
-            )
-            st.plotly_chart(fig_usage, use_container_width=True)
-
-def render_next_day_predictions():
-    """
-    Render next-day predictions combining all factors
-    """
-    st.subheader("🔮 Next Day Predictions - Multi-Factor Analysis")
-    st.markdown("**Combined predictions using News + Social + ML + Technical Analysis**")
-    
-    try:
-        conn = get_database_connection()
-        
-        # Get the latest comprehensive prediction data for each bank
-        prediction_query = """
         SELECT 
             ef.symbol,
             ef.sentiment_score,
             ef.confidence,
             ef.news_count,
             ef.reddit_sentiment,
-            ef.rsi as technical_score,
-            ef.event_score,
-            eo.optimal_action,
-            eo.confidence_score as ml_confidence,
-            eo.price_direction_1h,
-            eo.price_direction_4h, 
-            eo.price_direction_1d,
-            eo.price_magnitude_1h,
-            eo.price_magnitude_4h,
-            eo.price_magnitude_1d,
-            ef.timestamp
+            ef.volatility_20d,
+            ef.current_price,
+            ef.timestamp,
+            ef.rsi,
+            ef.macd_line,
+            ef.price_vs_sma20
         FROM enhanced_features ef
-        LEFT JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
         WHERE ef.id IN (
             SELECT MAX(id) FROM enhanced_features 
-            WHERE symbol IN ('CBA.AX', 'ANZ.AX', 'WBC.AX', 'NAB.AX')
+            WHERE symbol IN ('CBA.AX', 'ANZ.AX', 'WBC.AX', 'NAB.AX', 'MQG.AX', 'QBE.AX', 'SUN.AX')
             GROUP BY symbol
         )
         ORDER BY ef.symbol
         """
         
-        predictions_df = pd.read_sql_query(prediction_query, conn)
+        df = pd.read_sql_query(query, conn)
         conn.close()
         
-        if predictions_df.empty:
-            st.info("⏳ Predictions will appear here once the ML system has processed recent data")
-            return
-        
-        # Process predictions to show factor contributions
-        display_data = []
-        
-        for _, row in predictions_df.iterrows():
-            symbol = row['symbol']
+        if df.empty:
+            raise DataError("No current sentiment data available")
             
-            # Calculate factor contributions
-            news_signal = "🟢 Positive" if row['sentiment_score'] > 0.05 else "🔴 Negative" if row['sentiment_score'] < -0.05 else "🟡 Neutral"
-            social_signal = "🟢 Bullish" if row['reddit_sentiment'] > 0.1 else "🔴 Bearish" if row['reddit_sentiment'] < -0.1 else "🟡 Neutral"
-            technical_signal = "🟢 Bullish" if row['technical_score'] > 0.05 else "🔴 Bearish" if row['technical_score'] < -0.05 else "🟡 Neutral"
-            ml_action = row['optimal_action'] if row['optimal_action'] else "HOLD"
-            
-            # Determine overall prediction confidence
-            confidence_factors = []
-            if row['confidence'] and row['confidence'] > 0.7: confidence_factors.append("News")
-            if row['ml_confidence'] and row['ml_confidence'] > 0.7: confidence_factors.append("ML") 
-            if row['technical_score'] and abs(row['technical_score']) > 0.1: confidence_factors.append("Technical")
-            
-            overall_confidence = "High" if len(confidence_factors) >= 2 else "Medium" if len(confidence_factors) == 1 else "Low"
-            
-            # Calculate expected price movement for tomorrow
-            price_1d = row['price_magnitude_1d'] if row['price_magnitude_1d'] else 0
-            price_direction = row['price_direction_1d'] if row['price_direction_1d'] else 0
-            
-            expected_move = "↗️ Up" if price_direction == 1 else "↘️ Down" if price_direction == -1 else "→ Sideways"
-            expected_magnitude = f"{abs(price_1d)*100:.1f}%" if price_1d else "~1-2%"
-            
-            display_data.append({
-                'Symbol': symbol,
-                'ML Action': f"{'🟢' if ml_action == 'BUY' else '🔴' if ml_action == 'SELL' else '🟡'} {ml_action}",
-                'News Signal': news_signal,
-                'Social Signal': social_signal, 
-                'Technical Signal': technical_signal,
-                'Expected Move': f"{expected_move} {expected_magnitude}",
-                'Confidence': overall_confidence,
-                'Supporting Factors': ", ".join(confidence_factors) if confidence_factors else "Limited data"
-            })
-        
-        # Display predictions table
-        predictions_display_df = pd.DataFrame(display_data)
-        st.dataframe(predictions_display_df, use_container_width=True, hide_index=True)
-        
-        # Show factor agreement analysis
-        st.markdown("### 🎯 **Factor Agreement Analysis**")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Count signals by type
-            signal_agreement = {
-                'All Bullish': 0,
-                'All Bearish': 0, 
-                'Mixed Signals': 0,
-                'All Neutral': 0
-            }
-            
-            for data in display_data:
-                signals = [data['News Signal'], data['Social Signal'], data['Technical Signal']]
-                bullish_count = sum(1 for s in signals if '🟢' in s)
-                bearish_count = sum(1 for s in signals if '🔴' in s)
-                
-                if bullish_count == 3:
-                    signal_agreement['All Bullish'] += 1
-                elif bearish_count == 3:
-                    signal_agreement['All Bearish'] += 1
-                elif bullish_count == 0 and bearish_count == 0:
-                    signal_agreement['All Neutral'] += 1
-                else:
-                    signal_agreement['Mixed Signals'] += 1
-            
-            agreement_df = pd.DataFrame(list(signal_agreement.items()), columns=['Agreement Type', 'Count'])
-            fig = px.pie(agreement_df, values='Count', names='Agreement Type', 
-                        title="Signal Agreement Across Factors")
-            st.plotly_chart(fig, use_container_width=True)
-            
-        with col2:
-            # Confidence distribution
-            confidence_counts = predictions_display_df['Confidence'].value_counts()
-            fig = px.bar(x=confidence_counts.index, y=confidence_counts.values,
-                        title="Prediction Confidence Distribution")
-            fig.update_layout(xaxis_title="Confidence Level", yaxis_title="Number of Stocks")
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Add timestamp info
-        latest_timestamp = predictions_df['timestamp'].max()
-        st.info(f"📅 **Latest prediction data:** {latest_timestamp}")
-        st.markdown("**💡 Tip:** Predictions combine all available factors. Higher agreement between factors = higher confidence")
+        return df
         
     except Exception as e:
-        st.error(f"Error loading next-day predictions: {e}")
-        st.info("The system may still be processing data. Please check back in a few minutes.")
+        st.error(f"Error fetching current sentiment: {e}")
+        return pd.DataFrame()
 
-def render_prediction_timeline(timeline_df: pd.DataFrame):
-    """
-    Render prediction performance over time
-    """
-    st.subheader("⏱️ Prediction Timeline (Last 7 Days)")
-    
-    # Handle empty data gracefully
-    if timeline_df.empty:
-        st.info("📊 **No prediction timeline data available yet**")
-        st.write("""
-        This section will show prediction performance once your system generates more predictions with outcomes.
+def compute_component_attribution(days: int = 30) -> Dict:
+    """Calculate ACTUAL component contribution to successful trades"""
+    try:
+        conn = get_database_connection()
+        symbols_list = ",".join([f"'{s}'" for s in ASX_BANKS])
         
-        **What you'll see here once data is available:**
-        - ⏱️ Prediction timeline with accuracy tracking
-        - 📈 Success rate trends over time  
-        - 🎯 Confidence vs performance analysis
-        - 📊 Per-symbol prediction statistics
+        # Get completed trades with component data
+        query = f"""
+        SELECT 
+            ef.sentiment_score,
+            ef.rsi,
+            ef.macd_line,
+            ef.reddit_sentiment,
+            eo.optimal_action,
+            eo.return_pct,
+            CASE WHEN eo.return_pct > 0 THEN 1 ELSE 0 END as is_winner
+        FROM enhanced_features ef
+        INNER JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
+        WHERE ef.timestamp >= datetime('now', '-{days} days')
+          AND ef.symbol IN ({symbols_list})
+          AND eo.return_pct IS NOT NULL
+        """
         
-        **To generate more data:** Let your system run continuously or execute morning/evening routines.
-        """)
-        return
-    
-    # Show data availability info
-    latest_prediction = timeline_df['Timestamp'].max()
-    oldest_prediction = timeline_df['Timestamp'].min()
-    unique_timestamps = timeline_df['Timestamp'].nunique()
-    
-    if unique_timestamps == 1:
-        st.info(f"📅 All {len(timeline_df)} predictions were generated in a batch run on {latest_prediction.strftime('%Y-%m-%d at %H:%M:%S')}")
-    else:
-        st.info(f"📅 Prediction data available from {oldest_prediction.strftime('%Y-%m-%d %H:%M')} to {latest_prediction.strftime('%Y-%m-%d %H:%M')} ({unique_timestamps} different timestamps)")
-    
-    # Group by day for overview (or by timestamp if batch)
-    timeline_df['Date'] = timeline_df['Timestamp'].dt.date
-    unique_dates = timeline_df['Date'].nunique()
-    
-    if unique_dates == 1:
-        # Single batch - show symbol distribution instead
-        symbol_stats = timeline_df.groupby('Symbol').agg({
-            'Confidence': 'mean',
-            'Signal': 'count',
-            'Accuracy': lambda x: (x == 'CORRECT').sum()
-        }).rename(columns={'Signal': 'Total Predictions', 'Accuracy': 'Correct Predictions'})
-        symbol_stats['Success Rate'] = (symbol_stats['Correct Predictions'] / symbol_stats['Total Predictions'] * 100).round(1)
-        symbol_stats.reset_index(inplace=True)
+        df = pd.read_sql_query(query, conn)
+        conn.close()
         
-        # Show symbol performance instead of timeline
-        col1, col2 = st.columns(2)
+        if df.empty:
+            return {}
         
-        with col1:
-            fig = px.bar(
-                symbol_stats, 
-                x='Symbol', 
-                y='Total Predictions',
-                title="Predictions per Symbol (Batch Run)",
-                color='Success Rate',
-                color_continuous_scale='RdYlGn',
-                text='Total Predictions'
-            )
-            fig.update_traces(textposition='outside')
-            st.plotly_chart(fig, use_container_width=True)
+        total_trades = len(df)
+        winning_trades = df[df['is_winner'] == 1]
+        losing_trades = df[df['is_winner'] == 0]
         
-        with col2:
-            fig = px.scatter(
-                symbol_stats,
-                x='Confidence',
-                y='Success Rate',
-                size='Total Predictions',
-                color='Symbol',
-                title="Confidence vs Success Rate by Symbol",
-                hover_data=['Total Predictions']
-            )
-            st.plotly_chart(fig, use_container_width=True)
+        # Calculate component alignment with winners
+        attribution = {}
         
-        # Show summary stats for the batch
-        st.write("**Batch Run Summary:**")
-        col1, col2, col3, col4 = st.columns(4)
-        
-        total_predictions = len(timeline_df)
-        correct_predictions = (timeline_df['Accuracy'] == 'CORRECT').sum()
-        avg_confidence = timeline_df['Confidence'].mean()
-        success_rate = (correct_predictions / total_predictions * 100) if total_predictions > 0 else 0
-        
-        with col1:
-            st.metric("Total Predictions", total_predictions)
-        with col2:
-            st.metric("Correct Predictions", correct_predictions)
-        with col3:
-            st.metric("Success Rate", f"{success_rate:.1f}%")
-        with col4:
-            st.metric("Avg Confidence", f"{avg_confidence:.1%}")
-        
-    else:
-        # Multiple dates - show normal timeline
-        daily_stats = timeline_df.groupby('Date').agg({
-            'Confidence': 'mean',
-            'Symbol': 'count',
-            'Signal': lambda x: (x == 'BUY').sum()
-        }).rename(columns={'Symbol': 'Total Predictions', 'Signal': 'Buy Signals'})
-        
-        daily_stats.reset_index(inplace=True)
-        
-        # Timeline visualization
-        fig = make_subplots(
-            rows=2, cols=1,
-            subplot_titles=('Daily Prediction Volume', 'Average Confidence'),
-            vertical_spacing=0.1
-        )
-        
-        fig.add_trace(
-            go.Bar(x=daily_stats['Date'], y=daily_stats['Total Predictions'], 
-                   name='Total Predictions'),
-            row=1, col=1
-        )
-        
-        fig.add_trace(
-            go.Scatter(x=daily_stats['Date'], y=daily_stats['Confidence'],
-                      mode='lines+markers', name='Avg Confidence'),
-            row=2, col=1
-        )
-        
-        fig.update_layout(height=500, title_text="Prediction Performance Over Time")
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Recent predictions table with outcomes
-    st.write("**Sample of Recent Predictions:**")
-    recent_df = timeline_df.head(15).copy()
-    
-    # Helper functions for formatting
-    def format_outcome(row):
-        if row['Actual Outcome'] is None or pd.isna(row['Actual Outcome']):
-            return "Pending"
-        outcome = row['Actual Outcome']
-        if outcome > 0:
-            return f"+{outcome:.2f}%"
-        else:
-            return f"{outcome:.2f}%"
-    
-    def format_accuracy(accuracy):
-        if accuracy == 'CORRECT':
-            return "✅ CORRECT"
-        elif accuracy == 'WRONG':
-            return "❌ WRONG"
-        else:
-            return "⏳ PENDING"
-    
-    # Format recent predictions
-    if timeline_df['Timestamp'].nunique() == 1:
-        recent_df['Order'] = range(1, len(recent_df) + 1)
-        recent_df['Time'] = recent_df['Timestamp'].dt.strftime('%m-%d %H:%M') + ' (#' + recent_df['Order'].astype(str) + ')'
-    else:
-        recent_df['Time'] = recent_df['Timestamp'].dt.strftime('%m-%d %H:%M')
-    
-    recent_df['Confidence'] = recent_df['Confidence'].apply(lambda x: f"{x:.1%}")
-    recent_df['Tech Score'] = recent_df['Technical Score'].apply(lambda x: f"{x:.1f}")
-    recent_df['Sentiment'] = recent_df['Sentiment Score'].apply(lambda x: f"{x:+.3f}")
-    recent_df['Outcome'] = recent_df.apply(format_outcome, axis=1)
-    recent_df['Result'] = recent_df['Accuracy'].apply(format_accuracy)
-    
-    display_recent = recent_df[['Time', 'Symbol', 'Signal', 'Confidence', 'Tech Score', 'Sentiment', 'Outcome', 'Result']]
-    st.dataframe(display_recent, use_container_width=True, hide_index=True)
-    
-    # All predictions table in expandable section
-    with st.expander(f"📋 **View All {len(timeline_df)} Predictions**", expanded=False):
-        st.write("**Complete prediction batch with filtering options:**")
-        
-        # Add filters
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            symbol_filter = st.selectbox(
-                "Filter by Symbol:",
-                ["All"] + sorted(timeline_df['Symbol'].unique().tolist()),
-                key="symbol_filter"
-            )
-        
-        with col2:
-            signal_filter = st.selectbox(
-                "Filter by Signal:",
-                ["All"] + sorted(timeline_df['Signal'].unique().tolist()),
-                key="signal_filter"
-            )
-        
-        with col3:
-            accuracy_filter = st.selectbox(
-                "Filter by Result:",
-                ["All", "CORRECT", "WRONG", "PENDING"],
-                key="accuracy_filter"
-            )
-        
-        # Apply filters
-        filtered_df = timeline_df.copy()
-        
-        if symbol_filter != "All":
-            filtered_df = filtered_df[filtered_df['Symbol'] == symbol_filter]
-        
-        if signal_filter != "All":
-            filtered_df = filtered_df[filtered_df['Signal'] == signal_filter]
-        
-        if accuracy_filter != "All":
-            filtered_df = filtered_df[filtered_df['Accuracy'] == accuracy_filter]
-        
-        if len(filtered_df) > 0:
-            # Format all predictions
-            all_df = filtered_df.copy()
+        if len(winning_trades) > 0:
+            # News sentiment alignment
+            news_aligned_wins = len(winning_trades[
+                ((winning_trades['sentiment_score'] > 0.1) & (winning_trades['optimal_action'] == 'BUY')) |
+                ((winning_trades['sentiment_score'] < -0.1) & (winning_trades['optimal_action'] == 'SELL'))
+            ])
+            attribution['news_win_rate'] = news_aligned_wins / len(winning_trades) * 100
             
-            # Add row numbers for batch identification
-            if timeline_df['Timestamp'].nunique() == 1:
-                # For batch predictions, add global order numbers
-                all_df = all_df.reset_index(drop=True)
-                all_df['Order'] = range(1, len(all_df) + 1)
-                all_df['Time'] = all_df['Timestamp'].dt.strftime('%m-%d %H:%M') + ' (#' + all_df['Order'].astype(str) + ')'
+            # Technical alignment (RSI oversold for buys, overbought for sells)
+            tech_aligned_wins = len(winning_trades[
+                ((winning_trades['rsi'] < 35) & (winning_trades['optimal_action'] == 'BUY')) |
+                ((winning_trades['rsi'] > 65) & (winning_trades['optimal_action'] == 'SELL'))
+            ])
+            attribution['tech_win_rate'] = tech_aligned_wins / len(winning_trades) * 100
+            
+            # MACD alignment
+            macd_aligned_wins = len(winning_trades[
+                ((winning_trades['macd_line'] > 0) & (winning_trades['optimal_action'] == 'BUY')) |
+                ((winning_trades['macd_line'] < 0) & (winning_trades['optimal_action'] == 'SELL'))
+            ])
+            attribution['macd_win_rate'] = macd_aligned_wins / len(winning_trades) * 100
+            
+            # Social sentiment alignment (where available)
+            social_data = winning_trades.dropna(subset=['reddit_sentiment'])
+            if len(social_data) > 0:
+                social_aligned_wins = len(social_data[
+                    ((social_data['reddit_sentiment'] > 0.1) & (social_data['optimal_action'] == 'BUY')) |
+                    ((social_data['reddit_sentiment'] < -0.1) & (social_data['optimal_action'] == 'SELL'))
+                ])
+                attribution['social_win_rate'] = social_aligned_wins / len(social_data) * 100
+                attribution['social_coverage'] = len(social_data) / len(winning_trades) * 100
             else:
-                all_df['Time'] = all_df['Timestamp'].dt.strftime('%m-%d %H:%M')
+                attribution['social_win_rate'] = 0
+                attribution['social_coverage'] = 0
+        
+        # Multi-component alignment analysis
+        if len(df) > 0:
+            # Count trades where 3+ components aligned
+            df['components_aligned'] = 0
             
-            all_df['Confidence'] = all_df['Confidence'].apply(lambda x: f"{x:.1%}")
-            all_df['Tech Score'] = all_df['Technical Score'].apply(lambda x: f"{x:.1f}")
-            all_df['Sentiment'] = all_df['Sentiment Score'].apply(lambda x: f"{x:+.3f}")
-            all_df['Outcome'] = all_df.apply(format_outcome, axis=1)
-            all_df['Result'] = all_df['Accuracy'].apply(format_accuracy)
+            # News component
+            df.loc[
+                ((df['sentiment_score'] > 0.1) & (df['optimal_action'] == 'BUY')) |
+                ((df['sentiment_score'] < -0.1) & (df['optimal_action'] == 'SELL')),
+                'components_aligned'
+            ] += 1
             
-            # Display summary of filtered results
-            st.write(f"**Showing {len(all_df)} predictions** (filtered from {len(timeline_df)} total)")
-            if len(all_df) != len(timeline_df):
-                correct_filtered = (all_df['Accuracy'] == 'CORRECT').sum()
-                success_rate_filtered = (correct_filtered / len(all_df) * 100) if len(all_df) > 0 else 0
-                st.write(f"Filtered success rate: **{success_rate_filtered:.1f}%** ({correct_filtered}/{len(all_df)} correct)")
+            # Technical component
+            df.loc[
+                ((df['rsi'] < 35) & (df['optimal_action'] == 'BUY')) |
+                ((df['rsi'] > 65) & (df['optimal_action'] == 'SELL')),
+                'components_aligned'
+            ] += 1
             
-            # Display the complete table
-            display_all = all_df[['Time', 'Symbol', 'Signal', 'Confidence', 'Tech Score', 'Sentiment', 'Outcome', 'Result']]
-            st.dataframe(display_all, use_container_width=True, hide_index=True, height=400)
+            # MACD component
+            df.loc[
+                ((df['macd_line'] > 0) & (df['optimal_action'] == 'BUY')) |
+                ((df['macd_line'] < 0) & (df['optimal_action'] == 'SELL')),
+                'components_aligned'
+            ] += 1
             
-            # Add download option for the filtered data
-            csv_data = display_all.to_csv(index=False)
-            st.download_button(
-                label="📥 Download Filtered Predictions as CSV",
-                data=csv_data,
-                file_name=f"predictions_batch_{timeline_df['Timestamp'].iloc[0].strftime('%Y%m%d_%H%M')}.csv",
-                mime="text/csv"
-            )
+            # Social component (where available)
+            social_mask = df['reddit_sentiment'].notna()
+            df.loc[
+                social_mask & (
+                    ((df['reddit_sentiment'] > 0.1) & (df['optimal_action'] == 'BUY')) |
+                    ((df['reddit_sentiment'] < -0.1) & (df['optimal_action'] == 'SELL'))
+                ),
+                'components_aligned'
+            ] += 1
             
-        else:
-            st.warning("No predictions match the selected filters.")
-
-@feature_gate('ADVANCED_VISUALIZATIONS')
-def render_quality_based_weighting_section():
-    """
-    Render quality-based dynamic weighting analysis (slow loading - placed at bottom)
-    Feature gated: Only shows if FEATURE_ADVANCED_VISUALIZATIONS is enabled
-    """
-    try:
-        # Import the quality analyzer (may be slow to load)
-        from quality_based_weighting_system import QualityBasedSentimentWeighting
-        
-        st.subheader("🔬 Quality-Based Dynamic Weighting Analysis")
-        st.write("**Real-time quality assessment of sentiment components with dynamic weight adjustment**")
-        st.info("🎛️ This feature is controlled by the FEATURE_ADVANCED_VISUALIZATIONS flag")
-        
-        # Initialize analyzer
-        analyzer = QualityBasedSentimentWeighting()
-        banks_quality_data = {}
-        
-        # Initialize analyzer
-        analyzer = QualityBasedSentimentWeighting()
-        
-        # Create sample analysis data (in real implementation, this would come from actual sentiment analysis)
-        with st.spinner("Analyzing sentiment component quality..."):
-            # Sample analysis based on current sentiment data
-            sample_analysis = {
-                'news_count': 35,
-                'sentiment_scores': {'average_sentiment': 0.15, 'sentiment_variance': 0.25},
-                'reddit_sentiment': {'posts_analyzed': 0, 'average_sentiment': 0.0},  # Reddit broken
-                'marketaux_sentiment': {'sentiment_score': 0.2, 'confidence': 0.8, 'articles_analyzed': 12},
-                'ml_confidence': 0.75,
-                'transformer_confidence': 0.85,
-                'significant_events': {'events_detected': [1, 2]}
-            }
-            
-            # Calculate dynamic weights
-            results = analyzer.calculate_dynamic_weights(sample_analysis)
-        
-        # Create quality overview
-        st.markdown("#### 📊 Quality Overview")
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            avg_quality = np.mean(list(results['quality_scores'].values()))
-            quality_grade = "A" if avg_quality > 0.8 else "B" if avg_quality > 0.6 else "C" if avg_quality > 0.4 else "D"
-            st.metric("Average Quality", f"{quality_grade} ({avg_quality:.2f})")
-        
-        with col2:
-            total_adjustment = results['total_adjustment']
-            st.metric("Total Weight Adjustment", f"{total_adjustment:.3f}")
-        
-        with col3:
-            components_analyzed = len(results['weights'])
-            st.metric("Components Analyzed", components_analyzed)
-        
-        with col4:
-            best_component = max(results['quality_scores'], key=results['quality_scores'].get)
-            st.metric("Best Component", best_component.title())
-        
-        # Dynamic weights comparison
-        st.markdown("#### ⚖️ Dynamic Weight Comparison")
-        
-        # Create comparison DataFrame
-        weight_data = []
-        for component in analyzer.base_weights.keys():
-            base_weight = analyzer.base_weights[component] * 100
-            quality_score = results['quality_scores'][component]
-            new_weight = results['weights'][component] * 100
-            change = new_weight - base_weight
-            
-            weight_data.append({
-                'Component': component.title(),
-                'Base Weight (%)': f"{base_weight:.1f}%",
-                'Quality Score': f"{quality_score:.3f}",
-                'New Weight (%)': f"{new_weight:.1f}%",
-                'Change': f"{change:+.1f}%",
-                'Quality Grade': "A" if quality_score > 0.8 else "B" if quality_score > 0.6 else "C" if quality_score > 0.4 else "D"
-            })
-        
-        weight_df = pd.DataFrame(weight_data)
-        st.dataframe(weight_df, use_container_width=True, hide_index=True)
-        
-        # Quality scores visualization
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Quality scores bar chart
-            quality_chart_data = pd.DataFrame([
-                {'Component': k.title(), 'Quality Score': v}
-                for k, v in results['quality_scores'].items()
-            ])
-            
-            fig = px.bar(
-                quality_chart_data,
-                x='Component',
-                y='Quality Score',
-                title="Component Quality Scores",
-                color='Quality Score',
-                color_continuous_scale='RdYlGn',
-                range_y=[0, 1]
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Weight adjustment visualization
-            weight_chart_data = pd.DataFrame([
-                {
-                    'Component': k.title(), 
-                    'Base Weight': analyzer.base_weights[k] * 100,
-                    'Adjusted Weight': v * 100
-                }
-                for k, v in results['weights'].items()
-            ])
-            
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                name='Base Weight',
-                x=weight_chart_data['Component'],
-                y=weight_chart_data['Base Weight'],
-                marker_color='lightblue'
-            ))
-            fig.add_trace(go.Bar(
-                name='Adjusted Weight',
-                x=weight_chart_data['Component'],
-                y=weight_chart_data['Adjusted Weight'],
-                marker_color='darkblue'
-            ))
-            fig.update_layout(
-                title='Weight Comparison: Base vs Quality-Adjusted',
-                barmode='group',
-                yaxis_title='Weight (%)'
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Quality report
-        st.markdown("#### 📋 Detailed Quality Report")
-        quality_report = analyzer.get_quality_report()
-        st.text(quality_report)
-        
-        # Key insights
-        st.markdown("#### 💡 Key Insights")
-        
-        # Component performance analysis
-        best_component = max(results['quality_scores'], key=results['quality_scores'].get)
-        worst_component = min(results['quality_scores'], key=results['quality_scores'].get)
-        
-        insights = [
-            f"🥇 **Best performing component**: {best_component.title()} (Quality: {results['quality_scores'][best_component]:.3f})",
-            f"📉 **Needs improvement**: {worst_component.title()} (Quality: {results['quality_scores'][worst_component]:.3f})",
-            f"📊 **System adaptation**: {results['total_adjustment']:.3f} total weight adjustment",
-            f"⚖️ **Dynamic balancing**: Weights automatically adjusted based on real-time quality"
-        ]
-        
-        # Add specific insights based on components
-        if results['quality_scores']['reddit'] < 0.3:
-            insights.append("🔴 **Reddit sentiment**: Very low quality detected - reduced weight applied")
-        
-        if results['quality_scores']['marketaux'] > 0.7:
-            insights.append("🟢 **MarketAux**: High quality professional news source - weight boosted")
-        
-        if results['quality_scores']['ml_trading'] > 0.6:
-            insights.append("🤖 **ML confidence**: Good model performance - maintaining weight")
-        
-        for insight in insights:
-            st.write(insight)
-        
-        # System benefits
-        with st.expander("🎯 **Benefits of Quality-Based Weighting**", expanded=False):
-            st.markdown("""
-            **🔄 Automatic Adaptation:**
-            - System automatically adjusts to changing data quality
-            - Poor quality components get reduced influence
-            - High quality components get enhanced weight
-            
-            **📊 Real-time Quality Assessment:**
-            - Continuous monitoring of all sentiment components
-            - Machine learning validates each data source
-            - Historical performance tracking improves over time
-            
-            **�️ Risk Reduction:**
-            - Prevents overreliance on any single data source
-            - Reduces impact of unreliable or stale data
-            - Maintains balanced portfolio view
-            
-            **🎯 Enhanced Accuracy:**
-            - Higher confidence in final sentiment scores
-            - Better prediction performance through quality focus
-            - Transparent quality metrics for analysis
-            """)
-        
-    except ImportError as e:
-        st.error(f"Quality analysis module not available: {e}")
-        st.info("""
-        **Quality-Based Dynamic Weighting Analysis**
-        
-        This advanced feature analyzes the quality of sentiment components and adjusts 
-        weights dynamically for more accurate predictions.
-        
-        **Features include:**
-        - 📊 Component quality grading (0-1 scale)
-        - ⚖️ Dynamic weight adjustment based on quality
-        - 📈 Real-time quality monitoring
-        - 🎯 Confidence scoring with quality factors
-        
-        **To enable:** Ensure the quality weighting system is properly configured.
-        """)
-    except Exception as e:
-        st.error(f"Error in quality analysis: {e}")
-        st.info("The quality analysis system may be initializing. Please try refreshing in a moment.")
-
-def render_feature_development_sections():
-    """
-    Render placeholder sections for features under development
-    Only shows if respective feature flags are enabled
-    """
-    st.markdown("---")
-    st.markdown("### 🚀 Feature Development (Beta)")
-    
-    # Phase 1 Features
-    if is_feature_enabled('CONFIDENCE_CALIBRATION'):
-        with st.expander("🎯 **Predictive Confidence Calibration** (BETA)", expanded=False):
-            st.markdown("**Dynamic ML confidence adjustment based on market conditions**")
-            render_confidence_calibration_section()
-    
-    if is_feature_enabled('ANOMALY_DETECTION'):
-        with st.expander("⚡ **Real-Time Anomaly Detection** (BETA)", expanded=False):
-            st.markdown("**Breaking news and market anomaly detection system**")
-            render_anomaly_detection_section()
-    
-    if is_feature_enabled('BACKTESTING_ENGINE'):
-        with st.expander("🎛️ **Strategy Backtesting Engine** (BETA)", expanded=False):
-            st.markdown("**Comprehensive strategy validation and optimization**")
-            render_backtesting_section()
-    
-    # Phase 2 Features
-    if is_feature_enabled('MULTI_ASSET_CORRELATION'):
-        with st.expander("📊 **Multi-Asset Correlation Analysis** (BETA)", expanded=False):
-            st.markdown("**Cross-asset correlation and sector rotation detection**")
-            render_multi_asset_placeholder()
-    
-    if is_feature_enabled('INTRADAY_PATTERNS'):
-        with st.expander("📈 **Intraday Pattern Recognition** (BETA)", expanded=False):
-            st.markdown("**Time-based pattern analysis and optimization**")
-            render_intraday_patterns_placeholder()
-    
-    # Phase 3 Features
-    if is_feature_enabled('ENSEMBLE_MODELS'):
-        with st.expander("🔮 **Ensemble Prediction Models** (BETA)", expanded=False):
-            st.markdown("**Multiple ML model combination for higher accuracy**")
-            render_ensemble_models_placeholder()
-    
-    if is_feature_enabled('POSITION_SIZING'):
-        with st.expander("🎪 **Dynamic Position Sizing** (BETA)", expanded=False):
-            st.markdown("**Intelligent position sizing based on risk and volatility**")
-            render_position_sizing_placeholder()
-    
-    # Additional Features
-    if is_feature_enabled('MOBILE_ALERTS'):
-        with st.expander("📱 **Mobile Alert System** (BETA)", expanded=False):
-            st.markdown("**SMS, email, and push notification alerts**")
-            render_mobile_alerts_placeholder()
-    
-    if is_feature_enabled('SENTIMENT_MOMENTUM'):
-        with st.expander("📊 **Sentiment Momentum Tracking** (BETA)", expanded=False):
-            st.markdown("**Sentiment velocity and acceleration analysis**")
-            render_sentiment_momentum_placeholder()
-    
-    # Show feature enabling instructions if no features are enabled
-    enabled_count = len([f for f in ['CONFIDENCE_CALIBRATION', 'ANOMALY_DETECTION', 'BACKTESTING_ENGINE', 
-                                    'MULTI_ASSET_CORRELATION', 'INTRADAY_PATTERNS', 'ENSEMBLE_MODELS',
-                                    'POSITION_SIZING', 'MOBILE_ALERTS', 'SENTIMENT_MOMENTUM'] 
-                        if is_feature_enabled(f)])
-    
-    if enabled_count == 0:
-        st.info("""
-        🎛️ **No development features currently enabled**
-        
-        To enable features for testing:
-        1. Copy `.env.example` to `.env`
-        2. Set desired features to `true`
-        3. Refresh the dashboard
-        
-        **Available features:**
-        - 🎯 Confidence Calibration
-        - ⚡ Anomaly Detection
-        - 🎛️ Backtesting Engine
-        - 📊 Multi-Asset Correlation
-        - 📈 Intraday Patterns
-        - 🔮 Ensemble Models
-        - 🎪 Position Sizing
-        - 📱 Mobile Alerts
-        - 📊 Sentiment Momentum
-        """)
-
-# Phase 1 Feature Implementations
-def render_confidence_calibration_section():
-    """Real confidence calibration feature implementation"""
-    try:
-        from simple_confidence_calibration import SimpleConfidenceCalibrator
-        
-        st.markdown("**🎯 Predictive Confidence Calibration System**")
-        st.info("🚀 **LIVE FEATURE** - Dynamically adjusting ML confidence based on real-time conditions")
-        
-        calibrator = SimpleConfidenceCalibrator()
-        
-        # Get current market conditions
-        with st.spinner("Analyzing confidence calibration factors..."):
-            conditions = calibrator.get_current_market_conditions()
-        
-        if conditions.get('data_available', False):
-            # Current conditions display
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                time_factor = conditions['current_time_factor']
-                time_status = "🟢 Optimal" if time_factor > 1.1 else "🟡 Good" if time_factor > 0.9 else "🔴 Poor"
-                st.metric("Time Factor", f"{time_factor:.2f}", f"{time_status}")
-            
-            with col2:
-                st.metric("Market Status", conditions['market_status'])
-            
-            with col3:
-                if conditions.get('avg_sentiment') is not None:
-                    sentiment_trend = "📈 Positive" if conditions['avg_sentiment'] > 0.1 else "📉 Negative" if conditions['avg_sentiment'] < -0.1 else "➡️ Neutral"
-                    st.metric("Sentiment Trend", f"{conditions['avg_sentiment']:+.3f}", sentiment_trend)
-                else:
-                    st.metric("Sentiment Trend", "N/A", "Building baseline")
-            
-            with col4:
-                if conditions.get('sentiment_volatility') is not None:
-                    vol_status = "🔴 High" if conditions['sentiment_volatility'] > 0.2 else "🟡 Medium" if conditions['sentiment_volatility'] > 0.1 else "🟢 Low"
-                    st.metric("Volatility", f"{conditions['sentiment_volatility']:.3f}", vol_status)
-                else:
-                    st.metric("Volatility", "N/A", "Limited data")
-            
-            # Sample calibration for current sentiment data
-            st.markdown("#### 🏦 Live Confidence Calibration by Bank")
-            
-            try:
-                current_sentiment = fetch_current_sentiment_scores()
-                
-                if not current_sentiment.empty:
-                    calibration_results = []
-                    for _, row in current_sentiment.iterrows():
-                        result = calibrator.calibrate_confidence(
-                            original_confidence=row['Confidence'],
-                            symbol=row['Symbol'],
-                            sentiment_score=row['Sentiment Score'],
-                            technical_score=row.get('Technical Score', 0.0)
-                        )
-                        
-                        calibration_results.append({
-                            'Symbol': row['Symbol'],
-                            'Original Confidence': f"{result['original_confidence']:.1%}",
-                            'Calibrated Confidence': f"{result['calibrated_confidence']:.1%}",
-                            'Adjustment': f"{result['adjustment_percent']:+.1f}%",
-                            'Time Factor': f"{result['factors'].get('time_factor', 1.0):.2f}",
-                            'Volatility Factor': f"{result['factors'].get('volatility_factor', 1.0):.2f}",
-                            'Sentiment Factor': f"{result['factors'].get('sentiment_factor', 1.0):.2f}",
-                            'Status': '🟢 Boosted' if result['adjustment'] > 0 else '🔴 Reduced' if result['adjustment'] < 0 else '🟡 Unchanged'
-                        })
-                    
-                    calibration_df = pd.DataFrame(calibration_results)
-                    st.dataframe(calibration_df, use_container_width=True, hide_index=True)
-                    
-                    # Show calibration insights
-                    st.markdown("#### 💡 Calibration Insights")
-                    
-                    boosted_count = len([r for r in calibration_results if '🟢' in r['Status']])
-                    reduced_count = len([r for r in calibration_results if '🔴' in r['Status']])
-                    
-                    insights = []
-                    insights.append(f"📈 **Confidence boosted**: {boosted_count}/{len(calibration_results)} stocks")
-                    insights.append(f"📉 **Confidence reduced**: {reduced_count}/{len(calibration_results)} stocks")
-                    insights.append(f"⏰ **Time factor**: {time_factor:.2f} ({'High confidence period' if time_factor > 1.1 else 'Low confidence period' if time_factor < 0.9 else 'Normal confidence period'})")
-                    insights.append(f"📊 **System status**: Active with real-time calibration")
-                    
-                    for insight in insights:
-                        st.write(insight)
-                else:
-                    st.warning("No current sentiment data available for calibration demo")
-                
-            except Exception as e:
-                st.warning(f"Could not load current sentiment for calibration demo: {e}")
-        
-        else:
-            st.warning("Limited market data available. Calibration system active with time-based factors only.")
-            time_factor = conditions.get('current_time_factor', 1.0)
-            market_status = conditions.get('market_status', 'Unknown')
-            st.write(f"**Current Time Factor**: {time_factor:.2f}")
-            st.write(f"**Market Status**: {market_status}")
-        
-        # Performance impact information
-        with st.expander("📊 **Calibration Performance Impact**", expanded=False):
-            st.markdown("""
-            **🎯 Expected Performance Improvements:**
-            - **Time-based adjustment**: 10-20% improvement during optimal trading hours
-            - **Volatility adjustment**: 15-25% better risk management in volatile conditions  
-            - **Sentiment strength**: 10-15% better signal quality assessment
-            - **Trend adjustment**: 5-10% improved adaptation to market trends
-            
-            **📈 Overall Impact**: Expected to boost success rate from 60% → 70%+
-            
-            **🔄 Dynamic Benefits:**
-            - Real-time adaptation to market conditions
-            - Reduced overconfidence in poor conditions
-            - Enhanced confidence in optimal conditions
-            - Better risk-adjusted returns
-            
-            **⚙️ Current Factors:**
-            - **Time-based**: Market hours vs after-hours adjustment
-            - **Volatility**: Based on technical indicator strength
-            - **Sentiment Strength**: Signal quality assessment
-            - **Trend**: Historical sentiment pattern analysis
-            """)
-    
-    except ImportError as e:
-        st.error(f"Confidence calibration module not available: {e}")
-    except Exception as e:
-        st.error(f"Error in confidence calibration: {e}")
-
-def render_anomaly_detection_section():
-    """Real anomaly detection feature implementation"""
-    try:
-        from simple_anomaly_detection import SimpleAnomalyDetector, AnomalyType, AnomalySeverity
-        
-        st.markdown("**⚡ Real-Time Anomaly Detection System**")
-        st.info("🚀 **LIVE FEATURE** - Detecting market anomalies and unusual trading conditions")
-        
-        detector = SimpleAnomalyDetector()
-        
-        # Get current data for anomaly detection
-        with st.spinner("Scanning for market anomalies..."):
-            current_sentiment = fetch_current_sentiment_scores()
-            
-            all_anomalies = []
-            risk_levels = []
-            
-            if not current_sentiment.empty:
-                for _, row in current_sentiment.iterrows():
-                    current_data = {
-                        'symbol': row['Symbol'],
-                        'sentiment_score': row['Sentiment Score'],
-                        'technical_score': row.get('Technical Score', 0.0),
-                        'news_count': row.get('News Count', 0),
-                        'confidence': row['Confidence']
+            # Calculate win rates by component alignment
+            attribution['multi_component_analysis'] = {}
+            for i in range(5):  # 0-4 components aligned
+                subset = df[df['components_aligned'] == i]
+                if len(subset) > 0:
+                    win_rate = subset['is_winner'].mean() * 100
+                    attribution['multi_component_analysis'][f'{i}_components'] = {
+                        'trades': len(subset),
+                        'win_rate': win_rate
                     }
-                    
-                    detection_results = detector.run_detection(current_data)
-                    all_anomalies.extend(detection_results['anomalies'])
-                    risk_levels.append((row['Symbol'], detection_results['risk_level']))
         
-        # Overall risk assessment
-        st.markdown("#### 🚨 Market Risk Assessment")
+        attribution.update({
+            'total_trades': total_trades,
+            'winning_trades': len(winning_trades),
+            'overall_win_rate': len(winning_trades) / total_trades * 100 if total_trades > 0 else 0,
+            'period_days': days
+        })
         
-        col1, col2, col3, col4 = st.columns(4)
+        return attribution
         
-        with col1:
-            total_anomalies = len(all_anomalies)
-            st.metric("Total Anomalies", total_anomalies)
-        
-        with col2:
-            critical_count = len([a for a in all_anomalies if a.severity == AnomalySeverity.CRITICAL])
-            st.metric("Critical Alerts", critical_count, 
-                     "🚨" if critical_count > 0 else "✅")
-        
-        with col3:
-            high_count = len([a for a in all_anomalies if a.severity == AnomalySeverity.HIGH])
-            st.metric("High Priority", high_count,
-                     "⚠️" if high_count > 0 else "✅")
-        
-        with col4:
-            max_impact = max([a.impact_score for a in all_anomalies]) if all_anomalies else 0.0
-            impact_status = "🚨 Critical" if max_impact > 0.8 else "⚠️ High" if max_impact > 0.6 else "🟡 Medium" if max_impact > 0.3 else "✅ Low"
-            st.metric("Max Impact", f"{max_impact:.2f}", impact_status)
-        
-        # Risk level by stock
-        if risk_levels:
-            st.markdown("#### 🏦 Risk Level by Stock")
-            
-            risk_colors = {
-                'NORMAL': '🟢',
-                'LOW': '🟡',
-                'MEDIUM': '🟠',
-                'HIGH': '🔴',
-                'CRITICAL': '🚨'
-            }
-            
-            risk_display = []
-            for symbol, risk_level in risk_levels:
-                color = risk_colors.get(risk_level, '❓')
-                risk_display.append({
-                    'Bank': symbol,
-                    'Risk Level': f"{color} {risk_level}",
-                    'Status': risk_level
-                })
-            
-            risk_display_df = pd.DataFrame(risk_display)
-            st.dataframe(risk_display_df[['Bank', 'Risk Level']], use_container_width=True, hide_index=True)
-        
-        # Active anomalies
-        if all_anomalies:
-            st.markdown("#### 🔍 Active Anomalies Detected")
-            
-            # Sort by impact score
-            all_anomalies.sort(key=lambda x: x.impact_score, reverse=True)
-            
-            for i, anomaly in enumerate(all_anomalies[:8]):  # Show top 8
-                severity_color = {
-                    AnomalySeverity.CRITICAL: "🚨",
-                    AnomalySeverity.HIGH: "🔴", 
-                    AnomalySeverity.MEDIUM: "🟡",
-                    AnomalySeverity.LOW: "🟢"
-                }.get(anomaly.severity, "❓")
-                
-                anomaly_type_emoji = {
-                    AnomalyType.SENTIMENT_EXTREME: "💥",
-                    AnomalyType.NEWS_SPIKE: "📰",
-                    AnomalyType.SIGNAL_DIVERGENCE: "📈",
-                    AnomalyType.CONFIDENCE_ANOMALY: "🎯",
-                    AnomalyType.TECHNICAL_EXTREME: "⚙️"
-                }.get(anomaly.type, "❓")
-                
-                with st.expander(f"{severity_color} {anomaly_type_emoji} {anomaly.symbol}: {anomaly.description}", expanded=i < 2):
-                    
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        st.write(f"**Severity**: {anomaly.severity.value.title()}")
-                        st.write(f"**Type**: {anomaly.type.value.replace('_', ' ').title()}")
-                    
-                    with col2:
-                        st.write(f"**Impact Score**: {anomaly.impact_score:.3f}")
-                        st.write(f"**Confidence**: {anomaly.confidence:.3f}")
-                    
-                    with col3:
-                        st.write(f"**Timestamp**: {anomaly.timestamp.strftime('%H:%M:%S')}")
-                        st.write(f"**Symbol**: {anomaly.symbol}")
-                    
-                    # Show anomaly-specific data
-                    if anomaly.data:
-                        st.write("**Anomaly Data:**")
-                        for key, value in anomaly.data.items():
-                            if isinstance(value, float):
-                                st.write(f"• {key.replace('_', ' ').title()}: {value:.3f}")
-                            else:
-                                st.write(f"• {key.replace('_', ' ').title()}: {value}")
-        
-        else:
-            st.success("✅ **No anomalies detected** - Market conditions appear normal")
-        
-        # Anomaly detection insights
-        with st.expander("💡 **Anomaly Detection Insights**", expanded=False):
-            st.markdown("""
-            **🔍 What We Monitor:**
-            - **Sentiment Extremes**: Unusual positive/negative sentiment (>2σ from mean)
-            - **Confidence Anomalies**: Suspiciously high confidence levels (>90%)
-            - **News Volume Spikes**: 5x+ normal news volume indicating major events
-            - **Signal Divergence**: Sentiment vs technical signal conflicts
-            - **Technical Extremes**: Unusual technical indicator values
-            
-            **⚡ Detection Benefits:**
-            - **Early Warning**: Detect major moves before they happen
-            - **Risk Management**: Identify high-risk trading conditions
-            - **Opportunity Identification**: Spot unusual market conditions for profit
-            - **System Protection**: Prevent trading in anomalous conditions
-            
-            **🎯 Current Status**: Active monitoring with baseline from {detector.get_baseline_stats().get('total_records', 0)} data points
-            """)
-    
-    except ImportError as e:
-        st.error(f"Anomaly detection module not available: {e}")
     except Exception as e:
-        st.error(f"Error in anomaly detection: {e}")
+        st.warning(f"Could not compute component attribution: {e}")
+        return {}
 
-def render_backtesting_section():
-    """Real backtesting engine feature implementation"""
+
+def compute_overview_metrics(days: int = 14) -> Dict:
+    """Compute overview metrics for News, Social, ML, and Technical pillars"""
     try:
-        from simple_backtesting import SimpleBacktestingEngine, StrategyType
-        
-        st.markdown("**🎛️ Strategy Backtesting Engine**")
-        st.info("🚀 **LIVE FEATURE** - Strategy validation and signal analysis with available data")
-        
-        engine = SimpleBacktestingEngine()
-        
-        # Backtesting controls
-        st.markdown("#### ⚙️ Strategy Analysis Configuration")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Strategy selection
-            strategy_options = {
-                'Sentiment Only': StrategyType.SENTIMENT_ONLY,
-                'Technical Only': StrategyType.TECHNICAL_ONLY, 
-                'Combined Signal': StrategyType.COMBINED,
-                'High Confidence': StrategyType.HIGH_CONFIDENCE
+        conn = get_database_connection()
+        symbols_list = ",".join([f"'{s}'" for s in ASX_BANKS])
+
+        # Aggregate from enhanced_features for last N days
+        agg = conn.execute(f"""
+            SELECT 
+                COUNT(*) as predictions,
+                SUM(news_count) as total_news,
+                AVG(sentiment_score) as avg_sentiment,
+                AVG(confidence) as avg_confidence,
+                AVG(CASE WHEN reddit_sentiment IS NOT NULL THEN reddit_sentiment END) as avg_reddit,
+                COUNT(CASE WHEN reddit_sentiment IS NOT NULL THEN 1 END) as reddit_count,
+                AVG(event_score) as avg_event_score,
+                AVG(rsi) as avg_rsi,
+                AVG(macd_line) as avg_macd,
+                AVG(price_vs_sma20) as avg_price_vs_sma20,
+                AVG(bollinger_width) as avg_bbw,
+                AVG(market_momentum) as avg_momentum
+            FROM enhanced_features ef
+            WHERE ef.timestamp >= datetime('now', '-{days} days')
+              AND ef.symbol IN ({symbols_list})
+        """).fetchone()
+        predictions = agg[0] or 0
+        total_news = agg[1] or 0
+        avg_sentiment = float(agg[2] or 0.0)
+        avg_confidence = float(agg[3] or 0.0)
+        avg_reddit = float(agg[4] or 0.0)
+        reddit_count = int(agg[5] or 0)
+        avg_event_score = float(agg[6] or 0.0)
+        avg_rsi = float(agg[7] or 0.0)
+        avg_macd = float(agg[8] or 0.0)
+        avg_price_vs_sma20 = float(agg[9] or 0.0)
+        avg_bbw = float(agg[10] or 0.0)
+        avg_momentum = float(agg[11] or 0.0)
+
+        # Outcomes over last N days
+        outc = conn.execute(f"""
+            SELECT 
+                COUNT(*) as outcomes_completed,
+                AVG(CASE WHEN return_pct > 0 THEN 1.0 ELSE 0.0 END) as win_rate,
+                AVG(return_pct) as avg_return
+            FROM enhanced_outcomes eo
+            INNER JOIN enhanced_features ef ON ef.id = eo.feature_id
+            WHERE ef.timestamp >= datetime('now', '-{days} days')
+              AND ef.symbol IN ({symbols_list})
+              AND eo.return_pct IS NOT NULL
+        """).fetchone()
+        outcomes_completed = outc[0] or 0
+        win_rate = float(outc[1] or 0.0)
+        avg_return = float(outc[2] or 0.0)
+
+        # Latest ML training metrics
+        ml_metrics = fetch_enhanced_ml_training_metrics()
+
+        conn.close()
+
+        # Social coverage percentage
+        social_coverage = (reddit_count / predictions) * 100 if predictions else 0.0
+
+        return {
+            'period_days': days,
+            'news': {
+                'avg_sentiment': avg_sentiment,
+                'avg_confidence': avg_confidence,
+                'total_news': int(total_news),
+                'avg_event_score': avg_event_score
+            },
+            'social': {
+                'avg_reddit_sentiment': avg_reddit,
+                'coverage_pct': social_coverage
+            },
+            'technical': {
+                'avg_rsi': avg_rsi,
+                'avg_macd': avg_macd,
+                'avg_price_vs_sma20': avg_price_vs_sma20,
+                'avg_bollinger_width': avg_bbw,
+                'avg_momentum': avg_momentum
+            },
+            'ml': {
+                'predictions': int(predictions),
+                'outcomes_completed': int(outcomes_completed),
+                'win_rate': win_rate,
+                'avg_return': avg_return,
+                'training_samples': ml_metrics.get('training_samples', 0),
+                'direction_accuracy_4h': ml_metrics.get('direction_accuracy_4h', 0.0),
+                'last_training': ml_metrics.get('last_training'),
+                'status': ml_metrics.get('status', 'NO_DATA')
             }
-            
-            selected_strategies = st.multiselect(
-                "Select Strategies to Analyze",
-                options=list(strategy_options.keys()),
-                default=['Sentiment Only', 'Combined Signal'],
-                help="Choose which strategies to analyze and compare"
-            )
-        
-        with col2:
-            st.write("**Strategy Parameters:**")
-            st.write("• Sentiment threshold: ±0.1")
-            st.write("• Technical threshold: ±0.1") 
-            st.write("• High confidence: 85%+ filter")
-            st.write("• Combined: 60% sentiment + 40% technical")
-        
-        # Run analysis button
-        if st.button("🚀 Run Strategy Analysis", type="primary") and selected_strategies:
-            strategies_to_test = [strategy_options[name] for name in selected_strategies]
-            
-            with st.spinner("Running strategy signal analysis..."):
-                try:
-                    results = engine.compare_strategies(strategies_to_test)
-                    
-                    comparison_df = results['comparison_table']
-                    
-                    if comparison_df.empty or comparison_df['total_signals'].sum() == 0:
-                        st.warning("⚠️ No trading signals generated with current parameters")
-                        st.info("This could indicate conservative thresholds or limited market activity. Consider adjusting parameters.")
-                    else:
-                        # Strategy comparison results
-                        st.markdown("#### 📊 Strategy Signal Analysis")
-                        
-                        # Performance metrics table
-                        display_df = comparison_df.copy()
-                        display_df['strategy'] = display_df['strategy'].str.replace('_', ' ').str.title()
-                        display_df['buy_rate'] = display_df['buy_rate'].apply(lambda x: f"{x:.1%}")
-                        display_df['sell_rate'] = display_df['sell_rate'].apply(lambda x: f"{x:.1%}")
-                        display_df['avg_confidence'] = display_df['avg_confidence'].apply(lambda x: f"{x:.1%}")
-                        display_df['avg_sentiment'] = display_df['avg_sentiment'].apply(lambda x: f"{x:+.3f}")
-                        display_df['avg_technical'] = display_df['avg_technical'].apply(lambda x: f"{x:+.3f}")
-                        
-                        # Rename columns for display
-                        display_df.columns = ['Strategy', 'Total Signals', 'Buy Signals', 'Sell Signals', 
-                                            'Buy Rate', 'Sell Rate', 'Avg Confidence', 'Avg Sentiment', 'Avg Technical']
-                        
-                        st.dataframe(display_df, use_container_width=True, hide_index=True)
-                        
-                        # Most active strategy highlight
-                        if results['most_active_strategy']:
-                            most_active = results['most_active_strategy'].replace('_', ' ').title()
-                            active_signals = comparison_df[comparison_df['strategy'] == results['most_active_strategy']]['total_signals'].iloc[0]
-                            st.success(f"🏆 **Most Active Strategy**: {most_active} ({active_signals} signals)")
-                        
-                        # Visualization
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            # Signal count comparison
-                            fig = px.bar(
-                                comparison_df,
-                                x='strategy',
-                                y='total_signals',
-                                title="Total Signals by Strategy",
-                                color='avg_confidence',
-                                color_continuous_scale='viridis'
-                            )
-                            fig.update_layout(xaxis_title="Strategy", yaxis_title="Total Signals")
-                            st.plotly_chart(fig, use_container_width=True)
-                        
-                        with col2:
-                            # Buy vs Sell distribution
-                            fig = px.bar(
-                                comparison_df,
-                                x='strategy',
-                                y=['buy_signals', 'sell_signals'],
-                                title="Buy vs Sell Signal Distribution",
-                                barmode='group'
-                            )
-                            fig.update_layout(xaxis_title="Strategy", yaxis_title="Signal Count")
-                            st.plotly_chart(fig, use_container_width=True)
-                        
-                        # Get strategy insights
-                        insights = engine.get_strategy_insights(results)
-                        
-                        st.markdown("#### � Strategy Analysis Insights")
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            st.write(f"**Total Data Points**: {insights['total_data_points']}")
-                            st.write(f"**Most Active Strategy**: {insights['most_active_strategy'].replace('_', ' ').title()}")
-                        
-                        with col2:
-                            st.write("**Recommendations**:")
-                            for rec in insights['recommendations'][:3]:
-                                st.write(f"• {rec}")
-                        
-                        # Detailed signal distribution
-                        st.markdown("#### 📋 Signal Distribution by Stock")
-                        
-                        for strategy_name, result in results['individual_results'].items():
-                            if result.total_signals > 0:
-                                with st.expander(f"📈 {strategy_name.replace('_', ' ').title()} - Stock Distribution", expanded=False):
-                                    
-                                    # Create distribution data
-                                    dist_data = []
-                                    for symbol, dist in result.signal_distribution.items():
-                                        dist_data.append({
-                                            'Symbol': symbol,
-                                            'Buy Signals': dist['BUY'],
-                                            'Sell Signals': dist['SELL'],
-                                            'Hold Signals': dist['HOLD'],
-                                            'Total': dist['total'],
-                                            'Buy Rate': f"{dist['BUY']/dist['total']*100:.0f}%" if dist['total'] > 0 else "0%",
-                                            'Sell Rate': f"{dist['SELL']/dist['total']*100:.0f}%" if dist['total'] > 0 else "0%"
-                                        })
-                                    
-                                    dist_df = pd.DataFrame(dist_data)
-                                    st.dataframe(dist_df, use_container_width=True, hide_index=True)
-                
-                except Exception as e:
-                    st.error(f"Error running strategy analysis: {e}")
-                    st.info("This might be due to insufficient data. The system works with available sentiment data.")
-        
-        # Strategy analysis features
-        with st.expander("🎯 **Strategy Analysis Features**", expanded=False):
-            st.markdown("""
-            **📊 Available Strategies:**
-            - **Sentiment Only**: Pure sentiment-based signals (buy > 0.1, sell < -0.1)
-            - **Technical Only**: Technical indicator-based signals
-            - **Combined Signal**: Weighted combination (60% sentiment + 40% technical)
-            - **High Confidence**: Lower thresholds but requires 85%+ confidence
-            
-            **📈 Analysis Metrics:**
-            - **Signal Count**: Total buy/sell signals generated
-            - **Signal Distribution**: Buy vs sell signal ratio
-            - **Confidence Level**: Average confidence of generated signals
-            - **Sentiment Bias**: Average sentiment of trading signals
-            - **Stock Distribution**: Signal breakdown by individual stocks
-            
-            **🔬 Benefits:**
-            - **Strategy Validation**: Test different approaches with real data
-            - **Signal Analysis**: Understand which strategies are most active
-            - **Parameter Optimization**: Compare threshold effectiveness
-            - **Risk Assessment**: Analyze signal distribution and bias
-            
-            **⚙️ Current Data**: Analysis based on {engine.load_historical_data().shape[0] if not engine.load_historical_data().empty else 0} historical data points
-            """)
-    
-    except ImportError as e:
-        st.error(f"Backtesting engine module not available: {e}")
+        }
     except Exception as e:
-        st.error(f"Error in backtesting: {e}")
-
-def render_anomaly_detection_placeholder():
-    """Placeholder for anomaly detection feature"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Detection algorithms being designed
-    
-    **Features to implement:**
-    - Breaking news impact detection
-    - Volume spike alerts
-    - Sentiment-price divergence warnings
-    - Market regime change identification
-    
-    **Expected Impact:** Early warning system for major moves
-    """)
-
-def render_backtesting_placeholder():
-    """Placeholder for backtesting engine"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Framework design phase
-    
-    **Features to implement:**
-    - Walk-forward analysis
-    - Parameter optimization
-    - Monte Carlo simulation
-    - Strategy comparison matrix
-    
-    **Expected Impact:** Comprehensive strategy validation
-    """)
-
-def render_multi_asset_placeholder():
-    """Placeholder for multi-asset correlation"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Data source integration planning
-    
-    **Features to implement:**
-    - ASX sector rotation detection
-    - Currency impact analysis (AUD/USD)
-    - Global bank correlation tracking
-    - Interest rate sensitivity
-    
-    **Expected Impact:** Better risk management and timing
-    """)
-
-def render_intraday_patterns_placeholder():
-    """Placeholder for intraday patterns"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Pattern recognition research phase
-    
-    **Features to implement:**
-    - Opening gap analysis
-    - Lunch hour volatility patterns
-    - Close auction behavior
-    - Day-of-week effects
-    
-    **Expected Impact:** Improved entry/exit timing
-    """)
-
-def render_ensemble_models_placeholder():
-    """Placeholder for ensemble models"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Model architecture design
-    
-    **Features to implement:**
-    - LSTM + Random Forest + XGBoost combination
-    - Dynamic model weighting
-    - Confidence intervals
-    - Uncertainty quantification
-    
-    **Expected Impact:** Higher prediction accuracy
-    """)
-
-def render_position_sizing_placeholder():
-    """Placeholder for position sizing"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Risk modeling framework
-    
-    **Features to implement:**
-    - Kelly Criterion optimization
-    - Volatility regime adjustment
-    - Correlation-based limits
-    - Drawdown protection
-    
-    **Expected Impact:** Better risk-adjusted returns
-    """)
-
-def render_paper_trading_section():
-    """Render paper trading portfolio dashboard section"""
-    st.subheader("📋 Paper Trading Portfolio")
-    
-    try:
-        from app.core.trading.paper_trading_simulator import PaperTradingSimulator
-        
-        # Initialize paper trading simulator
-        simulator = PaperTradingSimulator()
-        
-        # Get portfolio data
-        portfolio_value = simulator.get_portfolio_value()
-        performance_metrics = simulator.get_performance_metrics()
-        
-        # Display portfolio metrics
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Portfolio Value", f"${portfolio_value:,.2f}")
-        
-        with col2:
-            positions_count = len(simulator.positions)
-            st.metric("Active Positions", positions_count)
-        
-        with col3:
-            total_pl = performance_metrics.get('total_profit_loss', 0) or 0
-            st.metric("Total P&L", f"${total_pl:+,.2f}")
-        
-        with col4:
-            win_rate = performance_metrics.get('win_rate', 0) or 0
-            st.metric("Win Rate", f"{win_rate:.1%}")
-        
-        # Performance breakdown
-        st.markdown("#### 📊 Performance Overview")
-        
-        if performance_metrics:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("**Trading Statistics:**")
-                total_trades = performance_metrics.get('total_trades', 0) or 0
-                winning_trades = performance_metrics.get('winning_trades', 0) or 0
-                losing_trades = performance_metrics.get('losing_trades', 0) or 0
-                avg_win = performance_metrics.get('average_win', 0) or 0
-                avg_loss = performance_metrics.get('average_loss', 0) or 0
-                
-                st.write(f"• Total Trades: {total_trades}")
-                st.write(f"• Winning Trades: {winning_trades}")
-                st.write(f"• Losing Trades: {losing_trades}")
-                st.write(f"• Average Win: ${avg_win:.2f}")
-                st.write(f"• Average Loss: ${avg_loss:.2f}")
-            
-            with col2:
-                st.markdown("**Risk Metrics:**")
-                max_drawdown = performance_metrics.get('max_drawdown', 0) or 0
-                profit_factor = performance_metrics.get('profit_factor', 0) or 0
-                sharpe_ratio = performance_metrics.get('sharpe_ratio', 0) or 0
-                roi = performance_metrics.get('roi', 0) or 0
-                
-                st.write(f"• Total Return: {roi:+.2%}")
-                st.write(f"• Max Drawdown: {max_drawdown:.2%}")
-                st.write(f"• Profit Factor: {profit_factor:.2f}")
-                st.write(f"• Sharpe Ratio: {sharpe_ratio:.2f}")
-        
-        # Active positions table
-        if simulator.positions:
-            st.markdown("#### 💼 Active Positions")
-            
-            # Create positions dataframe
-            positions_data = []
-            for symbol, position in simulator.positions.items():
-                current_price = simulator.get_current_price(symbol) or 0
-                entry_price = position.entry_price or 0
-                quantity = position.quantity or 0
-                
-                if entry_price > 0 and current_price > 0:
-                    unrealized_pl = (current_price - entry_price) * quantity
-                    unrealized_pct = ((current_price - entry_price) / entry_price) * 100
-                else:
-                    unrealized_pl = 0
-                    unrealized_pct = 0
-                
-                positions_data.append({
-                    'Symbol': symbol,
-                    'Side': position.position_type.upper() if position.position_type else 'N/A',
-                    'Quantity': f"{quantity:,.0f}",
-                    'Entry Price': f"${entry_price:.2f}",
-                    'Current Price': f"${current_price:.2f}",
-                    'Unrealized P&L': f"${unrealized_pl:+,.2f}",
-                    'Return %': f"{unrealized_pct:+.2f}%",
-                    'Entry Date': position.entry_date.strftime('%Y-%m-%d') if position.entry_date else 'N/A'
-                })
-            
-            if positions_data:
-                df_positions = pd.DataFrame(positions_data)
-                st.dataframe(df_positions, use_container_width=True)
-        else:
-            st.info("📝 No active positions. Paper trading evaluations will create positions when signals are generated.")
-        
-        # Trading history from database
-        st.markdown("#### 📈 Recent Trading History")
-        
-        try:
-            with simulator.data_manager.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT symbol, position_type, entry_price, exit_price, position_size, 
-                           entry_date, exit_date, profit_loss, ml_confidence
-                    FROM positions 
-                    WHERE exit_date IS NOT NULL 
-                    ORDER BY exit_date DESC 
-                    LIMIT 10
-                """)
-                
-                history_rows = cursor.fetchall()
-                
-                if history_rows:
-                    history_data = []
-                    for row in history_rows:
-                        symbol, position_type, entry_price, exit_price, position_size, entry_date, exit_date, profit_loss, ml_confidence = row
-                        
-                        return_pct = ((exit_price - entry_price) / entry_price) * 100 if entry_price and exit_price else 0
-                        
-                        history_data.append({
-                            'Date': exit_date[:10] if exit_date else 'N/A',
-                            'Symbol': symbol or 'N/A',
-                            'Side': position_type.upper() if position_type else 'N/A',
-                            'Quantity': f"{position_size:,.0f}" if position_size else '0',
-                            'Entry': f"${entry_price:.2f}" if entry_price else '$0.00',
-                            'Exit': f"${exit_price:.2f}" if exit_price else '$0.00',
-                            'P&L': f"${profit_loss:+,.2f}" if profit_loss else '$0.00',
-                            'Return %': f"{return_pct:+.2f}%",
-                            'ML Confidence': f"{ml_confidence:.1%}" if ml_confidence else 'N/A'
-                        })
-                    
-                    df_history = pd.DataFrame(history_data)
-                    st.dataframe(df_history, use_container_width=True)
-                else:
-                    st.info("📊 No completed trades yet. Run paper trading commands to generate trading history.")
-        except Exception as e:
-            st.warning(f"Could not load trading history: {e}")
-            st.info("📊 Trading history will appear here after completing trades.")
-        
-        # Control buttons
-        st.markdown("#### 🎮 Paper Trading Controls")
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("📊 Run Single Evaluation", use_container_width=True):
-                with st.spinner("Running paper trading evaluation..."):
-                    st.info("Use: `python -m app.main paper-trading` to run a single evaluation")
-        
-        with col2:
-            if st.button("📈 View Performance", use_container_width=True):
-                with st.spinner("Loading performance metrics..."):
-                    st.info("Use: `python -m app.main paper-performance` to view detailed metrics")
-        
-        with col3:
-            if st.button("🚀 Start Continuous Trading", use_container_width=True):
-                st.info("Use: `python -m app.main start-paper-trader` to run continuous paper trading")
-        
-        # Info section
-        with st.expander("ℹ️ About Paper Trading", expanded=False):
-            st.markdown("""
-            **Paper Trading System Overview:**
-            
-            - 💰 **Virtual Capital**: $100,000 starting portfolio
-            - 🎯 **Real Analysis**: Uses live news sentiment, ML scores, and economic analysis
-            - 📊 **7 Bank Coverage**: All major ASX banks (CBA, ANZ, WBC, NAB, MQG, QBE, SUN)
-            - 🤖 **ML-Driven**: Positions based on comprehensive analysis including 40+ news articles per bank
-            - 📈 **Performance Tracking**: Complete P&L tracking with risk metrics
-            
-            **Commands:**
-            - `python -m app.main paper-trading` - Single evaluation
-            - `python -m app.main paper-performance` - View metrics  
-            - `python -m app.main start-paper-trader` - Continuous mode
-            
-            **Analysis Components:**
-            - News sentiment analysis (47+ articles per bank)
-            - ML scores (40-50/100 range)
-            - Economic sentiment evaluation
-            - Technical analysis integration
-            """)
-    
-    except ImportError as e:
-        st.error(f"❌ Paper Trading module not available: {e}")
-        st.info("Please ensure the paper trading simulator is properly installed.")
-    except Exception as e:
-        st.error(f"❌ Error loading paper trading data: {e}")
-        st.info("Paper trading data will appear here once you start running paper trading commands.")
+        st.warning(f"Could not compute overview metrics: {e}")
+        return {}
 
 
-def render_comprehensive_positions_table():
-    """Render comprehensive positions table with entry and outcome data"""
-    st.subheader("📊 Comprehensive Trading Positions")
-    
-    # Filter options
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        exclude_holds = st.checkbox("Exclude HOLD positions", value=True, help="Filter out HOLD positions to focus on actionable trades")
-    with col2:
-        days_back = st.selectbox("Time Period", [7, 14, 30, 60, 90], index=2, help="Number of days to look back")
-    with col3:
-        show_only_completed = st.checkbox("Completed trades only", value=False, help="Show only trades with known outcomes")
+def render_training_data_health():
+    """Visualize training data quality and coverage"""
+    st.subheader("🔍 Training Data Health Monitor")
     
     try:
         conn = get_database_connection()
         
-        # Build comprehensive query with all position data
-        base_query = """
+        # Data recency analysis
+        recency_query = """
+        SELECT 
+            COUNT(*) as total_samples,
+            COUNT(CASE WHEN timestamp >= datetime('now', '-30 days') THEN 1 END) as recent_30d,
+            COUNT(CASE WHEN timestamp >= datetime('now', '-60 days') THEN 1 END) as recent_60d,
+            MIN(timestamp) as oldest_data,
+            MAX(timestamp) as newest_data
+        FROM enhanced_features
+        """
+        recency_data = conn.execute(recency_query).fetchone()
+        
+        # Data balance analysis
+        balance_query = """
+        SELECT 
+            COUNT(*) as total_outcomes,
+            COUNT(CASE WHEN return_pct > 0 THEN 1 END) as winning_trades,
+            COUNT(CASE WHEN return_pct < 0 THEN 1 END) as losing_trades,
+            COUNT(CASE WHEN optimal_action = 'BUY' THEN 1 END) as buy_signals,
+            COUNT(CASE WHEN optimal_action = 'SELL' THEN 1 END) as sell_signals,
+            COUNT(CASE WHEN optimal_action = 'HOLD' THEN 1 END) as hold_signals
+        FROM enhanced_outcomes
+        WHERE return_pct IS NOT NULL
+        """
+        balance_data = conn.execute(balance_query).fetchone()
+        
+        # Coverage by symbol
+        coverage_query = """
+        SELECT 
+            symbol,
+            COUNT(*) as samples,
+            COUNT(CASE WHEN timestamp >= datetime('now', '-30 days') THEN 1 END) as recent_samples
+        FROM enhanced_features
+        WHERE symbol IN ('CBA.AX', 'ANZ.AX', 'WBC.AX', 'NAB.AX', 'MQG.AX', 'QBE.AX', 'SUN.AX')
+        GROUP BY symbol
+        ORDER BY samples DESC
+        """
+        coverage_data = conn.execute(coverage_query).fetchall()
+        
+        # Feature completeness
+        completeness_query = """
+        SELECT 
+            COUNT(*) as total_records,
+            COUNT(CASE WHEN reddit_sentiment IS NOT NULL THEN 1 END) as has_social,
+            COUNT(CASE WHEN news_count > 0 THEN 1 END) as has_news,
+            COUNT(CASE WHEN rsi IS NOT NULL THEN 1 END) as has_technical
+        FROM enhanced_features
+        WHERE timestamp >= datetime('now', '-30 days')
+        """
+        completeness = conn.execute(completeness_query).fetchone()
+        
+        conn.close()
+        
+        # Display health metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            if recency_data:
+                recent_pct = (recency_data[1] / recency_data[0] * 100) if recency_data[0] > 0 else 0
+                color = "normal" if recent_pct > 60 else "inverse"
+                st.metric(
+                    "Data Freshness", 
+                    f"{recent_pct:.0f}%",
+                    delta=f"{recency_data[1]} of {recency_data[0]} samples from last 30d",
+                    delta_color=color
+                )
+        
+        with col2:
+            if balance_data and balance_data[0] > 0:
+                win_pct = (balance_data[1] / balance_data[0] * 100)
+                balance_score = 100 - abs(50 - win_pct)  # Perfect balance = 50% wins
+                st.metric(
+                    "Class Balance",
+                    f"{balance_score:.0f}/100",
+                    delta=f"{win_pct:.0f}% wins, {100-win_pct:.0f}% losses"
+                )
+        
+        with col3:
+            if coverage_data:
+                min_samples = min([row[1] for row in coverage_data])
+                avg_samples = sum([row[1] for row in coverage_data]) / len(coverage_data)
+                st.metric(
+                    "Coverage Balance",
+                    f"{min_samples} min",
+                    delta=f"Avg: {avg_samples:.0f} samples per bank"
+                )
+        
+        with col4:
+            if completeness:
+                feature_completeness = (
+                    (completeness[1] / completeness[0]) * 0.2 +  # Social 20%
+                    (completeness[2] / completeness[0]) * 0.5 +  # News 50%
+                    (completeness[3] / completeness[0]) * 0.3    # Technical 30%
+                ) * 100
+                st.metric(
+                    "Feature Quality",
+                    f"{feature_completeness:.0f}/100",
+                    delta="Weighted completeness score"
+                )
+        
+        # Red flags section
+        red_flags = []
+        if recency_data and recency_data[1] / recency_data[0] < 0.5:
+            red_flags.append("⚠️ Training data older than 60 days")
+        if balance_data and balance_data[0] > 0:
+            win_rate = balance_data[1] / balance_data[0]
+            if win_rate > 0.8 or win_rate < 0.2:
+                red_flags.append(f"⚠️ Imbalanced classes ({win_rate*100:.0f}% wins)")
+        if completeness and completeness[1] / completeness[0] < 0.4:
+            red_flags.append("⚠️ Missing social data for >60% of samples")
+        
+        if red_flags:
+            st.warning("**Data Quality Issues:**\n" + "\n".join(red_flags))
+        else:
+            st.success("✅ Training data quality looks good!")
+        
+        # Detailed breakdown
+        with st.expander("📊 Detailed Data Health Analysis", expanded=False):
+            if coverage_data:
+                st.markdown("**Sample Distribution by Bank:**")
+                for symbol, total, recent in coverage_data:
+                    st.write(f"- {symbol}: {total} total samples ({recent} recent)")
+            
+            if balance_data:
+                st.markdown(f"""
+                **Signal Distribution:**
+                - Buy Signals: {balance_data[3]}
+                - Sell Signals: {balance_data[4]} 
+                - Hold Signals: {balance_data[5]}
+                - Win/Loss Ratio: {balance_data[1]}W / {balance_data[2]}L
+                """)
+        
+    except Exception as e:
+        st.error(f"Could not load training data health: {e}")
+
+
+def render_performance_tracker():
+    """Track predictions vs actual outcomes in real-time"""
+    st.subheader("📊 Real-time Performance Tracker")
+    
+    try:
+        conn = get_database_connection()
+        
+        # Get recent predictions with outcomes
+        query = """
         SELECT 
             ef.symbol,
-            ef.timestamp as entry_time,
-            
-            -- Sentiment Analysis
-            ef.sentiment_score as news_sentiment,
-            ef.confidence as sentiment_confidence,
-            ef.reddit_sentiment as social_sentiment,
-            
-            -- Technical Analysis  
-            ef.rsi as technical_score,
-            ef.macd_line,
-            ef.price_vs_sma20,
-            
-            -- ML Prediction
-            eo.optimal_action as ml_action,
-            eo.confidence_score as ml_confidence,
-            eo.price_direction_1d,
-            eo.price_magnitude_1d,
-            
-            -- Position Outcome
-            eo.entry_price,
-            eo.exit_price_1d,
-            eo.return_pct,
-            
-            -- Additional context
-            ef.news_count,
-            ef.current_price,
-            ef.volatility_20d
-            
+            ef.timestamp,
+            ef.sentiment_score,
+            ef.current_price as predicted_price,
+            eo.optimal_action as prediction,
+            eo.confidence_score,
+            eo.return_pct as actual_return,
+            eo.price_direction_1d as predicted_direction,
+            CASE 
+                WHEN eo.return_pct > 0 THEN 'UP'
+                WHEN eo.return_pct < 0 THEN 'DOWN'
+                ELSE 'FLAT'
+            END as actual_direction
         FROM enhanced_features ef
-        LEFT JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
-        WHERE ef.timestamp >= datetime('now', '-{} days')
-        AND ef.symbol IN ('CBA.AX', 'ANZ.AX', 'WBC.AX', 'NAB.AX', 'MQG.AX', 'QBE.AX', 'SUN.AX')
-        """.format(days_back)
+        INNER JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
+        WHERE ef.timestamp >= datetime('now', '-7 days')
+          AND eo.return_pct IS NOT NULL
+        ORDER BY ef.timestamp DESC
+        LIMIT 20
+        """
         
-        # Add filters
-        if exclude_holds:
-            base_query += " AND (eo.optimal_action IS NULL OR eo.optimal_action NOT IN ('HOLD'))"
-        
-        if show_only_completed:
-            base_query += " AND eo.return_pct IS NOT NULL"
-            
-        base_query += " ORDER BY ef.timestamp DESC"
-        
-        df = pd.read_sql_query(base_query, conn)
+        df = pd.read_sql_query(query, conn)
         conn.close()
         
         if df.empty:
-            st.warning("No trading positions found for the selected criteria.")
+            st.warning("No recent prediction outcomes available")
             return
         
-        # Process and format the data
-        df['entry_time'] = pd.to_datetime(df['entry_time']).dt.strftime('%Y-%m-%d %H:%M')
+        # Performance summary metrics
+        col1, col2, col3, col4 = st.columns(4)
         
-        # Create signal classifications
-        def classify_signal(row):
+        # Direction accuracy
+        direction_matches = (df['predicted_direction'] == df['actual_direction']).sum()
+        direction_total = len(df.dropna(subset=['predicted_direction', 'actual_direction']))
+        direction_accuracy = (direction_matches / direction_total * 100) if direction_total > 0 else 0
+        
+        with col1:
+            st.metric(
+                "Direction Accuracy",
+                f"{direction_accuracy:.0f}%",
+                delta=f"{direction_matches}/{direction_total} correct"
+            )
+        
+        # Confidence calibration
+        high_conf = df[df['confidence_score'] > 0.7]
+        if len(high_conf) > 0:
+            high_conf_accuracy = (high_conf['predicted_direction'] == high_conf['actual_direction']).mean() * 100
+        else:
+            high_conf_accuracy = 0
+        
+        with col2:
+            st.metric(
+                "High Conf Accuracy",
+                f"{high_conf_accuracy:.0f}%",
+                delta=f"When confidence >70%"
+            )
+        
+        # Average return when correct
+        correct_predictions = df[df['predicted_direction'] == df['actual_direction']]
+        if len(correct_predictions) > 0:
+            avg_correct_return = correct_predictions['actual_return'].mean() * 100
+        else:
+            avg_correct_return = 0
+        
+        with col3:
+            st.metric(
+                "Avg Return (Correct)",
+                f"{avg_correct_return:+.1f}%",
+                delta="When direction right"
+            )
+        
+        # Win rate
+        wins = (df['actual_return'] > 0).sum()
+        win_rate = (wins / len(df) * 100) if len(df) > 0 else 0
+        
+        with col4:
+            st.metric(
+                "Win Rate",
+                f"{win_rate:.0f}%",
+                delta=f"{wins}/{len(df)} profitable"
+            )
+        
+        # Recent predictions table
+        st.markdown("### 📋 Recent Prediction Outcomes")
+        
+        if not df.empty:
+            display_df = df.copy()
+            
+            # Format timestamp
+            display_df['Date'] = pd.to_datetime(display_df['timestamp']).dt.strftime('%m-%d')
+            
+            # Direction match indicator
+            display_df['Match'] = display_df.apply(lambda row: 
+                '✓' if row['predicted_direction'] == row['actual_direction'] else '✗', axis=1
+            )
+            
+            # Format confidence
+            display_df['Confidence'] = (display_df['confidence_score'] * 100).round(0).astype(str) + '%'
+            
+            # Format return
+            display_df['Return'] = display_df['actual_return'].apply(lambda x: f"{x*100:+.1f}%" if pd.notna(x) else "N/A")
+            
+            # Outcome indicator
+            display_df['Outcome'] = display_df['actual_return'].apply(lambda x: 
+                '✅' if x > 0.01 else '❌' if x < -0.01 else '⚪' if pd.notna(x) else '❓'
+            )
+            
+            # Select display columns
+            display_cols = ['Date', 'symbol', 'prediction', 'predicted_direction', 'actual_direction', 'Match', 'Confidence', 'Return', 'Outcome']
+            display_names = ['Date', 'Bank', 'Action', 'Pred Dir', 'Actual Dir', 'Match?', 'Confidence', 'Return', 'Result']
+            
+            final_display = display_df[display_cols]
+            final_display.columns = display_names
+            
+            st.dataframe(final_display, use_container_width=True, hide_index=True)
+        
+        # Confidence calibration analysis
+        with st.expander("🎯 Confidence Calibration Analysis", expanded=False):
+            if not df.empty:
+                # Group by confidence ranges
+                df['conf_bucket'] = pd.cut(df['confidence_score'], 
+                                         bins=[0, 0.5, 0.7, 0.8, 1.0], 
+                                         labels=['<50%', '50-70%', '70-80%', '>80%'])
+                
+                calibration = df.groupby('conf_bucket').agg({
+                    'predicted_direction': 'count',
+                    'actual_return': lambda x: (x > 0).mean() * 100
+                }).round(1)
+                calibration.columns = ['Predictions', 'Win Rate %']
+                
+                st.markdown("**Confidence vs Actual Performance:**")
+                st.dataframe(calibration)
+                
+                st.markdown("""
+                **Ideal Calibration:**
+                - When confidence is 70%, accuracy should be ~70%
+                - When confidence is 80%, accuracy should be ~80%
+                - Large gaps indicate overconfidence or underconfidence
+                """)
+    
+    except Exception as e:
+        st.error(f"Could not load performance tracker: {e}")
+
+
+def render_ml_progress_timeline():
+    """Show ML model evolution and its impact on trading outcomes"""
+    st.subheader("🚀 ML Model Evolution & Impact")
+    
+    try:
+        conn = get_database_connection()
+        
+        # Get historical ML performance data
+        ml_history = conn.execute("""
+            SELECT 
+                model_version,
+                training_samples,
+                direction_accuracy_4h,
+                created_at,
+                strftime('%Y-%m-%d', created_at) as date
+            FROM model_performance_enhanced
+            ORDER BY created_at ASC
+        """).fetchall()
+        
+        conn.close()
+        
+        if not ml_history:
+            st.warning("No ML training history available")
+            return
+        
+        # Convert to DataFrame for easier manipulation
+        df_ml = pd.DataFrame(ml_history, columns=[
+            'model_version', 'training_samples', 'direction_accuracy_4h', 
+            'created_at', 'date'
+        ])
+        
+        # Create timeline visualization
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### 📈 Training Progress")
+            
+            # Training samples growth
+            fig_samples = px.line(
+                df_ml, 
+                x='date', 
+                y='training_samples',
+                title='Training Samples Growth',
+                markers=True
+            )
+            fig_samples.update_layout(height=300)
+            st.plotly_chart(fig_samples, use_container_width=True)
+            
+            # Show key milestones
+            latest = df_ml.iloc[-1]
+            first = df_ml.iloc[0]
+            
+            samples_growth = latest['training_samples'] - first['training_samples']
+            st.metric(
+                "Sample Growth", 
+                f"+{samples_growth}",
+                delta=f"From {first['training_samples']} to {latest['training_samples']}"
+            )
+        
+        with col2:
+            st.markdown("### 🎯 Accuracy Evolution")
+            
+            # Accuracy improvement
+            fig_accuracy = px.line(
+                df_ml, 
+                x='date', 
+                y='direction_accuracy_4h',
+                title='Model Accuracy Over Time',
+                markers=True
+            )
+            fig_accuracy.add_hline(
+                y=0.70, 
+                line_dash="dash", 
+                line_color="green",
+                annotation_text="Target: 70%"
+            )
+            fig_accuracy.update_layout(height=300)
+            st.plotly_chart(fig_accuracy, use_container_width=True)
+            
+            # Show accuracy progression
+            accuracy_change = latest['direction_accuracy_4h'] - first['direction_accuracy_4h']
+            st.metric(
+                "Accuracy Change", 
+                f"{accuracy_change:+.1%}",
+                delta=f"From {first['direction_accuracy_4h']:.1%} to {latest['direction_accuracy_4h']:.1%}"
+            )
+        
+        # Performance correlation analysis
+        st.markdown("### 🔄 Model Performance vs Trading Outcomes")
+        
+        # Get actual trading performance for each model version
+        attribution = compute_component_attribution(days=60)
+        
+        if attribution:
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric(
+                    "Current Win Rate", 
+                    f"{attribution.get('overall_win_rate', 0):.1f}%",
+                    help="Overall win rate from completed trades"
+                )
+            
+            with col2:
+                current_accuracy = latest['direction_accuracy_4h'] * 100
+                st.metric(
+                    "Model Accuracy", 
+                    f"{current_accuracy:.1f}%",
+                    help="Latest training accuracy"
+                )
+            
+            with col3:
+                # Simple correlation indicator
+                correlation_strength = "Strong" if abs(attribution.get('overall_win_rate', 0) - current_accuracy) < 10 else "Weak"
+                st.metric(
+                    "Accuracy-Performance Correlation",
+                    correlation_strength,
+                    help="How well model accuracy predicts actual returns"
+                )
+        
+        # Model version timeline
+        with st.expander("📋 Detailed Model History", expanded=False):
+            for i, row in df_ml.iterrows():
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.write(f"**{row['model_version']}**")
+                with col2:
+                    st.write(f"Samples: {row['training_samples']}")
+                with col3:
+                    st.write(f"Accuracy: {row['direction_accuracy_4h']:.1%}")
+                with col4:
+                    st.write(f"Date: {row['date']}")
+                
+                if i < len(df_ml) - 1:
+                    st.divider()
+        
+    except Exception as e:
+        st.error(f"Could not load ML progress timeline: {e}")
+
+
+def render_component_attribution():
+    """Show which components actually led to winning trades"""
+    st.subheader("🎯 Component Attribution Analysis")
+    
+    attribution = compute_component_attribution(days=30)
+    
+    if not attribution:
+        st.warning("No component attribution data available")
+        return
+    
+    # Main attribution metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "📰 News Alignment",
+            f"{attribution.get('news_win_rate', 0):.0f}%",
+            help="% of winning trades where news sentiment aligned with action"
+        )
+    
+    with col2:
+        st.metric(
+            "📈 Technical Alignment", 
+            f"{attribution.get('tech_win_rate', 0):.0f}%",
+            help="% of winning trades where RSI supported the action"
+        )
+    
+    with col3:
+        st.metric(
+            "🔄 MACD Alignment",
+            f"{attribution.get('macd_win_rate', 0):.0f}%", 
+            help="% of winning trades where MACD aligned with action"
+        )
+    
+    with col4:
+        if attribution.get('social_coverage', 0) > 20:  # Only show if decent coverage
+            st.metric(
+                "💬 Social Alignment",
+                f"{attribution.get('social_win_rate', 0):.0f}%",
+                help="% of winning trades where social sentiment aligned"
+            )
+        else:
+            st.metric(
+                "💬 Social Coverage", 
+                f"{attribution.get('social_coverage', 0):.0f}%",
+                help="% of trades with social sentiment data"
+            )
+    
+    # Multi-component analysis
+    st.markdown("### 🎯 Multi-Component Signal Strength")
+    
+    multi_analysis = attribution.get('multi_component_analysis', {})
+    if multi_analysis:
+        # Create visualization of win rates by component count
+        component_data = []
+        for key, value in multi_analysis.items():
+            component_count = int(key.split('_')[0])
+            component_data.append({
+                'Components Aligned': component_count,
+                'Trades': value['trades'],
+                'Win Rate (%)': value['win_rate']
+            })
+        
+        if component_data:
+            df_components = pd.DataFrame(component_data)
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Bar chart of win rates
+                fig = px.bar(
+                    df_components,
+                    x='Components Aligned',
+                    y='Win Rate (%)',
+                    title='Win Rate by Component Alignment',
+                    text='Win Rate (%)'
+                )
+                fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+                fig.update_layout(height=300)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                # Trade count by alignment
+                fig2 = px.bar(
+                    df_components,
+                    x='Components Aligned', 
+                    y='Trades',
+                    title='Number of Trades by Alignment',
+                    text='Trades'
+                )
+                fig2.update_traces(texttemplate='%{text}', textposition='outside')
+                fig2.update_layout(height=300)
+                st.plotly_chart(fig2, use_container_width=True)
+            
+            # Key insights
+            best_alignment = df_components.loc[df_components['Win Rate (%)'].idxmax()]
+            st.info(
+                f"**Key Insight**: {best_alignment['Components Aligned']} components aligned "
+                f"shows {best_alignment['Win Rate (%)']:.1f}% win rate "
+                f"({best_alignment['Trades']} trades)"
+            )
+    
+    # Summary insights
+    with st.expander("📊 Attribution Insights", expanded=False):
+        st.markdown(f"""
+        **Analysis Period**: Last {attribution['period_days']} days
+        
+        **Trade Summary:**
+        - Total Completed Trades: {attribution['total_trades']}
+        - Winning Trades: {attribution['winning_trades']}
+        - Overall Win Rate: {attribution['overall_win_rate']:.1f}%
+        
+        **Component Performance:**
+        - News sentiment aligned with {attribution.get('news_win_rate', 0):.0f}% of winners
+        - Technical indicators aligned with {attribution.get('tech_win_rate', 0):.0f}% of winners  
+        - MACD signals aligned with {attribution.get('macd_win_rate', 0):.0f}% of winners
+        - Social data available for {attribution.get('social_coverage', 0):.0f}% of trades
+        
+        **This shows which components actually contribute to successful outcomes, 
+        not just theoretical weights.**
+        """)
+
+
+def render_system_overview(enhanced_metrics: Dict, days_back: int = 14):
+    """Render explanatory overview for News, Social, ML, and Technical pillars"""
+    overview = compute_overview_metrics(days_back)
+    if not overview:
+        return
+
+    st.markdown("### 📚 System Component Analysis")
+    
+    # Create detailed explanations for each component
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        with st.expander("📰 News Sentiment - How it Works", expanded=False):
+            st.markdown("""
+            **Professional News Analysis**
+            - Uses FinBERT (Financial BERT) model for accurate financial sentiment
+            - Processes headlines from major financial news sources
+            - Analyzes earnings reports, market commentary, analyst upgrades/downgrades
+            
+            **Confidence Scoring**
+            - Each news item receives a confidence score (0-1)
+            - Higher confidence = more reliable sentiment signal
+            - Weighted by news source credibility and content clarity
+            
+            **Key Metrics:**
+            - **Sentiment Score**: -1.0 (very negative) to +1.0 (very positive)
+            - **Volume Tracking**: Number of news articles processed
+            - **Event Impact**: Special events (earnings, dividends) get higher weights
+            
+            **Combined Impact**: News sentiment contributes 30% to final trading signals
+            """)
+        
+        with st.expander("🤖 Machine Learning - Model Details", expanded=False):
+            st.markdown("""
+            **RandomForest Models**
+            - Ensemble of 100+ decision trees
+            - Handles non-linear relationships in market data
+            - Robust against overfitting with built-in feature selection
+            
+            **LSTM Neural Networks**
+            - Long Short-Term Memory networks for sequential data
+            - Captures temporal patterns in price movements
+            - Learns from historical price and sentiment sequences
+            
+            **Multi-timeframe Prediction**
+            - **1 Hour**: Short-term momentum plays
+            - **4 Hour**: Intraday swing trades  
+            - **1 Day**: Position trades and overnight holds
+            
+            **Key Metrics:**
+            - **Predictions**: Number of ML evaluations made
+            - **Outcomes**: Completed trades with known results
+            - **Training Samples**: Historical data points used for training
+            - **Success Rate**: 70%+ directional accuracy on backtests
+            
+            **Combined Impact**: ML models contribute 30% to final trading signals
+            """)
+    
+    with col2:
+        with st.expander("📱 Social Sentiment - Community Intelligence", expanded=False):
+            st.markdown("""
+            **Reddit Discussions**
+            - Monitors r/AusFinance, r/ASX_Bets for retail sentiment
+            - Natural language processing on discussion threads
+            - Filters out spam and identifies genuine market opinions
+            
+            **MarketAux Integration**
+            - Professional social sentiment aggregation service
+            - Combines Twitter, Reddit, financial forums
+            - Real-time sentiment tracking across social platforms
+            
+            **Social Media Trends**
+            - Hashtag analysis for ASX bank mentions
+            - Sentiment momentum tracking
+            - Early detection of viral financial content
+            
+            **Key Metrics:**
+            - **Coverage**: Percentage of predictions with social data
+            - **Reddit Sentiment**: Average community sentiment (-1 to +1)
+            - **Social Volume**: Number of social mentions tracked
+            
+            **Combined Impact**: Social sentiment contributes 20% to final signals
+            """)
+        
+        with st.expander("📈 Technical Analysis - Market Mechanics", expanded=False):
+            st.markdown("""
+            **RSI (Relative Strength Index)**
+            - Measures overbought (>70) and oversold (<30) conditions
+            - 14-period momentum oscillator
+            - Key reversal signal when extreme levels reached
+            
+            **MACD (Moving Average Convergence Divergence)**
+            - 12-day EMA minus 26-day EMA with 9-day signal line
+            - Bullish when MACD crosses above signal line
+            - Measures trend changes and momentum shifts
+            
+            **Bollinger Bands**
+            - 20-period moving average with 2 standard deviation bands
+            - Price touching upper band = potential resistance
+            - Price touching lower band = potential support
+            
+            **Moving Averages (SMA 20/50/200)**
+            - **SMA20**: Short-term trend (1 month)
+            - **SMA50**: Medium-term trend (2.5 months)  
+            - **SMA200**: Long-term trend (10 months)
+            - Golden Cross (SMA50 > SMA200) = bullish signal
+            
+            **Volume & Momentum Analysis**
+            - Volume spikes confirm price movements
+            - Market momentum measures buying/selling pressure
+            
+            **Combined Impact**: Technical analysis contributes 20% to final signals
+            """)
+    
+    # Enhanced definitions
+    with st.expander("📊 Key Terms & Definitions", expanded=False):
+        st.markdown("""
+        **Trading Metrics:**
+        - **Predictions**: ML feature records evaluated (each bank/day combination)
+        - **Outcomes**: Completed trades with realized profit/loss
+        - **Training Samples**: Historical examples used to train ML models
+        - **Win Rate**: Percentage of profitable completed trades
+        - **Success Rate**: Model's directional accuracy (up/down/flat prediction)
+        
+        **Sentiment Scores:**
+        - **Range**: -1.0 (very bearish) to +1.0 (very bullish)
+        - **Neutral**: -0.1 to +0.1 (no strong directional bias)
+        - **Confidence**: 0.0 to 1.0 (model certainty in prediction)
+        
+        **Combined Signals:**
+        - **Strong Buy/Sell**: 3+ indicators align with high confidence
+        - **Hold**: Mixed signals or low confidence predictions
+        - **Overall Score**: Weighted combination of all four components
+        """)
+
+    st.markdown(f"### 📊 Combined System Overview (last {overview['period_days']} days)")
+    col_news, col_social, col_ml, col_tech = st.columns(4)
+
+    with col_news:
+        st.metric("News Sentiment", f"{overview['news']['avg_sentiment']:.2f}")
+        st.caption(f"Confidence: {overview['news']['avg_confidence']:.2f} • News: {overview['news']['total_news']}")
+    with col_social:
+        st.metric("Social Sentiment", f"{overview['social']['avg_reddit_sentiment']:.2f}")
+        st.caption(f"Coverage: {overview['social']['coverage_pct']:.1f}%")
+    with col_ml:
+        st.metric("ML Success Rate", f"{overview['ml']['direction_accuracy_4h']:.1%}")
+        st.caption(f"Pred: {overview['ml']['predictions']} • Outc: {overview['ml']['outcomes_completed']}")
+    with col_tech:
+        st.metric("Momentum (avg)", f"{overview['technical']['avg_momentum']:.2f}")
+        st.caption(f"RSI: {overview['technical']['avg_rsi']:.1f} • SMA20 Δ: {overview['technical']['avg_price_vs_sma20']:.3f}")
+
+    # Enhanced combined interpretation with detailed breakdown
+    with st.container():
+        st.markdown("### 🎯 Combined Signal Analysis")
+        
+        try:
+            # Calculate component scores
+            news_score = max(0.0, min(1.0, (overview['news']['avg_sentiment'] + 1) / 2))
+            social_score = max(0.0, min(1.0, (overview['social']['avg_reddit_sentiment'] + 1) / 2)) * (overview['social']['coverage_pct'] / 100 if overview['social']['coverage_pct'] else 0.5)
+            ml_score = max(0.0, min(1.0, overview['ml']['direction_accuracy_4h']))
+            tech_score = max(0.0, min(1.0, 0.5 + overview['technical']['avg_momentum']))
+            
+            # Weighted combination (ML and News get higher weights)
+            combined = 0.35 * ml_score + 0.30 * news_score + 0.20 * tech_score + 0.15 * social_score
+            
+            # Determine overall market bias
+            if combined >= 0.65:
+                label = "🟢 Strong Bullish"
+                recommendation = "Consider long positions with high confidence"
+            elif combined >= 0.55:
+                label = "📈 Bullish"
+                recommendation = "Moderate bullish bias - selective long positions"
+            elif combined >= 0.45:
+                label = "🟡 Neutral"
+                recommendation = "Mixed signals - wait for clearer direction"
+            elif combined >= 0.35:
+                label = "📉 Bearish"
+                recommendation = "Moderate bearish bias - defensive positioning"
+            else:
+                label = "🔴 Strong Bearish"
+                recommendation = "Consider short positions or cash holdings"
+            
+            # Display combined result
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                st.metric("Overall Market Bias", label)
+                st.metric("Combined Score", f"{combined:.3f}/1.000")
+            
+            with col2:
+                st.markdown("**Component Contributions:**")
+                col_a, col_b, col_c, col_d = st.columns(4)
+                with col_a:
+                    st.metric("🤖 ML Weight", f"{ml_score:.2f}", delta=f"35% impact")
+                with col_b:
+                    st.metric("📰 News Weight", f"{news_score:.2f}", delta=f"30% impact")  
+                with col_c:
+                    st.metric("📈 Tech Weight", f"{tech_score:.2f}", delta=f"20% impact")
+                with col_d:
+                    st.metric("📱 Social Weight", f"{social_score:.2f}", delta=f"15% impact")
+                
+                st.info(f"**Trading Insight:** {recommendation}")
+            
+            # Show signal strength breakdown
+            with st.expander("🔍 Detailed Signal Strength Analysis", expanded=False):
+                st.markdown("**How the combined score is calculated:**")
+                st.markdown(f"""
+                - **Machine Learning**: {ml_score:.3f} × 35% = {ml_score * 0.35:.3f}
+                - **News Sentiment**: {news_score:.3f} × 30% = {news_score * 0.30:.3f}  
+                - **Technical Analysis**: {tech_score:.3f} × 20% = {tech_score * 0.20:.3f}
+                - **Social Sentiment**: {social_score:.3f} × 15% = {social_score * 0.15:.3f}
+                
+                **Total Combined Score**: {combined:.3f}
+                
+                **Signal Strength Ranges:**
+                - 0.65+ = Strong Bullish (High conviction trades)
+                - 0.55-0.64 = Bullish (Moderate long bias) 
+                - 0.45-0.54 = Neutral (Wait for better signals)
+                - 0.35-0.44 = Bearish (Moderate short bias)
+                - <0.35 = Strong Bearish (High conviction defensive)
+                """)
+                
+                # Show recent performance context
+                if overview['ml']['outcomes_completed'] > 0:
+                    st.markdown(f"""
+                    **Recent Performance Context:**
+                    - ML Success Rate: {overview['ml']['direction_accuracy_4h']:.1%}
+                    - Win Rate: {overview['ml']['win_rate']:.1%} 
+                    - Average Return: {overview['ml']['avg_return']*100:.1f}%
+                    - Predictions Made: {overview['ml']['predictions']}
+                    - Completed Outcomes: {overview['ml']['outcomes_completed']}
+                    """)
+        
+        except Exception as e:
+            st.warning(f"Could not calculate combined signals: {e}")
+
+# ============================================================================
+# STREAMLINED DASHBOARD SECTIONS
+# ============================================================================
+
+def render_streamlined_ml_summary():
+    """
+    ENHANCED: ML Summary with progress timeline, component attribution, and improved positions table
+    """
+    st.subheader("🤖 ML Trading System Summary")
+    
+    # Get ML metrics
+    try:
+        enhanced_metrics = fetch_enhanced_ml_training_metrics()
+    except Exception as e:
+        st.error(f"Could not load ML metrics: {e}")
+        return
+    
+    # Key metrics row
+    col1, col2, col3, col4 = st.columns(4)
+    
+    if enhanced_metrics:
+        with col1:
+            status = enhanced_metrics['status']
+            status_colors = {'EXCELLENT': '🟢', 'GOOD': '🟡', 'NEEDS_IMPROVEMENT': '🟠', 'NO_DATA': '🔴'}
+            st.metric("System Status", f"{status_colors.get(status, '⚪')} {status}")
+        
+        with col2:
+            st.metric("Success Rate", f"{enhanced_metrics['direction_accuracy_4h']:.1%}")
+        
+        with col3:
+            st.metric("Training Samples", f"{enhanced_metrics.get('training_samples', 0)}")
+        
+        with col4:
+            last = enhanced_metrics.get('last_training')
+            if last:
+                # Parse timestamp and show relative time
+                try:
+                    from datetime import datetime
+                    last_dt = datetime.fromisoformat(last.replace('Z', '+00:00').replace('T', ' '))
+                    hours_ago = (datetime.now() - last_dt).total_seconds() / 3600
+                    if hours_ago < 24:
+                        time_str = f"{hours_ago:.1f}h ago"
+                    else:
+                        time_str = f"{hours_ago/24:.1f}d ago"
+                except:
+                    time_str = "Recent"
+            else:
+                time_str = "N/A"
+            st.metric("Last Training", time_str)
+
+    # NEW: ML Progress Timeline (Priority #3 from upgrade guide)
+    render_ml_progress_timeline()
+    
+    # NEW: Component Attribution Analysis (Priority #2 from upgrade guide)  
+    render_component_attribution()
+    
+    # Enhanced explanatory overview with actual performance data
+    render_system_overview(enhanced_metrics, days_back=14)
+    
+    # Master positions table (Priority #4 from upgrade guide)
+    st.markdown("### 📊 Master Trading Positions")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        days_back = st.selectbox("Time Period", [7, 14, 30, 60, 90], index=2, help="Number of days to look back")
+    with col2:
+        show_completed_only = st.checkbox("Completed trades only", value=False, help="Show only trades with outcomes")
+    with col3:
+        exclude_holds = st.checkbox("Exclude HOLD positions", value=True, help="Filter out HOLD positions")
+    
+    try:
+        conn = get_database_connection()
+        
+        # Enhanced query with component data (from upgrade guide recommendations)
+        symbols_list = ",".join([f"'{s}'" for s in ASX_BANKS])
+        where_clauses = [
+            f"ef.timestamp >= datetime('now', '-{days_back} days')",
+            f"ef.symbol IN ({symbols_list})"
+        ]
+        if show_completed_only:
+            where_clauses.append("eo.return_pct IS NOT NULL")
+        if exclude_holds:
+            where_clauses.append("COALESCE(eo.optimal_action, 'ANALYZE') != 'HOLD'")
+        where_sql = " AND ".join(where_clauses)
+        
+        query = f"""
+        SELECT 
+            ef.symbol,
+            ef.timestamp as signal_date,
+            COALESCE(eo.optimal_action, 'ANALYZE') as ml_action,
+            COALESCE(eo.confidence_score, ef.confidence, 0.5) as confidence,
+            COALESCE(eo.entry_price, ef.current_price) as entry_price,
+            eo.exit_price_1d,
+            eo.return_pct,
+            ef.current_price,
+            ef.sentiment_score,
+            ef.rsi,
+            ef.macd_line,
+            ef.reddit_sentiment,
+            -- Component alignment flags
+            CASE WHEN ef.sentiment_score > 0.1 AND eo.optimal_action = 'BUY' THEN '✓'
+                 WHEN ef.sentiment_score < -0.1 AND eo.optimal_action = 'SELL' THEN '✓'
+                 ELSE '✗' END as news_signal,
+            CASE WHEN ef.rsi < 35 AND eo.optimal_action = 'BUY' THEN '✓'
+                 WHEN ef.rsi > 65 AND eo.optimal_action = 'SELL' THEN '✓'
+                 ELSE '✗' END as tech_signal,
+            CASE WHEN ef.macd_line > 0 AND eo.optimal_action = 'BUY' THEN '✓'
+                 WHEN ef.macd_line < 0 AND eo.optimal_action = 'SELL' THEN '✓'
+                 ELSE '✗' END as macd_signal,
+            CASE WHEN ef.reddit_sentiment > 0.1 AND eo.optimal_action = 'BUY' THEN '✓'
+                 WHEN ef.reddit_sentiment < -0.1 AND eo.optimal_action = 'SELL' THEN '✓'
+                 WHEN ef.reddit_sentiment IS NULL THEN '-'
+                 ELSE '✗' END as social_signal
+        FROM enhanced_features ef
+        LEFT JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
+        WHERE {where_sql}
+        ORDER BY ef.timestamp DESC
+        """
+        
+        df_positions = pd.read_sql_query(query, conn)
+        conn.close()
+
+        # Apply the simplified position status logic (Priority #1 from upgrade guide)
+        if not df_positions.empty:
+            def get_position_status(row):
+                """Clear, simple position status as recommended in upgrade guide"""
+                
+                # If no entry price → Prediction only
+                if pd.isnull(row.get('entry_price')) or row.get('entry_price') == 0:
+                    return None, 'PREDICTION', '🔮'
+                
+                # If has return_pct → Closed position
+                if pd.notnull(row.get('return_pct')):
+                    try:
+                        return_val = float(row['return_pct'])
+                        status_icon = '✅' if return_val > 0 else '❌'
+                        return return_val, 'CLOSED', status_icon
+                    except (ValueError, TypeError):
+                        return None, 'CLOSED', '⚪'
+                
+                # If has entry but no return → Active position
+                if pd.notnull(row.get('current_price')):
+                    try:
+                        entry_p = float(row['entry_price'])
+                        current_p = float(row['current_price'])
+                        unrealized = (current_p - entry_p) / entry_p
+                        return unrealized, 'ACTIVE', f"🔄"
+                    except (ValueError, TypeError, ZeroDivisionError):
+                        return None, 'ACTIVE', '🔄'
+                
+                return None, 'UNKNOWN', '❓'
+            
+            # Apply processing to each row using the new simplified status logic
+            processed_data = df_positions.apply(get_position_status, axis=1)
+            df_positions['calculated_return'] = [x[0] for x in processed_data]
+            df_positions['position_status_detailed'] = [x[1] for x in processed_data]
+            df_positions['status_icon'] = [x[2] for x in processed_data]
+            
+            # Format and display the positions table
+            display_positions = df_positions.copy()
+            
+            # Format timestamps
+            display_positions['entry_time'] = pd.to_datetime(display_positions['signal_date']).dt.strftime('%m-%d %H:%M')
+            
+            # Format prices (safely handle non-numeric values)
+            for col in ['entry_price', 'current_price']:
+                if col in display_positions.columns:
+                    def safe_format_price(x):
+                        try:
+                            if pd.notna(x):
+                                val = float(x)
+                                return f"${val:.2f}"
+                            return "N/A"
+                        except (ValueError, TypeError):
+                            return "N/A"
+                    
+                    display_positions[col] = display_positions[col].apply(safe_format_price)
+            
+            # Format confidence (safely handle non-numeric values)
+            if 'confidence' in display_positions.columns:
+                def safe_format_confidence(x):
+                    try:
+                        if pd.notna(x):
+                            val = float(x)
+                            return f"{val*100:.1f}%"
+                        return "N/A"
+                    except (ValueError, TypeError):
+                        return "N/A"
+                
+                display_positions['confidence'] = display_positions['confidence'].apply(safe_format_confidence)
+            
+            # Format returns with proper status indicators
+            def format_return_with_status(row):
+                status = row.get('position_status_detailed', 'UNKNOWN')
+                ret = row.get('calculated_return')
+                
+                if status == 'PENDING':
+                    return "📊 Prediction Only"
+                elif status == 'ACTIVE':
+                    if pd.notna(ret):
+                        ret_pct = ret * 100
+                        if ret_pct > 1:
+                            return f"🔄 +{ret_pct:.1f}% (Unrealized)"
+                        elif ret_pct < -1:
+                            return f"🔄 {ret_pct:.1f}% (Unrealized)"
+                        else:
+                            return f"🔄 {ret_pct:.1f}% (Unrealized)"
+                    return "🔄 Active Position"
+                elif status == 'COMPLETED':
+                    if pd.notna(ret):
+                        ret_pct = ret * 100
+                        if ret_pct > 0.1:
+                            return f"✅ +{ret_pct:.1f}%"
+                        elif ret_pct < -0.1:
+                            return f"❌ {ret_pct:.1f}%"
+                        else:
+                            return f"⚪ {ret_pct:.1f}%"
+                    return "⚪ Completed"
+                return "❓ Unknown"
+            
+            display_positions['status'] = display_positions.apply(format_return_with_status, axis=1)
+            
+            # Fix exit price display - show N/A for active positions, actual exit price for completed
+            def format_exit_price(row):
+                status = row.get('position_status_detailed', 'UNKNOWN')
+                exit_price = row.get('exit_price_1d')
+                
+                if status == 'COMPLETED' and pd.notna(exit_price):
+                    # Robustly handle numeric or already-formatted strings
+                    try:
+                        val = float(str(exit_price).replace('$', '').replace(',', '').strip())
+                        return f"${val:.2f}"
+                    except Exception:
+                        return str(exit_price) if pd.notna(exit_price) else "N/A"
+                elif status == 'ACTIVE':
+                    return "Active"
+                elif status == 'PENDING':
+                    return "No Position"
+                else:
+                    return "N/A"
+            
+            display_positions['exit_price_formatted'] = display_positions.apply(format_exit_price, axis=1)
+            
+            # Format sentiment scores
+            if 'sentiment_score' in display_positions.columns:
+                display_positions['sentiment'] = display_positions['sentiment_score'].apply(
+                    lambda x: f"{x:.3f}" if pd.notna(x) else "N/A"
+                )
+            
+            # Format RSI with signals
+            if 'rsi' in display_positions.columns:
+                def format_rsi(rsi):
+                    if pd.notna(rsi):
+                        if rsi > 70:
+                            return f"🔴 {rsi:.1f}"
+                        elif rsi < 30:
+                            return f"🟢 {rsi:.1f}"
+                        else:
+                            return f"🟡 {rsi:.1f}"
+                    return "N/A"
+                display_positions['rsi_signal'] = display_positions['rsi'].apply(format_rsi)
+            
+            # Select and rename columns for display
+            display_cols = ['symbol', 'entry_time', 'ml_action', 'confidence', 'entry_price']
+            col_names = ['Bank', 'Entry Time', 'ML Action', 'Confidence', 'Entry Price']
+            
+            # Use formatted exit price instead of raw exit_price_1d
+            if 'exit_price_formatted' in display_positions.columns:
+                display_cols.append('exit_price_formatted')
+                col_names.append('Exit Price')
+            
+            if 'current_price' in display_positions.columns:
+                display_cols.append('current_price')
+                col_names.append('Current Price')
+            
+            if 'status' in display_positions.columns:
+                display_cols.append('status')
+                col_names.append('Return/Status')
+            
+            if 'sentiment' in display_positions.columns:
+                display_cols.append('sentiment')
+                col_names.append('Sentiment')
+            
+            if 'rsi_signal' in display_positions.columns:
+                display_cols.append('rsi_signal')
+                col_names.append('RSI Signal')
+            
+            final_display = display_positions[display_cols]
+            final_display.columns = col_names
+            
+            # Add enhanced summary stats based on position status
+            if len(display_positions) > 0:
+                total_records = len(display_positions)
+                
+                # Count by status type
+                completed = (display_positions['position_status_detailed'] == 'COMPLETED').sum()
+                active = (display_positions['position_status_detailed'] == 'ACTIVE').sum()
+                pending = (display_positions['position_status_detailed'] == 'PENDING').sum()
+                
+                # Calculate win rate from completed positions only
+                win_rate = 0
+                avg_return = 0
+                if completed > 0:
+                    completed_returns = display_positions[
+                        display_positions['position_status_detailed'] == 'COMPLETED'
+                    ]['calculated_return']
+                    wins = (completed_returns > 0).sum()
+                    win_rate = (wins / completed) * 100
+                    avg_return = completed_returns.mean() * 100
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Records", total_records)
+                    st.caption(f"Predictions + Positions")
+                with col2:
+                    st.metric("Position Status", f"📊{pending} 🔄{active} ✅{completed}")
+                    st.caption("Pending | Active | Completed")
+                with col3:
+                    if completed > 0:
+                        st.metric("Win Rate", f"{win_rate:.1f}%")
+                        st.caption(f"From {completed} completed trades")
+                    else:
+                        st.metric("Win Rate", "N/A")
+                        st.caption("No completed trades yet")
+                with col4:
+                    if completed > 0:
+                        st.metric("Avg Return", f"{avg_return:.1f}%")
+                        st.caption("Completed trades only")
+                    else:
+                        st.metric("Avg Return", "N/A") 
+                        st.caption("No completed trades yet")
+            
+            st.dataframe(final_display, use_container_width=True, hide_index=True)
+            
+            # Add explanation for position statuses
+            with st.expander("📋 Position Status Guide", expanded=False):
+                st.markdown("""
+                **Understanding Position Types:**
+                
+                **📊 Prediction Only** - ML analysis generated but no actual position taken
+                - Exit Price: "No Position" 
+                - Status: Shows this is just a prediction/recommendation
+                
+                **🔄 Active Position** - Real position currently held
+                - Exit Price: "Active" (position still open)
+                - Status: Shows unrealized P&L based on current market price
+                - These update in real-time as market prices change
+                
+                **✅/❌ Completed Position** - Position closed with final outcome  
+                - Exit Price: Actual exit price from when position was closed
+                - Status: Final realized return (profit/loss)
+                - These are historical and don't change
+                
+                **Why some positions show "N/A" for exit prices:**
+                - Recent predictions (like Aug 8th) are just ML recommendations
+                - The system generates predictions but doesn't automatically execute trades
+                - Only when a trade is actually executed do you get entry/exit prices
+                - Some older entries may be data processing artifacts
+                
+                **Return Calculation Logic:**
+                - **Completed**: Uses actual entry/exit prices from trade execution
+                - **Active**: Calculates unrealized return vs current market price  
+                - **Prediction Only**: No return calculation (no position held)
+                """)
+        else:
+            st.info("No positions found for the selected filters.")
+            
+    except Exception as e:
+        st.error(f"Error loading positions: {e}")
+
+
+def render_streamlined_sentiment_metrics():
+    """
+    STREAMLINED: Important sentiment metrics only
+    """
+    st.subheader("📊 Sentiment Analysis Overview")
+    
+    try:
+        sentiment_df = fetch_current_sentiment_scores()
+        
+        if sentiment_df.empty:
+            st.warning("No sentiment data available")
+            return
+        
+        # Key sentiment metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            avg_sentiment = sentiment_df['sentiment_score'].mean()
+            sentiment_emoji = "📈" if avg_sentiment > 0.1 else "📉" if avg_sentiment < -0.1 else "➡️"
+            st.metric("Overall Sentiment", f"{sentiment_emoji} {avg_sentiment:.2f}")
+        
+        with col2:
+            avg_confidence = sentiment_df['confidence'].mean()
+            st.metric("Avg Confidence", f"{avg_confidence:.1%}")
+        
+        with col3:
+            total_news = sentiment_df['news_count'].sum()
+            st.metric("News Articles", f"{int(total_news)}")
+        
+        with col4:
+            volatile_stocks = (sentiment_df['volatility_20d'] > sentiment_df['volatility_20d'].quantile(0.7)).sum()
+            st.metric("High Volatility", f"{volatile_stocks} stocks")
+        
+        # Sentiment by symbol
+        st.markdown("### 🏦 Bank Sentiment Breakdown")
+        
+        # Create a clean summary table
+        summary_df = sentiment_df.copy()
+        summary_df['sentiment_direction'] = summary_df['sentiment_score'].apply(
+            lambda x: "🟢 Bullish" if x > 0.1 else "🔴 Bearish" if x < -0.1 else "🟡 Neutral"
+        )
+        summary_df['confidence_pct'] = (summary_df['confidence'] * 100).round(1).astype(str) + '%'
+        summary_df['sentiment_score'] = summary_df['sentiment_score'].round(3)
+        
+        display_df = summary_df[['symbol', 'sentiment_direction', 'sentiment_score', 'confidence_pct', 'news_count']]
+        display_df.columns = ['Bank', 'Direction', 'Score', 'Confidence', 'News Count']
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        
+    except Exception as e:
+        st.error(f"Could not load sentiment data: {e}")
+
+
+def render_streamlined_news_sentiment():
+    """
+    STREAMLINED: News sentiment important metrics
+    """
+    st.subheader("📰 News Sentiment Analysis")
+    
+    try:
+        conn = get_database_connection()
+        
+        # Get recent news sentiment data
+        query = """
+        SELECT 
+            symbol,
+            sentiment_score,
+            confidence,
+            news_count,
+            timestamp
+        FROM enhanced_features
+        WHERE timestamp >= datetime('now', '-7 days')
+        AND news_count > 0
+        ORDER BY timestamp DESC
+        """
+        
+        news_df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        if news_df.empty:
+            st.warning("No news sentiment data available")
+            return
+        
+        # Key news metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            total_articles = news_df['news_count'].sum()
+            st.metric("Total Articles (7d)", f"{int(total_articles)}")
+        
+        with col2:
+            avg_news_sentiment = news_df['sentiment_score'].mean()
+            news_trend = "📈" if avg_news_sentiment > 0 else "📉" if avg_news_sentiment < 0 else "➡️"
+            st.metric("News Trend", f"{news_trend} {avg_news_sentiment:.2f}")
+        
+        with col3:
+            high_impact_news = (news_df['confidence'] > 0.7).sum()
+            st.metric("High Impact News", f"{high_impact_news}")
+        
+        with col4:
+            latest_update = news_df['timestamp'].max()
+            hours_ago = (pd.Timestamp.now() - pd.to_datetime(latest_update)).total_seconds() / 3600
+            update_str = f"{hours_ago:.1f}h ago" if hours_ago < 24 else f"{hours_ago/24:.1f}d ago"
+            st.metric("Last Update", update_str)
+        
+        # News volume chart
+        st.markdown("### 📈 News Volume Trend (7 Days)")
+        daily_news = news_df.groupby(news_df['timestamp'].str[:10])['news_count'].sum().reset_index()
+        daily_news.columns = ['Date', 'Articles']
+        
+        fig = px.bar(daily_news, x='Date', y='Articles', title='Daily News Article Volume')
+        fig.update_layout(height=300)
+        st.plotly_chart(fig, use_container_width=True)
+        
+    except Exception as e:
+        st.error(f"Could not load news sentiment data: {e}")
+
+
+def render_streamlined_social_sentiment():
+    """
+    STREAMLINED: Social sentiment important metrics  
+    """
+    st.subheader("📱 Social Sentiment Analysis")
+    
+    try:
+        conn = get_database_connection()
+        
+        # Get recent social sentiment data
+        query = """
+        SELECT 
+            symbol,
+            reddit_sentiment,
+            sentiment_score,
+            timestamp
+        FROM enhanced_features
+        WHERE timestamp >= datetime('now', '-7 days')
+        AND reddit_sentiment IS NOT NULL
+        ORDER BY timestamp DESC
+        """
+        
+        social_df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        if social_df.empty:
+            st.warning("No social sentiment data available")
+            return
+        
+        # Key social metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            avg_reddit = social_df['reddit_sentiment'].mean()
+            reddit_trend = "📈" if avg_reddit > 0.1 else "📉" if avg_reddit < -0.1 else "➡️"
+            st.metric("Reddit Sentiment", f"{reddit_trend} {avg_reddit:.2f}")
+        
+        with col2:
+            social_vs_news_corr = social_df[['reddit_sentiment', 'sentiment_score']].corr().iloc[0,1]
+            st.metric("News-Social Sync", f"{social_vs_news_corr:.2f}")
+        
+        with col3:
+            volatile_social = (social_df['reddit_sentiment'].std() > 0.3).sum() if len(social_df) > 1 else 0
+            st.metric("Social Volatility", "High" if volatile_social > 0 else "Low")
+        
+        with col4:
+            social_entries = len(social_df)
+            st.metric("Social Data Points", f"{social_entries}")
+        
+        # Social vs News comparison
+        st.markdown("### 📊 Social vs News Sentiment")
+        
+        comparison_df = social_df.groupby('symbol').agg({
+            'reddit_sentiment': 'mean',
+            'sentiment_score': 'mean'
+        }).round(3).reset_index()
+        
+        comparison_df.columns = ['Bank', 'Social Sentiment', 'News Sentiment']
+        st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+        
+    except Exception as e:
+        st.error(f"Could not load social sentiment data: {e}")
+
+
+def render_streamlined_technical_analysis():
+    """
+    STREAMLINED: Technical analysis important metrics
+    """
+    st.subheader("📈 Technical Analysis Overview")
+    
+    try:
+        conn = get_database_connection()
+        
+        # Get recent technical data
+        query = """
+        SELECT 
+            symbol,
+            rsi,
+            macd_line,
+            price_vs_sma20,
+            volatility_20d,
+            current_price,
+            timestamp
+        FROM enhanced_features
+        WHERE timestamp >= datetime('now', '-1 days')
+        ORDER BY timestamp DESC
+        LIMIT 7
+        """
+        
+        tech_df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        if tech_df.empty:
+            st.warning("No technical analysis data available")
+            return
+        
+        # Key technical metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            avg_rsi = tech_df['rsi'].mean()
+            rsi_signal = "🔴 Overbought" if avg_rsi > 70 else "🟢 Oversold" if avg_rsi < 30 else "🟡 Neutral"
+            st.metric("Avg RSI", f"{rsi_signal} ({avg_rsi:.1f})")
+        
+        with col2:
+            bullish_macd = (tech_df['macd_line'] > 0).sum()
+            st.metric("Bullish MACD", f"{bullish_macd}/{len(tech_df)} banks")
+        
+        with col3:
+            above_sma = (tech_df['price_vs_sma20'] > 0).sum()
+            st.metric("Above SMA20", f"{above_sma}/{len(tech_df)} banks")
+        
+        with col4:
+            high_vol = (tech_df['volatility_20d'] > tech_df['volatility_20d'].quantile(0.7)).sum()
+            st.metric("High Volatility", f"{high_vol} banks")
+        
+        # Technical signals table
+        st.markdown("### 🎯 Technical Signals by Bank")
+        
+        # Create technical signals
+        def get_technical_signal(row):
             signals = []
-            
-            # News sentiment signal
-            if row['news_sentiment'] and row['news_sentiment'] > 0.1:
-                signals.append("📈 Bullish News")
-            elif row['news_sentiment'] and row['news_sentiment'] < -0.1:
-                signals.append("📉 Bearish News")
+            if row['rsi'] > 70:
+                signals.append("🔴 RSI High")
+            elif row['rsi'] < 30:
+                signals.append("🟢 RSI Low")
             else:
-                signals.append("🟡 Neutral News")
+                signals.append("🟡 RSI Mid")
             
-            # Social sentiment signal
-            if row['social_sentiment'] and row['social_sentiment'] > 0.05:
-                signals.append("🚀 Positive Social")
-            elif row['social_sentiment'] and row['social_sentiment'] < -0.05:
-                signals.append("⬇️ Negative Social")
+            if row['macd_line'] > 0:
+                signals.append("📈 MACD+")
             else:
-                signals.append("🟡 Neutral Social")
-            
-            # Technical signal
-            if row['technical_score'] and row['technical_score'] > 70:
-                signals.append("⚠️ Overbought")
-            elif row['technical_score'] and row['technical_score'] < 30:
-                signals.append("💚 Oversold")
+                signals.append("📉 MACD-")
+                
+            if row['price_vs_sma20'] > 0.02:
+                signals.append("⬆️ Above SMA")
+            elif row['price_vs_sma20'] < -0.02:
+                signals.append("⬇️ Below SMA")
             else:
-                signals.append("🟡 Neutral Tech")
+                signals.append("➡️ Near SMA")
                 
             return " | ".join(signals)
         
-        df['signal_summary'] = df.apply(classify_signal, axis=1)
+        tech_df['technical_signals'] = tech_df.apply(get_technical_signal, axis=1)
+        tech_df['rsi'] = tech_df['rsi'].round(1)
+        tech_df['current_price'] = tech_df['current_price'].round(2)
+        tech_df['volatility_20d'] = (tech_df['volatility_20d'] * 100).round(1).astype(str) + '%'
         
-        # Format return percentages and add status
-        def format_return(return_pct):
-            if pd.isna(return_pct):
-                return "⏳ Pending"
-            elif return_pct > 0:
-                return f"🟢 +{return_pct:.2f}%"
-            elif return_pct < 0:
-                return f"🔴 {return_pct:.2f}%"
-            else:
-                return "⚪ 0.00%"
-        
-        df['outcome'] = df['return_pct'].apply(format_return)
-        
-        # Create display dataframe
-        display_df = pd.DataFrame({
-            'Symbol': df['symbol'],
-            'Entry Time': df['entry_time'],
-            'ML Action': df['ml_action'].fillna('N/A'),
-            'ML Confidence': df['ml_confidence'].fillna(0).round(3),
-            'News Sentiment': df['news_sentiment'].fillna(0).round(3),
-            'Social Sentiment': df['social_sentiment'].fillna(0).round(3),
-            'Technical (RSI)': df['technical_score'].fillna(0).round(1),
-            'Signal Summary': df['signal_summary'],
-            'Entry Price': df['entry_price'].fillna(0).round(2),
-            'Current Price': df['current_price'].fillna(0).round(2),
-            'Outcome': df['outcome'],
-            'News Count': df['news_count'].fillna(0).astype(int)
-        })
-        
-        # Apply conditional styling
-        def highlight_actions(row):
-            styles = [''] * len(row)
-            
-            # Highlight ML actions
-            if 'BUY' in str(row['ML Action']):
-                styles[2] = 'background-color: lightgreen'
-            elif 'SELL' in str(row['ML Action']):
-                styles[2] = 'background-color: lightcoral'
-            
-            # Highlight outcomes
-            if '🟢' in str(row['Outcome']):
-                styles[10] = 'background-color: lightgreen; font-weight: bold'
-            elif '🔴' in str(row['Outcome']):
-                styles[10] = 'background-color: lightcoral; font-weight: bold'
-                
-            return styles
-        
-        # Display summary metrics
-        completed_trades = df[df['return_pct'].notna()]
-        if not completed_trades.empty:
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                total_trades = len(completed_trades)
-                st.metric("Completed Trades", total_trades)
-            with col2:
-                win_rate = (completed_trades['return_pct'] > 0).mean() * 100
-                st.metric("Win Rate", f"{win_rate:.1f}%")
-            with col3:
-                avg_return = completed_trades['return_pct'].mean()
-                st.metric("Avg Return", f"{avg_return:.2f}%")
-            with col4:
-                total_return = completed_trades['return_pct'].sum()
-                st.metric("Total Return", f"{total_return:.2f}%")
-        
-        # Display the styled dataframe
-        st.dataframe(
-            display_df.style.apply(highlight_actions, axis=1),
-            use_container_width=True,
-            height=600
-        )
-        
-        # Add action breakdown
-        if not df.empty and 'ml_action' in df.columns:
-            st.subheader("📈 Action Distribution")
-            action_counts = df['ml_action'].value_counts()
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                if not action_counts.empty:
-                    fig = px.pie(values=action_counts.values, names=action_counts.index, 
-                               title="ML Action Distribution")
-                    st.plotly_chart(fig, use_container_width=True)
-            
-            with col2:
-                if not completed_trades.empty:
-                    performance_by_action = completed_trades.groupby('ml_action')['return_pct'].agg(['mean', 'count']).round(3)
-                    performance_by_action.columns = ['Avg Return %', 'Trade Count']
-                    st.dataframe(performance_by_action, use_container_width=True)
+        display_df = tech_df[['symbol', 'current_price', 'rsi', 'volatility_20d', 'technical_signals']]
+        display_df.columns = ['Bank', 'Price', 'RSI', 'Volatility', 'Signals']
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
         
     except Exception as e:
-        st.error(f"Error loading positions data: {e}")
+        st.error(f"Could not load technical analysis data: {e}")
 
-def render_mobile_alerts_placeholder():
-    """Placeholder for mobile alerts"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Notification system design
-    
-    **Features to implement:**
-    - SMS/email integration
-    - Slack/Discord webhooks
-    - Push notifications
-    - Alert fatigue prevention
-    
-    **Expected Impact:** Real-time decision support
-    """)
 
-def render_sentiment_momentum_placeholder():
-    """Placeholder for sentiment momentum"""
-    st.info("🚧 **Under Development**")
-    st.write("""
-    **Current Status:** Momentum calculation algorithms
+def render_streamlined_next_day_predictions():
+    """
+    STREAMLINED: Next Day Predictions with key insights
+    """
+    st.subheader("🔮 Next Day Predictions")
     
-    **Features to implement:**
-    - Sentiment velocity tracking
-    - Acceleration/deceleration detection
-    - Contrarian signal identification
-    - Momentum-based timing
+    try:
+        conn = get_database_connection()
+        
+        # Get latest prediction data for each bank
+        query = """
+        SELECT 
+            ef.symbol,
+            ef.sentiment_score,
+            ef.confidence,
+            ef.rsi,
+            eo.optimal_action,
+            eo.confidence_score as ml_confidence,
+            eo.price_direction_1d,
+            eo.price_magnitude_1d,
+            ef.current_price,
+            ef.timestamp
+        FROM enhanced_features ef
+        LEFT JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
+        WHERE ef.id IN (
+            SELECT MAX(id) FROM enhanced_features 
+            WHERE symbol IN ('CBA.AX', 'ANZ.AX', 'WBC.AX', 'NAB.AX', 'MQG.AX', 'QBE.AX', 'SUN.AX')
+            GROUP BY symbol
+        )
+        ORDER BY ef.symbol
+        """
+        
+        predictions_df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        if predictions_df.empty:
+            st.warning("No prediction data available")
+            return
+        
+        # Summary metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            buy_signals = (predictions_df['optimal_action'] == 'BUY').sum()
+            st.metric("Buy Signals", f"{buy_signals}/{len(predictions_df)}")
+        
+        with col2:
+            sell_signals = (predictions_df['optimal_action'] == 'SELL').sum()
+            st.metric("Sell Signals", f"{sell_signals}/{len(predictions_df)}")
+        
+        with col3:
+            high_conf_predictions = (predictions_df['ml_confidence'] > 0.7).sum()
+            st.metric("High Confidence", f"{high_conf_predictions}")
+        
+        with col4:
+            bullish_sentiment = (predictions_df['sentiment_score'] > 0.1).sum()
+            st.metric("Bullish Sentiment", f"{bullish_sentiment}")
+        
+        # Predictions table
+        st.markdown("### 🎯 Individual Bank Predictions")
+        
+        # Create prediction summary
+        def create_prediction_summary(row):
+            # Combine all factors into a prediction strength
+            factors = []
+            
+            # Sentiment factor
+            sentiment = row['sentiment_score'] or 0
+            if sentiment > 0.1:
+                factors.append("📈 Positive News")
+            elif sentiment < -0.1:
+                factors.append("📉 Negative News")
+            
+            # Technical factor
+            rsi = row['rsi'] or 50
+            if rsi > 70:
+                factors.append("🔴 Overbought")
+            elif rsi < 30:
+                factors.append("🟢 Oversold")
+            
+            # ML factor
+            if row['ml_confidence'] and row['ml_confidence'] > 0.6:
+                factors.append(f"🤖 {row['optimal_action']}")
+            
+            return " | ".join(factors) if factors else "🟡 Neutral"
+        
+        predictions_df['prediction_summary'] = predictions_df.apply(create_prediction_summary, axis=1)
+        predictions_df['ml_confidence_pct'] = (predictions_df['ml_confidence'] * 100).round(1).astype(str) + '%'
+        predictions_df['sentiment_score'] = predictions_df['sentiment_score'].round(3)
+        predictions_df['current_price'] = predictions_df['current_price'].round(2)
+        
+        # Expected price direction
+        predictions_df['price_outlook'] = predictions_df.apply(lambda row: 
+            f"📈 +{row['price_magnitude_1d']:.1%}" if row['price_direction_1d'] == 'UP' 
+            else f"📉 -{row['price_magnitude_1d']:.1%}" if row['price_direction_1d'] == 'DOWN' 
+            else "➡️ Flat" if row['price_direction_1d'] else "❓ Unknown", axis=1
+        )
+        
+        display_df = predictions_df[[
+            'symbol', 'optimal_action', 'ml_confidence_pct', 'price_outlook', 
+            'current_price', 'prediction_summary'
+        ]]
+        display_df.columns = [
+            'Bank', 'ML Action', 'Confidence', 'Price Outlook', 'Current Price', 'Key Factors'
+        ]
+        
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        
+        # Action recommendations
+        with st.expander("🚀 Action Recommendations", expanded=False):
+            high_conf_buys = predictions_df[
+                (predictions_df['optimal_action'] == 'BUY') & 
+                (predictions_df['ml_confidence'] > 0.7)
+            ]
+            
+            high_conf_sells = predictions_df[
+                (predictions_df['optimal_action'] == 'SELL') & 
+                (predictions_df['ml_confidence'] > 0.7)
+            ]
+            
+            if not high_conf_buys.empty:
+                st.markdown("**🟢 Strong Buy Candidates:**")
+                for _, stock in high_conf_buys.iterrows():
+                    st.write(f"• **{stock['symbol']}** - {stock['ml_confidence_pct']} confidence - {stock['prediction_summary']}")
+            
+            if not high_conf_sells.empty:
+                st.markdown("**🔴 Strong Sell Candidates:**")
+                for _, stock in high_conf_sells.iterrows():
+                    st.write(f"• **{stock['symbol']}** - {stock['ml_confidence_pct']} confidence - {stock['prediction_summary']}")
+            
+            if high_conf_buys.empty and high_conf_sells.empty:
+                st.info("No high-confidence trading signals at this time. Monitor for changes.")
+        
+    except Exception as e:
+        st.error(f"Could not load predictions: {e}")
+
+
+def render_unified_positions_area():
+    """
+    STREAMLINED: ML Predictions & Backtesting Results Display
+    """
+    st.subheader("🎯 ML Trading Predictions & Results")
     
-    **Expected Impact:** Better trend following and reversal detection
-    """)
+    # Explanation section
+    with st.expander("📋 Understanding This Data", expanded=False):
+        st.markdown("""
+        **What You're Seeing:**
+        
+        **📊 ML Predictions** - Machine Learning analysis generates trading signals (BUY/SELL/HOLD) based on:
+        - 📰 **News Sentiment** (30% weight) - FinBERT analysis of financial news
+        - 🤖 **ML Models** (35% weight) - RandomForest + LSTM ensemble predictions  
+        - 📈 **Technical Analysis** (20% weight) - RSI, MACD, Bollinger Bands
+        - 💬 **Social Sentiment** (15% weight) - Reddit financial discussions
+        
+        **Prediction Outcomes:**
+        - **📊 Prediction Only** - Recent ML analysis, outcome pending
+        - **✅ Strong Win (+5%+)** - Backtested prediction achieved >5% return
+        - **🟢 Small Win** - Backtested prediction achieved 0-5% return
+        - **🔴 Small Loss** - Backtested prediction lost 0-5%
+        - **❌ Strong Loss (-5%+)** - Backtested prediction lost >5%
+        
+        **Note:** These are ML backtesting results, not live trading positions. Entry/Exit prices show historical price points used for performance validation.
+        """)
+        
+    
+    try:
+        conn = get_database_connection()
+        
+        # Get comprehensive ML predictions and backtested results
+        query = """
+        SELECT 
+            ef.symbol,
+            ef.timestamp,
+            
+            -- All sentiment metrics
+            ef.sentiment_score as news_sentiment,
+            ef.confidence as news_confidence,
+            ef.reddit_sentiment as social_sentiment,
+            
+            -- Technical metrics
+            ef.rsi,
+            ef.macd_line,
+            ef.price_vs_sma20,
+            ef.current_price,
+            ef.volatility_20d,
+            
+            -- ML predictions
+            eo.optimal_action as ml_action,
+            eo.confidence_score as ml_confidence,
+            eo.price_direction_1d as ml_direction,
+            
+            -- Backtested position results (use best available exit price)
+            eo.entry_price,
+            COALESCE(eo.exit_price_1d, eo.exit_price_4h, eo.exit_price_1h) as exit_price,
+            eo.return_pct,
+            
+            -- Position categorization (these are all ML backtested predictions)
+            CASE 
+                WHEN eo.return_pct IS NULL THEN '📊 Prediction Only'
+                WHEN eo.return_pct > 0.05 THEN '✅ Strong Win (+5%+)'
+                WHEN eo.return_pct > 0 THEN '🟢 Small Win'
+                WHEN eo.return_pct < -0.05 THEN '❌ Strong Loss (-5%+)'
+                WHEN eo.return_pct < 0 THEN '🔴 Small Loss'
+                ELSE '⚪ Break-even'
+            END as prediction_outcome
+            
+        FROM enhanced_features ef
+        LEFT JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
+        WHERE ef.timestamp >= datetime('now', '-14 days')
+        ORDER BY ef.timestamp DESC
+        LIMIT 50
+        """
+        
+        unified_df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        if unified_df.empty:
+            st.warning("No unified position data available")
+            return
+        
+        # Summary metrics for ML backtesting results
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            predictions_only = (unified_df['prediction_outcome'] == '📊 Prediction Only').sum()
+            total_predictions = len(unified_df)
+            st.metric("Total ML Predictions", f"{total_predictions}", f"{predictions_only} pending outcome")
+        
+        with col2:
+            winning_predictions = unified_df['prediction_outcome'].str.contains('Win', na=False).sum()
+            completed_predictions = (unified_df['return_pct'].notna()).sum()
+            success_rate = (winning_predictions / completed_predictions * 100) if completed_predictions > 0 else 0
+            st.metric("ML Success Rate", f"{success_rate:.1f}%", f"{winning_predictions}/{completed_predictions}")
+        
+        with col3:
+            if unified_df['ml_confidence'].notna().any():
+                avg_ml_confidence = unified_df['ml_confidence'].mean()
+                if pd.notna(avg_ml_confidence):
+                    st.metric("Avg ML Confidence", f"{avg_ml_confidence:.1%}")
+                else:
+                    st.metric("Avg ML Confidence", "N/A")
+            else:
+                st.metric("Avg ML Confidence", "N/A")
+        
+        with col4:
+            if unified_df['return_pct'].notna().any():
+                avg_return = unified_df['return_pct'].mean() * 100
+                if pd.notna(avg_return):
+                    st.metric("Avg Return", f"{avg_return:.2f}%")
+                else:
+                    st.metric("Avg Return", "N/A")
+            else:
+                st.metric("Avg Return", "N/A")
+        
+        # ML Predictions & Backtesting Results
+        st.markdown("### 📊 ML Predictions & Backtesting Results")
+        
+        # Create combined signal strength
+        def calculate_signal_strength(row):
+            strength = 0
+            signals = []
+            
+            # News sentiment strength
+            if abs(row['news_sentiment'] or 0) > 0.1:
+                strength += 1
+                sentiment_dir = "📈" if row['news_sentiment'] > 0 else "📉"
+                signals.append(f"{sentiment_dir} News")
+            
+            # Technical strength
+            if (row['rsi'] or 0) > 70 or (row['rsi'] or 0) < 30:
+                strength += 1
+                rsi_signal = "🔴" if row['rsi'] > 70 else "🟢"
+                signals.append(f"{rsi_signal} RSI")
+            
+            # ML strength
+            if (row['ml_confidence'] or 0) > 0.7:
+                strength += 1
+                signals.append("🤖 ML")
+            
+            return f"{strength}/3 - {' '.join(signals[:3])}" if signals else f"{strength}/3"
+        
+        unified_df['combined_strength'] = unified_df.apply(calculate_signal_strength, axis=1)
+        unified_df['timestamp'] = pd.to_datetime(unified_df['timestamp']).dt.strftime('%m-%d %H:%M')
+        unified_df['current_price'] = unified_df['current_price'].round(2)
+        unified_df['news_sentiment'] = unified_df['news_sentiment'].round(3)
+        unified_df['rsi'] = unified_df['rsi'].round(1)
+        
+        # Format prices and returns for display (safe formatting)
+        def safe_format_price_display(x):
+            try:
+                if pd.notna(x):
+                    return f"${float(x):.2f}"
+                return "N/A"
+            except (ValueError, TypeError):
+                return "N/A"
+        
+        def safe_format_return_display(x):
+            try:
+                if pd.notna(x):
+                    return f"{float(x)*100:.2f}%"
+                return "N/A"
+            except (ValueError, TypeError):
+                return "N/A"
+        
+        unified_df['entry_display'] = unified_df['entry_price'].apply(safe_format_price_display)
+        unified_df['exit_display'] = unified_df['exit_price'].apply(safe_format_price_display)
+        unified_df['return_display'] = unified_df['return_pct'].apply(safe_format_return_display)
+        
+        display_df = unified_df[[
+            'symbol', 'timestamp', 'ml_action', 'combined_strength', 
+            'entry_display', 'exit_display', 'return_display', 'prediction_outcome'
+        ]]
+        display_df.columns = [
+            'Bank', 'Prediction Time', 'ML Action', 'Signal Strength', 
+            'Entry Price', 'Exit Price', 'Return', 'Outcome'
+        ]
+        
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        
+        # ML Performance Insights
+        with st.expander("🔍 ML Prediction Insights", expanded=False):
+            # Best performing predictions
+            strong_wins = unified_df[unified_df['prediction_outcome'].str.contains('Strong Win', na=False)]
+            if not strong_wins.empty:
+                st.markdown("**🎯 Best ML Predictions (>5% return):**")
+                for _, pos in strong_wins.head(3).iterrows():
+                    try:
+                        return_pct = pos['return_pct'] * 100 if pd.notna(pos['return_pct']) else 0
+                        symbol = pos['symbol'] or 'Unknown'
+                        action = pos['ml_action'] or 'N/A'
+                        st.write(f"• **{symbol}**: {action} → {return_pct:.1f}% return")
+                    except (ValueError, TypeError):
+                        st.write(f"• **{pos['symbol']}**: Data error")
+            
+            # Recent predictions awaiting results
+            pending_predictions = unified_df[unified_df['prediction_outcome'] == '📊 Prediction Only']
+            if not pending_predictions.empty:
+                st.markdown(f"**📊 Recent Predictions Awaiting Results:** {len(pending_predictions)} predictions")
+                
+            # Performance by action type
+            completed_with_action = unified_df[
+                (unified_df['return_pct'].notna()) & 
+                (unified_df['ml_action'].notna())
+            ]
+            if not completed_with_action.empty:
+                action_performance = completed_with_action.groupby('ml_action')['return_pct'].mean() * 100
+                st.markdown("**📈 Performance by ML Action:**")
+                for action, avg_return in action_performance.items():
+                    if action and pd.notna(avg_return):  # Extra safety check
+                        try:
+                            action_str = str(action) if action else 'Unknown'
+                            return_val = float(avg_return)
+                            st.write(f"• **{action_str}**: {return_val:.2f}% average return")
+                        except (ValueError, TypeError):
+                            st.write(f"• **{str(action)}**: Data error")
+        
+    except Exception as e:
+        st.error(f"Could not load unified positions: {e}")
+
 
 def main():
     """
-    Main dashboard application
+    Main dashboard application - Streamlined version
     """
-    # Suppress additional Streamlit warnings
-    import streamlit.web.cli as stcli
-    import streamlit.runtime.scriptrunner as sr
-    
-    # Check if running in proper Streamlit context
-    try:
-        # This will work when run with streamlit run
-        ctx = sr.get_script_run_ctx()
-    except:
-        # Running directly with python - create minimal context
-        ctx = None
-    
     # Page configuration
     st.set_page_config(
-        page_title="ASX Banks Trading Sentiment Dashboard",
+        page_title="ASX Banks Trading Dashboard - Streamlined",
         page_icon="📊",
         layout="wide",
         initial_sidebar_state="collapsed"
     )
     
     # Header
-    st.title("📊 ASX Banks Trading Sentiment Dashboard")
+    st.title("📊 ASX Banks Trading Dashboard - Streamlined")
     st.markdown("**Real-time sentiment analysis and ML predictions for Australian bank stocks**")
     st.markdown("---")
     
@@ -3917,123 +2224,45 @@ def main():
     st.sidebar.write(f"**Data Source:** {DATABASE_PATH}")
     st.sidebar.write(f"**Banks Tracked:** {len(ASX_BANKS)}")
     
-    # Feature Flag Status
-    if FEATURE_FLAGS:
-        st.sidebar.markdown("---")
-        st.sidebar.header("🎛️ Feature Flags")
-        enabled_features = FEATURE_FLAGS.get_enabled_features()
-        total_features = len(FEATURE_FLAGS.available_features)
-        
-        st.sidebar.write(f"**Status:** {len(enabled_features)}/{total_features} enabled")
-        
-        if enabled_features:
-            st.sidebar.write("**🟢 Enabled:**")
-            for feature in enabled_features[:5]:  # Show first 5
-                st.sidebar.write(f"• {feature.replace('_', ' ').title()}")
-            if len(enabled_features) > 5:
-                st.sidebar.write(f"• ... and {len(enabled_features) - 5} more")
-        
-        st.sidebar.write("**💡 Enable features in .env file**")
-        
-        if st.sidebar.button("🔄 Refresh Flags"):
-            FEATURE_FLAGS._refresh_cache()
-            st.rerun()
-    
-    # Add data freshness check
-    try:
-        conn = get_database_connection()
-        cursor = conn.execute("SELECT MAX(timestamp) FROM enhanced_features")
-        latest_sentiment = cursor.fetchone()[0]
-        cursor = conn.execute("SELECT MAX(timestamp) FROM enhanced_outcomes")
-        latest_outcome = cursor.fetchone()[0]
-        conn.close()
-        
-        st.sidebar.write("**Data Freshness:**")
-        if latest_sentiment:
-            st.sidebar.write(f"• Features: {latest_sentiment}")
-        if latest_outcome:
-            st.sidebar.write(f"• Outcomes: {latest_outcome}")
-    except:
-        pass
-    
     if st.sidebar.button("🔄 Refresh Data"):
         # Clear Streamlit cache
         st.cache_data.clear()
         st.rerun()
     
     try:
-        # Load all data
-        with st.spinner("Loading real-time data..."):
-            ml_metrics = fetch_ml_performance_metrics()
-            sentiment_df = fetch_current_sentiment_scores()
-            feature_analysis = fetch_ml_feature_analysis()
-            timeline_df = fetch_prediction_timeline()
-            correlation_data = fetch_portfolio_correlation_data()
-            returns_df = fetch_hypothetical_returns_data(30)  # Last 30 days
-        
-        # Render dashboard sections
-        render_ml_performance_section(ml_metrics)
-        st.markdown("---")
-        
-        # COMMENTED OUT: Enhanced ML Training Details (redundant with main ML performance)
-        # render_enhanced_ml_training_details()
-        # st.markdown("---")
-        
-        # NEW: Hypothetical Returns Analysis
-        render_hypothetical_returns_analysis(returns_df)
-        st.markdown("---")
-        
-        # COMMENTED OUT: Portfolio Risk Management section (too complex)
-        # render_portfolio_correlation_section(correlation_data)
-        # st.markdown("---")
-        
-        # COMMENTED OUT: MarketAux Impact Analysis (not needed)
-        # render_marketaux_sentiment_comparison()  
-        # st.markdown("---")
-        
-        render_sentiment_dashboard(sentiment_df)
-        st.markdown("---")
-        
-        # NEW: Next Day Predictions with Multi-Factor Analysis  
-        render_next_day_predictions()
-        st.markdown("---")
-        
-        # COMMENTED OUT: Technical analysis (integrated into sentiment section above)
-        # render_technical_analysis(sentiment_df)
-        # st.markdown("---")
-        
-        # COMMENTED OUT: ML Feature Analysis (too technical for traders)
-        # render_ml_features_explanation(feature_analysis)
-        # st.markdown("---")
-        
-        render_prediction_timeline(timeline_df)
-        st.markdown("---")
-        
-        # NEW: Paper Trading Portfolio
-        render_paper_trading_section()
-        st.markdown("---")
-        
-        # NEW: Comprehensive Positions Table
-        render_comprehensive_positions_table()
-        
-        # Move quality analysis to the bottom for slow loading
-        st.markdown("---")
-        st.markdown("### ⚡ Advanced Analysis (May Take a Moment to Load)")
-        
-        # Quality-Based Dynamic Weighting Analysis - at the bottom for safety
-        with st.expander("🔬 **Quality-Based Dynamic Weighting Analysis**", expanded=False):
-            st.markdown("**Advanced sentiment component quality analysis with dynamic weighting**")
-            if is_feature_enabled('ADVANCED_VISUALIZATIONS'):
-                render_quality_based_weighting_section()
-            else:
-                st.info("🎛️ This feature is disabled. Enable FEATURE_ADVANCED_VISUALIZATIONS in .env to unlock.")
-        
-        # Feature Development Sections
-        render_feature_development_sections()
+        # STREAMLINED DASHBOARD STRUCTURE
+        with st.spinner("Loading streamlined dashboard..."):
+            
+            # 1. ML Summary with Completed Positions
+            render_streamlined_ml_summary()
+            st.markdown("---")
+            
+            # 2. Important Sentiment Metrics Overview
+            render_streamlined_sentiment_metrics()
+            st.markdown("---")
+            
+            # 3. Next Day Predictions
+            render_streamlined_next_day_predictions()
+            st.markdown("---")
+            
+            # 4. News Sentiment Important Metrics
+            render_streamlined_news_sentiment()
+            st.markdown("---")
+            
+            # 5. Social Sentiment Important Metrics
+            render_streamlined_social_sentiment()
+            st.markdown("---")
+            
+            # 6. Technical Analysis Important Metrics
+            render_streamlined_technical_analysis()
+            st.markdown("---")
+            
+            # 7. Unified Positions Area (All metrics combined)
+            render_unified_positions_area()
         
         # Footer
         st.markdown("---")
-        st.markdown("*Dashboard updates automatically when refreshed. All data sourced from live SQL database.*")
+        st.markdown("*Streamlined dashboard - All data sourced from live SQL database. Refresh to update.*")
         
     except DatabaseError as e:
         st.error(f"🚨 Database Error: {e}")
@@ -4046,7 +2275,7 @@ def main():
     except Exception as e:
         st.error(f"💥 Unexpected Error: {e}")
         st.info("Please contact system administrator if this persists.")
-        raise  # Re-raise for debugging in development
+
 
 if __name__ == "__main__":
     main()

@@ -159,9 +159,9 @@ class EnhancedEveningAnalyzer:
         return analysis_results
     
     def _collect_and_validate_data(self) -> Dict:
-        """Collect and validate all data for training"""
+        """Record outcomes for existing features (evening routine should create outcomes, not features)"""
         collection_results = {
-            'total_features_collected': 0,
+            'total_outcomes_recorded': 0,
             'validation_passed': 0,
             'validation_failed': 0,
             'data_quality_summary': {},
@@ -182,13 +182,13 @@ class EnhancedEveningAnalyzer:
                     self.data_validator.validate_sentiment_data(sentiment_data)
                     collection_results['validation_passed'] += 1
                     
-                    # Collect enhanced training data
-                    feature_id = self.enhanced_pipeline.collect_enhanced_training_data(
+                    # Record enhanced outcomes for existing features
+                    outcome_recorded = self._record_enhanced_outcome_for_symbol(
                         sentiment_data, symbol
                     )
                     
-                    if feature_id:
-                        collection_results['total_features_collected'] += 1
+                    if outcome_recorded:
+                        collection_results['total_outcomes_recorded'] += 1
                         
                         # Calculate feature completeness
                         market_data = get_market_data(symbol, period='3mo', interval='1h')
@@ -222,15 +222,166 @@ class EnhancedEveningAnalyzer:
         # Overall data quality assessment
         if collection_results['banks_processed']:
             avg_completeness = sum(collection_results['feature_completeness'].values()) / \
-                             len(collection_results['feature_completeness'])
+                             len(collection_results['feature_completeness']) if collection_results['feature_completeness'] else 0
             collection_results['data_quality_summary'] = {
                 'average_feature_completeness': avg_completeness,
                 'validation_success_rate': collection_results['validation_passed'] / 
                                          (collection_results['validation_passed'] + collection_results['validation_failed']),
-                'total_banks_processed': len(collection_results['banks_processed'])
+                'total_banks_processed': len(collection_results['banks_processed']),
+                'total_outcomes_recorded': collection_results['total_outcomes_recorded']
             }
         
         return collection_results
+    
+    def _record_enhanced_outcome_for_symbol(self, sentiment_data: Dict, symbol: str) -> bool:
+        """
+        Record enhanced outcomes for the most recent feature of a symbol
+        This is what the evening routine should do - create outcomes, not features
+        """
+        try:
+            # Find the most recent feature for this symbol that doesn't have an outcome
+            conn = sqlite3.connect(self.enhanced_pipeline.db_path)
+            cursor = conn.cursor()
+            
+            # Get the most recent feature without an outcome
+            cursor.execute('''
+                SELECT ef.id, ef.current_price, ef.timestamp, ef.symbol
+                FROM enhanced_features ef
+                LEFT JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
+                WHERE ef.symbol = ? AND eo.feature_id IS NULL
+                ORDER BY ef.timestamp DESC
+                LIMIT 1
+            ''', (symbol,))
+            
+            result = cursor.fetchone()
+            
+            if not result:
+                self.logger.info(f"No features without outcomes found for {symbol}")
+                conn.close()
+                return False
+            
+            feature_id, entry_price, feature_timestamp, feature_symbol = result
+            
+            # Get market data to calculate actual outcomes
+            market_data = get_market_data(symbol, period='5d', interval='1h')
+            
+            if market_data.empty:
+                self.logger.warning(f"No market data available for outcome calculation: {symbol}")
+                conn.close()
+                return False
+            
+            # Calculate actual outcomes based on price movements
+            feature_time = pd.to_datetime(feature_timestamp)
+            current_time = datetime.now()
+            
+            # Find price data after the feature timestamp
+            market_data.index = pd.to_datetime(market_data.index)
+            future_data = market_data[market_data.index > feature_time].head(25)  # Next ~25 hours
+            
+            if len(future_data) < 3:
+                self.logger.warning(f"Insufficient future data for {symbol}")
+                conn.close()
+                return False
+            
+            # Calculate outcomes for different timeframes
+            outcomes = self._calculate_actual_outcomes(entry_price, future_data, sentiment_data)
+            
+            # Record the outcome
+            self.enhanced_pipeline.record_enhanced_outcomes(feature_id, symbol, outcomes)
+            
+            conn.close()
+            
+            self.logger.info(f"✅ Recorded outcome for {symbol} feature_id={feature_id}: {outcomes['optimal_action']}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to record outcome for {symbol}: {e}")
+            return False
+    
+    def _calculate_actual_outcomes(self, entry_price: float, future_data: pd.DataFrame, sentiment_data: Dict) -> Dict:
+        """Calculate actual outcomes based on future price movements"""
+        try:
+            current_price = future_data['Close'].iloc[0]
+            
+            # Price directions (1 if up, 0 if down)
+            price_1h = future_data['Close'].iloc[1] if len(future_data) > 1 else current_price
+            price_4h = future_data['Close'].iloc[4] if len(future_data) > 4 else current_price
+            price_1d = future_data['Close'].iloc[-1] if len(future_data) >= 6 else current_price
+            
+            direction_1h = 1 if price_1h > entry_price else 0
+            direction_4h = 1 if price_4h > entry_price else 0
+            direction_1d = 1 if price_1d > entry_price else 0
+            
+            # Price magnitudes (percentage changes)
+            magnitude_1h = ((price_1h - entry_price) / entry_price) * 100
+            magnitude_4h = ((price_4h - entry_price) / entry_price) * 100
+            magnitude_1d = ((price_1d - entry_price) / entry_price) * 100
+            
+            # Volatility calculation
+            returns = future_data['Close'].pct_change().dropna()
+            volatility_1h = returns.std() * np.sqrt(24) * 100 if len(returns) > 0 else 0
+            
+            # Determine optimal action based on actual performance
+            avg_magnitude = abs(magnitude_1d)
+            confidence = sentiment_data.get('confidence', 0.5)
+            
+            if magnitude_1d > 2.0 and confidence > 0.7:
+                optimal_action = 'STRONG_BUY'
+            elif magnitude_1d > 0.5:
+                optimal_action = 'BUY'
+            elif magnitude_1d < -2.0 and confidence > 0.7:
+                optimal_action = 'STRONG_SELL'
+            elif magnitude_1d < -0.5:
+                optimal_action = 'SELL'
+            else:
+                optimal_action = 'HOLD'
+            
+            # Calculate confidence score based on consistency
+            direction_consistency = sum([direction_1h, direction_4h, direction_1d]) / 3
+            magnitude_consistency = 1 - (abs(magnitude_1h - magnitude_1d) / 10)  # Normalize
+            confidence_score = (direction_consistency + magnitude_consistency + confidence) / 3
+            confidence_score = max(0.1, min(0.95, confidence_score))  # Clamp between 0.1 and 0.95
+            
+            return {
+                'prediction_timestamp': datetime.now().isoformat(),
+                'price_direction_1h': direction_1h,
+                'price_direction_4h': direction_4h,
+                'price_direction_1d': direction_1d,
+                'price_magnitude_1h': round(magnitude_1h, 3),
+                'price_magnitude_4h': round(magnitude_4h, 3),
+                'price_magnitude_1d': round(magnitude_1d, 3),
+                'volatility_next_1h': round(volatility_1h, 3),
+                'optimal_action': optimal_action,
+                'confidence_score': round(confidence_score, 3),
+                'entry_price': entry_price,
+                'exit_price_1h': price_1h,
+                'exit_price_4h': price_4h,
+                'exit_price_1d': price_1d,
+                'exit_timestamp': datetime.now().isoformat(),
+                'return_pct': round(magnitude_1d, 3)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating outcomes: {e}")
+            # Return safe defaults
+            return {
+                'prediction_timestamp': datetime.now().isoformat(),
+                'price_direction_1h': 0,
+                'price_direction_4h': 0,
+                'price_direction_1d': 0,
+                'price_magnitude_1h': 0.0,
+                'price_magnitude_4h': 0.0,
+                'price_magnitude_1d': 0.0,
+                'volatility_next_1h': 0.0,
+                'optimal_action': 'HOLD',
+                'confidence_score': 0.5,
+                'entry_price': entry_price,
+                'exit_price_1h': entry_price,
+                'exit_price_4h': entry_price,
+                'exit_price_1d': entry_price,
+                'exit_timestamp': datetime.now().isoformat(),
+                'return_pct': 0.0
+            }
     
     def _train_enhanced_models(self) -> Dict:
         """Train enhanced ML models with comprehensive validation"""
@@ -750,9 +901,9 @@ class EnhancedEveningAnalyzer:
         # Data Collection Summary
         data_collection = analysis_results.get('data_collection', {})
         if data_collection:
-            print(f"\n📊 DATA COLLECTION SUMMARY:")
+            print(f"\n📊 OUTCOME RECORDING SUMMARY:")
             print("-" * 40)
-            print(f"   Features Collected: {data_collection.get('total_features_collected', 0)}")
+            print(f"   Outcomes Recorded: {data_collection.get('total_outcomes_recorded', 0)}")
             print(f"   Validation Passed: {data_collection.get('validation_passed', 0)}")
             print(f"   Validation Failed: {data_collection.get('validation_failed', 0)}")
             
@@ -760,6 +911,7 @@ class EnhancedEveningAnalyzer:
             if quality:
                 print(f"   Avg Feature Completeness: {quality.get('average_feature_completeness', 0):.1%}")
                 print(f"   Validation Success Rate: {quality.get('validation_success_rate', 0):.1%}")
+                print(f"   Total Outcomes Recorded: {quality.get('total_outcomes_recorded', 0)}")
         
         # Model Training Summary
         model_training = analysis_results.get('model_training', {})
