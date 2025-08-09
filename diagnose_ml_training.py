@@ -15,11 +15,21 @@ def diagnose_training_issues():
     print("🔍 ML Training Diagnostic Report")
     print("=" * 50)
     
+    # Environment info
+    import platform
+    print(f"🖥️  Environment: {platform.system()} {platform.release()}")
+    print(f"📍 Working directory: {os.getcwd()}")
+    print(f"🐍 Python: {sys.version.split()[0]}")
+    
     # Check database
     db_path = './data/trading_unified.db'
     if not os.path.exists(db_path):
         print(f"❌ Database not found: {db_path}")
         return False
+    
+    # Database file info
+    db_size = os.path.getsize(db_path) / (1024 * 1024)  # MB
+    print(f"💾 Database size: {db_size:.2f} MB")
     
     try:
         conn = sqlite3.connect(db_path)
@@ -29,27 +39,76 @@ def diagnose_training_issues():
         sample_count = cursor.fetchone()[0]
         print(f"📊 Training samples available: {sample_count}")
         
-        # Check latest training
+        # Check latest training from ALL performance tables
+        print("\n📊 Training Records from All Tables:")
+        
+        # Check model_performance_enhanced
         cursor = conn.execute("""
             SELECT training_date, training_samples, direction_accuracy_1h 
             FROM model_performance_enhanced 
             ORDER BY training_date DESC LIMIT 1
         """)
-        latest_training = cursor.fetchone()
+        enhanced_training = cursor.fetchone()
         
-        if latest_training:
-            print(f"🕐 Last training: {latest_training[0]}")
-            print(f"   Samples used: {latest_training[1]}")
-            print(f"   Accuracy: {latest_training[2]:.3f}")
+        if enhanced_training:
+            print(f"🧠 Enhanced Model Performance:")
+            print(f"   Last training: {enhanced_training[0]}")
+            print(f"   Samples used: {enhanced_training[1]}")
+            print(f"   Accuracy: {enhanced_training[2]:.3f}")
             
             # Calculate hours since last training
-            from datetime import datetime
-            last_time = datetime.fromisoformat(latest_training[0])
+            last_time = datetime.fromisoformat(enhanced_training[0])
             now = datetime.now()
             hours_ago = (now - last_time).total_seconds() / 3600
             print(f"   Hours ago: {hours_ago:.1f}")
         else:
-            print("❌ No training records found")
+            print("❌ No enhanced training records found")
+        
+        # Check model_performance table (basic)
+        try:
+            cursor = conn.execute("""
+                SELECT timestamp, accuracy, samples_used 
+                FROM model_performance 
+                ORDER BY timestamp DESC LIMIT 1
+            """)
+            basic_training = cursor.fetchone()
+            
+            if basic_training:
+                print(f"\n🔧 Basic Model Performance:")
+                print(f"   Last training: {basic_training[0]}")
+                print(f"   Samples used: {basic_training[2] if basic_training[2] else 'N/A'}")
+                print(f"   Accuracy: {basic_training[1]:.3f}")
+                
+                last_time = datetime.fromisoformat(basic_training[0])
+                hours_ago = (now - last_time).total_seconds() / 3600
+                print(f"   Hours ago: {hours_ago:.1f}")
+            else:
+                print("ℹ️ No basic training records found")
+        except Exception as e:
+            print(f"ℹ️ Basic training table not accessible: {e}")
+        
+        # Check ml_performance_tracking
+        try:
+            cursor = conn.execute("""
+                SELECT created_at, training_samples, accuracy 
+                FROM ml_performance_tracking 
+                ORDER BY created_at DESC LIMIT 1
+            """)
+            tracking_record = cursor.fetchone()
+            
+            if tracking_record:
+                print(f"\n📈 ML Performance Tracking:")
+                print(f"   Last record: {tracking_record[0]}")
+                print(f"   Samples: {tracking_record[1] if tracking_record[1] else 'N/A'}")
+                print(f"   Accuracy: {tracking_record[2]:.3f if tracking_record[2] else 'N/A'}")
+                
+                last_time = datetime.fromisoformat(tracking_record[0])
+                hours_ago = (now - last_time).total_seconds() / 3600
+                print(f"   Hours ago: {hours_ago:.1f}")
+            else:
+                print("ℹ️ No tracking records found")
+        except Exception as e:
+            print(f"ℹ️ ML tracking table not accessible: {e}")
         
         # Check enhanced evening analysis
         cursor = conn.execute("""
@@ -79,6 +138,50 @@ def diagnose_training_issues():
                 print(f"   {timestamp}: {status}")
                 if not success and attempted:
                     print(f"      Error: {error}")
+                    
+                # Show more details for successful trainings
+                if success:
+                    samples = training_data.get('training_data_stats', {}).get('total_samples', 'N/A')
+                    performance = training_data.get('performance_metrics', {})
+                    if performance:
+                        accuracy = performance.get('overall_accuracy', 'N/A')
+                        print(f"      Samples: {samples}, Accuracy: {accuracy}")
+        
+        # Additional check: Show what training approach is being used
+        print("\n🔧 Current Training System Analysis:")
+        
+        # Check if there are any recent enhanced_morning_analysis entries
+        try:
+            cursor = conn.execute("""
+                SELECT COUNT(*) FROM enhanced_morning_analysis 
+                WHERE timestamp > datetime('now', '-1 days')
+            """)
+            morning_count = cursor.fetchone()[0]
+            print(f"📅 Morning analyses (last 24h): {morning_count}")
+        except:
+            print("📅 Morning analyses: Table not found")
+        
+        # Check system status
+        print(f"\n🎯 Key Metrics:")
+        print(f"   Available samples: {sample_count}")
+        
+        # Determine if training should happen based on conditions
+        if enhanced_training:
+            new_samples = sample_count - enhanced_training[1]
+            hours_since = (datetime.now() - datetime.fromisoformat(enhanced_training[0])).total_seconds() / 3600
+            
+            should_train = new_samples >= 5 or hours_since >= 12
+            print(f"   New samples since last training: {new_samples}")
+            print(f"   Hours since last training: {hours_since:.1f}")
+            print(f"   Should trigger retraining: {'✅ YES' if should_train else '❌ NO'}")
+            
+            if should_train:
+                if new_samples >= 5:
+                    print(f"      Reason: {new_samples} new samples (≥5 threshold)")
+                if hours_since >= 12:
+                    print(f"      Reason: {hours_since:.1f} hours (≥12h threshold)")
+        else:
+            print(f"   Should trigger training: ✅ YES (no previous training found)")
         
         conn.close()
         

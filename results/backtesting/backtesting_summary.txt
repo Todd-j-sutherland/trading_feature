@@ -1,0 +1,57 @@
+COMPREHENSIVE BACKTESTING SUMMARY REPORT
+==================================================
+Generated: 2025-08-08 19:42:00
+
+OVERALL STATISTICS
+--------------------
+Total signals analyzed: 511
+Unique symbols: 7
+Strategies analyzed: 3
+Date range: 2025-07-27T03:51:50.426388 to 2025-08-08T08:17:05.001752
+
+SIGNAL DISTRIBUTION
+--------------------
+BUY: 25 (4.9%)
+HOLD: 454 (88.8%)
+SELL: 32 (6.3%)
+
+STRATEGY PERFORMANCE
+--------------------
+
+TRADITIONAL:
+  Total signals: 175
+  Average confidence: 0.511
+  Confidence std dev: 0.084
+  Symbols covered: 7
+  Signal breakdown:
+    HOLD: 148
+    BUY: 25
+    SELL: 2
+
+ML:
+  Total signals: 168
+  Average confidence: 0.500
+  Confidence std dev: 0.000
+  Symbols covered: 7
+  Signal breakdown:
+    HOLD: 156
+    SELL: 12
+
+EVENING_ML:
+  Total signals: 168
+  Average confidence: 0.565
+  Confidence std dev: 0.063
+  Symbols covered: 7
+  Signal breakdown:
+    HOLD: 150
+    SELL: 18
+
+SYMBOL ANALYSIS
+---------------
+ANZ.AX: 73 signals, avg confidence: 0.517
+CBA.AX: 73 signals, avg confidence: 0.517
+MQG.AX: 73 signals, avg confidence: 0.524
+NAB.AX: 73 signals, avg confidence: 0.527
+QBE.AX: 73 signals, avg confidence: 0.517
+SUN.AX: 73 signals, avg confidence: 0.540
+WBC.AX: 73 signals, avg confidence: 0.534

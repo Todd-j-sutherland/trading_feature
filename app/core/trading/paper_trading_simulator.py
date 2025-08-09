@@ -30,7 +30,9 @@ from app.core.sentiment.two_stage_analyzer import TwoStageAnalyzer
 from app.core.ml.trading_scorer import MLTradingScorer
 from app.core.analysis.economic import EconomicSentimentAnalyzer
 from app.core.analysis.divergence import DivergenceDetector
+from app.core.analysis.technical import TechnicalAnalyzer
 from app.core.data.processors.news_processor import NewsTradingAnalyzer
+from app.core.data.collectors.market_data import ASXDataFeed
 from app.config.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -78,6 +80,8 @@ class PaperTradingSimulator:
         self.ml_scorer = MLTradingScorer()
         self.economic_analyzer = EconomicSentimentAnalyzer()
         self.divergence_detector = DivergenceDetector()
+        self.technical_analyzer = TechnicalAnalyzer(self.settings)
+        self.market_data_feed = ASXDataFeed()
         
         # Trading state
         self.running = False
@@ -222,6 +226,7 @@ class PaperTradingSimulator:
             'symbol': symbol,
             'timestamp': datetime.now().isoformat(),
             'news_analysis': {},
+            'technical_analysis': {},
             'ml_analysis': {},
             'economic_context': {},
             'trading_signal': 'HOLD',
@@ -246,12 +251,42 @@ class PaperTradingSimulator:
                 logger.warning(f"   ⚠️ No news analysis available for {symbol}")
                 analysis['news_analysis'] = {'sentiment_score': 0.0, 'confidence': 0.3}
             
-            # 2. Economic Context
+            # 2. Technical Analysis
+            logger.info(f"   📊 Analyzing technical indicators")
+            try:
+                # Get historical market data for technical analysis (30 days for indicators)
+                market_data = self.market_data_feed.get_historical_data(symbol, period="30d", interval="1d")
+                
+                if market_data is not None and not market_data.empty and len(market_data) >= 14:
+                    technical_result = self.technical_analyzer.analyze(symbol, market_data)
+                    analysis['technical_analysis'] = technical_result
+                    
+                    indicators = technical_result.get('indicators', {})
+                    rsi = indicators.get('rsi', 50)
+                    recommendation = technical_result.get('recommendation', 'NEUTRAL')
+                    signal_strength = technical_result.get('signal_strength', 0)
+                    
+                    # Ensure RSI is numeric
+                    try:
+                        rsi_val = float(rsi) if rsi is not None else 50.0
+                        strength_val = float(signal_strength) if signal_strength is not None else 0.0
+                        logger.info(f"   ✅ Technical analysis: RSI {rsi_val:.1f}, Signal: {recommendation} (Strength: {strength_val:.2f})")
+                    except (ValueError, TypeError):
+                        logger.info(f"   ✅ Technical analysis: RSI {rsi}, Signal: {recommendation}, Strength: {signal_strength}")
+                else:
+                    logger.warning(f"   ⚠️ Insufficient market data for technical analysis of {symbol}")
+                    analysis['technical_analysis'] = {'error': 'Insufficient market data (need 14+ days for indicators)'}
+                    
+            except Exception as e:
+                logger.warning(f"   ⚠️ Technical analysis failed for {symbol}: {e}")
+                analysis['technical_analysis'] = {'error': str(e)}
+
+            # 3. Economic Context
             logger.info(f"   🌍 Analyzing economic context")
             economic_result = self.economic_analyzer.analyze_economic_sentiment()
             analysis['economic_context'] = economic_result
             
-            # 3. ML Analysis and Scoring
+            # 4. ML Analysis and Scoring
             logger.info(f"   🧠 Calculating ML trading score")
             
             # Prepare data for ML scorer
@@ -277,7 +312,7 @@ class PaperTradingSimulator:
                 analysis['ml_analysis'] = {'error': 'ML analysis failed'}
                 analysis['confidence'] = 0.2
             
-            # 4. Final Trading Decision
+            # 5. Final Trading Decision (combining all analysis)
             self._determine_final_action(analysis)
             
             return analysis
@@ -290,25 +325,62 @@ class PaperTradingSimulator:
     def _determine_final_action(self, analysis: Dict[str, Any]) -> None:
         """
         Determine final trading action based on all analysis components.
+        Enhanced to include technical analysis signals.
         
         Args:
             analysis: Complete analysis dictionary (modified in place)
         """
         symbol = analysis['symbol']
         trading_signal = analysis['trading_signal']
-        confidence = analysis['confidence']
+        base_confidence = analysis['confidence']
+        
+        # Extract component signals
+        news_sentiment = analysis.get('news_analysis', {}).get('sentiment_score', 0)
+        technical_rec = analysis.get('technical_analysis', {}).get('recommendation', 'NEUTRAL')
+        technical_signal_strength = analysis.get('technical_analysis', {}).get('signal_strength', 0)
+        rsi = analysis.get('technical_analysis', {}).get('indicators', {}).get('rsi', 50)
+        
+        # Combine signals for enhanced confidence
+        signal_alignment = 0
+        confidence_boost = 0
+        
+        # News-Technical Alignment
+        if news_sentiment > 0.1 and technical_rec in ['BUY', 'STRONG_BUY']:
+            signal_alignment += 1
+            confidence_boost += 0.15
+        elif news_sentiment < -0.1 and technical_rec in ['SELL', 'STRONG_SELL']:
+            signal_alignment += 1
+            confidence_boost += 0.15
+        
+        # RSI Confirmation
+        if rsi < 30 and trading_signal in ['BUY', 'STRONG_BUY']:  # Oversold + Buy signal
+            confidence_boost += 0.1
+        elif rsi > 70 and trading_signal in ['SELL', 'STRONG_SELL']:  # Overbought + Sell signal
+            confidence_boost += 0.1
+        
+        # Technical signal strength boost
+        try:
+            strength_val = float(technical_signal_strength) if technical_signal_strength is not None else 0.0
+            confidence_boost += strength_val * 0.1
+        except (ValueError, TypeError):
+            confidence_boost += 0.0  # No boost if invalid strength value
+        
+        # Calculate enhanced confidence
+        enhanced_confidence = min(base_confidence + confidence_boost, 0.95)
+        analysis['enhanced_confidence'] = enhanced_confidence
+        analysis['signal_alignment_score'] = signal_alignment
         
         # Check if we already have a position
         has_position = symbol in self.positions
         
-        # Trading logic based on signal and confidence
-        if trading_signal in ['BUY', 'STRONG_BUY'] and confidence > 0.6:
+        # Enhanced trading logic
+        if trading_signal in ['BUY', 'STRONG_BUY'] and enhanced_confidence > 0.6:
             if not has_position:
                 analysis['recommended_action'] = 'OPEN_LONG'
             else:
                 analysis['recommended_action'] = 'HOLD_LONG'
                 
-        elif trading_signal in ['SELL', 'STRONG_SELL'] and confidence > 0.6:
+        elif trading_signal in ['SELL', 'STRONG_SELL'] and enhanced_confidence > 0.6:
             if has_position and self.positions[symbol].position_type == 'LONG':
                 analysis['recommended_action'] = 'CLOSE_LONG'
             elif not has_position:
@@ -317,19 +389,50 @@ class PaperTradingSimulator:
                 analysis['recommended_action'] = 'HOLD_SHORT'
                 
         elif has_position:
-            # Check if we should close due to low confidence or changed conditions
+            # Enhanced exit conditions
             position = self.positions[symbol]
             hours_held = (datetime.now() - position.entry_date).total_seconds() / 3600
             
-            # Close position if held for more than 24 hours with low confidence
-            if hours_held > 24 and confidence < 0.4:
+            # Check multiple exit conditions
+            should_exit = False
+            exit_reason = ""
+            
+            # Time-based exit (4-hour rule + low confidence)
+            if hours_held > 4 and enhanced_confidence < 0.4:
+                should_exit = True
+                exit_reason = "4-hour rule + low confidence"
+                
+            # Technical signal reversal
+            if position.position_type == 'LONG' and technical_rec in ['SELL', 'STRONG_SELL'] and rsi > 75:
+                should_exit = True
+                exit_reason = "technical reversal signal"
+            elif position.position_type == 'SHORT' and technical_rec in ['BUY', 'STRONG_BUY'] and rsi < 25:
+                should_exit = True
+                exit_reason = "technical reversal signal"
+            
+            # News sentiment reversal
+            if position.position_type == 'LONG' and news_sentiment < -0.15:
+                should_exit = True
+                exit_reason = "negative news sentiment"
+            elif position.position_type == 'SHORT' and news_sentiment > 0.15:
+                should_exit = True
+                exit_reason = "positive news sentiment"
+            
+            if should_exit:
                 analysis['recommended_action'] = f'CLOSE_{position.position_type}'
+                analysis['exit_reason'] = exit_reason
             else:
                 analysis['recommended_action'] = f'HOLD_{position.position_type}'
         else:
             analysis['recommended_action'] = 'HOLD'
         
-        logger.info(f"   🎯 Final action: {analysis['recommended_action']} (confidence: {confidence:.2f})")
+        # Log comprehensive decision rationale
+        logger.info(f"   🎯 Enhanced Decision Analysis:")
+        logger.info(f"      Base Confidence: {base_confidence:.2f} → Enhanced: {enhanced_confidence:.2f}")
+        logger.info(f"      Signal Alignment: {signal_alignment}/2 components")
+        logger.info(f"      Technical: {technical_rec} (RSI: {rsi:.1f})")
+        logger.info(f"      News Sentiment: {news_sentiment:+.3f}")
+        logger.info(f"      Final Action: {analysis['recommended_action']}")
     
     def execute_trading_action(self, analysis: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """

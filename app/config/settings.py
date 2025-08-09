@@ -80,6 +80,9 @@ class Settings:
     CONFIDENCE_THRESHOLD = float(os.getenv('CONFIDENCE_THRESHOLD', '70'))
     RISK_TOLERANCE = os.getenv('RISK_TOLERANCE', 'medium')  # low, medium, high
     
+    # Paper Trading Mock Simulator Configuration
+    PAPER_TRADING_USE_REAL_ML = os.getenv('PAPER_TRADING_USE_REAL_ML', 'true').lower() == 'true'
+    
     # Enhanced ML Configuration
     ML_CONFIG = {
         'models': {

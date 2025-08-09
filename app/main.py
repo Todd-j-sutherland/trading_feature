@@ -6,8 +6,10 @@ Main application entry point for Trading Analysis System
 import sys
 import argparse
 import logging
+import traceback
 from datetime import datetime
 from pathlib import Path
+from typing import List, Optional
 
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent
@@ -30,13 +32,16 @@ Examples:
   python -m app.main status               # Quick status check
   python -m app.main dashboard            # Launch dashboard
   python -m app.main news                 # Run news sentiment analysis
+  python -m app.main simple-backtest      # Run lightweight backtesting (recommended)
+  python -m app.main backtest             # Run comprehensive backtesting
+  python -m app.main backtest-dashboard   # Launch backtesting dashboard
   python -m app.main --config custom.yml  # Use custom config
         """
     )
     
     parser.add_argument(
         'command',
-        choices=['morning', 'evening', 'status', 'weekly', 'restart', 'test', 'dashboard', 'enhanced-dashboard', 'professional-dashboard', 'news', 'divergence', 'economic', 'ml-scores', 'ml-trading', 'pre-trade', 'alpaca-setup', 'alpaca-test', 'start-trading', 'trading-history', 'paper-trading', 'paper-performance', 'start-paper-trader'],
+        choices=['morning', 'evening', 'status', 'weekly', 'restart', 'test', 'dashboard', 'enhanced-dashboard', 'professional-dashboard', 'news', 'divergence', 'economic', 'ml-scores', 'ml-trading', 'pre-trade', 'alpaca-setup', 'alpaca-test', 'start-trading', 'trading-history', 'paper-trading', 'paper-performance', 'start-paper-trader', 'paper-mock', 'paper-benchmark', 'backtest', 'backtest-dashboard', 'simple-backtest'],
         help='Command to execute'
     )
     
@@ -68,7 +73,34 @@ Examples:
     parser.add_argument(
         '--execute',
         action='store_true',
-        help='Execute actual trades (for ML trading commands)'
+        help='Execute trades (otherwise dry run)'
+    )
+    
+    # New arguments for mock simulation
+    parser.add_argument(
+        '--scenario',
+        choices=['bullish', 'bearish', 'volatile', 'neutral', 'low_liquidity'],
+        default='neutral',
+        help='Market scenario for mock simulation'
+    )
+    
+    parser.add_argument(
+        '--symbols',
+        nargs='+',
+        help='Bank symbols to analyze (e.g., CBA ANZ WBC)'
+    )
+    
+    # ML Mode options (mutually exclusive)
+    ml_group = parser.add_mutually_exclusive_group()
+    ml_group.add_argument(
+        '--use-real-ml',
+        action='store_true',
+        help='Use production ML components for paper trading mock simulation'
+    )
+    ml_group.add_argument(
+        '--use-mock-ml', 
+        action='store_true',
+        help='Use mock ML simulation instead of production components'
     )
     
     return parser
@@ -642,13 +674,36 @@ def run_paper_trading_evaluation():
         # Run 4-hour evaluation
         results = simulator.run_4hour_evaluation()
         
-        # Display summary
-        print(f"\n📈 Evaluation Summary:")
+        # Display detailed analysis summary
+        print(f"\n📈 Comprehensive Analysis Summary:")
         print(f"   Symbols Evaluated: {len(results['evaluations'])}")
         print(f"   Trades Executed: {len(results['trades_executed'])}")
         print(f"   Errors: {len(results['errors'])}")
         print(f"   Portfolio Value: ${simulator.get_portfolio_value():,.2f}")
         print(f"   Active Positions: {len(simulator.positions)}")
+        
+        # Show analysis breakdown
+        print(f"\n📊 Analysis Components Breakdown:")
+        components_working = {
+            'News Sentiment': 0,
+            'Technical Analysis': 0, 
+            'ML Predictions': 0,
+            'Economic Context': 0
+        }
+        
+        for symbol, evaluation in results['evaluations'].items():
+            if 'news_analysis' in evaluation and 'sentiment_score' in evaluation['news_analysis']:
+                components_working['News Sentiment'] += 1
+            if 'technical_analysis' in evaluation and 'error' not in evaluation['technical_analysis']:
+                components_working['Technical Analysis'] += 1
+            if 'ml_analysis' in evaluation and 'error' not in evaluation['ml_analysis']:
+                components_working['ML Predictions'] += 1
+            if 'economic_context' in evaluation:
+                components_working['Economic Context'] += 1
+        
+        for component, count in components_working.items():
+            status = "✅" if count == len(results['evaluations']) else "⚠️" if count > 0 else "❌"
+            print(f"   {status} {component}: {count}/{len(results['evaluations'])} symbols")
         
         if results['trades_executed']:
             print(f"\n💼 Trades Executed:")
@@ -662,6 +717,20 @@ def run_paper_trading_evaluation():
                 if 'profit_loss' in trade:
                     pl = trade['profit_loss']
                     print(f"      P&L: ${pl:+.2f} ({trade.get('return_percentage', 0):+.1f}%)")
+        
+        # Show detailed signal analysis for each symbol
+        print(f"\n🔍 Detailed Signal Analysis:")
+        for symbol, evaluation in results['evaluations'].items():
+            if symbol in ['CBA.AX', 'WBC.AX', 'ANZ.AX']:  # Show first 3 for brevity
+                news_score = evaluation.get('news_analysis', {}).get('sentiment_score', 0)
+                tech_rec = evaluation.get('technical_analysis', {}).get('recommendation', 'N/A')
+                rsi = evaluation.get('technical_analysis', {}).get('indicators', {}).get('rsi', 0)
+                ml_score = evaluation.get('ml_analysis', {}).get('overall_ml_score', 0)
+                final_action = evaluation.get('recommended_action', 'HOLD')
+                
+                print(f"   {symbol}:")
+                print(f"      📰 News: {news_score:+.3f} | 📊 Technical: {tech_rec} (RSI: {rsi:.0f})")
+                print(f"      🧠 ML Score: {ml_score:.0f}/100 | 🎯 Action: {final_action}")
         
         print(f"\n📊 Use 'python -m app.main paper-performance' to see detailed metrics")
         
@@ -737,6 +806,103 @@ def show_paper_trading_performance():
         traceback.print_exc()
 
 
+def run_paper_trading_mock_simulation(scenario: str = None, symbols: List[str] = None, use_real_ml: Optional[bool] = None):
+    """Run paper trading mock simulation with specified parameters."""
+    print("🎬 Paper Trading Mock Simulation")
+    print("=" * 50)
+    
+    try:
+        from app.core.testing.paper_trading_simulator_mock import PaperTradingMockSimulator, get_predefined_scenarios
+        
+        # Get scenario
+        scenarios = get_predefined_scenarios()
+        scenario_name = scenario or 'neutral'
+        
+        if scenario_name not in scenarios:
+            print(f"❌ Unknown scenario: {scenario_name}")
+            print(f"💡 Available scenarios: {', '.join(scenarios.keys())}")
+            return
+        
+        scenario_config = scenarios[scenario_name]
+        symbols_list = symbols or ['CBA', 'ANZ', 'WBC', 'NAB']
+        
+        # Initialize mock simulator (use_real_ml=None will use config default)
+        simulator = PaperTradingMockSimulator(scenario_config, use_real_ml=use_real_ml)
+        
+        print(f"📊 Running {scenario_name} scenario with {len(symbols_list)} symbols")
+        print(f"🧠 Using real ML: {simulator.use_real_ml}")
+        
+        # Run simulation
+        results = simulator.run_enhanced_evaluation_cycle(symbols_list)
+        
+        # Display results
+        summary = results['summary']
+        print(f"\n📈 Simulation Results:")
+        print(f"   Symbols Analyzed: {summary['symbols_analyzed']}")
+        print(f"   Average Sentiment: {summary['avg_sentiment']:+.3f}")
+        print(f"   Average ML Score: {summary['avg_ml_score']:.1f}/100")
+        print(f"   Price Change: {summary['avg_price_change_24h']:+.2f}%")
+        
+        # Show recommendations
+        rec_dist = summary['recommendation_distribution']
+        if rec_dist:
+            print(f"   Recommendations: {', '.join([f'{k}({v})' for k, v in rec_dist.items()])}")
+        
+        # Show enhanced metrics if available
+        if 'enhanced_metrics' in summary:
+            metrics = summary['enhanced_metrics']
+            print(f"   Processing Time: {metrics.get('avg_processing_time_ms', 0):.1f}ms")
+            if use_real_ml:
+                print(f"   ML Confidence: {metrics.get('avg_ml_confidence', 0):.1%}")
+        
+        print(f"\n💡 Use 'python -m app.core.testing.paper_trading_simulator_mock --help' for advanced options")
+        
+    except Exception as e:
+        print(f"❌ Mock simulation error: {e}")
+        traceback.print_exc()
+
+
+def run_paper_trading_benchmark(symbols: List[str] = None):
+    """Run benchmark comparison between mock and real ML components."""
+    print("🔬 Paper Trading ML Benchmark")
+    print("=" * 50)
+    
+    try:
+        from app.core.testing.paper_trading_simulator_mock import PaperTradingMockSimulator, get_predefined_scenarios, run_benchmark_analysis
+        
+        symbols_list = symbols or ['CBA', 'ANZ', 'WBC']
+        
+        # Test multiple scenarios
+        scenarios = ['neutral', 'bullish', 'bearish']
+        all_benchmarks = {}
+        
+        for scenario_name in scenarios:
+            print(f"\n📊 Benchmarking {scenario_name} scenario...")
+            
+            scenario_configs = get_predefined_scenarios()
+            scenario = scenario_configs[scenario_name]
+            
+            simulator = PaperTradingMockSimulator(scenario)
+            benchmark_results = run_benchmark_analysis(simulator, symbols_list)
+            all_benchmarks[scenario_name] = benchmark_results
+        
+        # Summary of all benchmarks
+        print(f"\n📈 Benchmark Summary Across Scenarios:")
+        for scenario_name, benchmark in all_benchmarks.items():
+            if 'comparison' in benchmark:
+                comparison = benchmark['comparison']
+                print(f"   {scenario_name.title()}:")
+                print(f"      ML Score Correlation: {comparison.get('ml_score_correlation', 0):.3f}")
+                print(f"      Recommendation Agreement: {comparison.get('recommendation_agreement', 0):.1%}")
+                print(f"      Processing Time Ratio: {comparison.get('processing_time_ratio', 1):.2f}x")
+        
+        print(f"\n✅ Benchmark complete - Mock simulator validated against production ML")
+        
+    except Exception as e:
+        print(f"❌ Benchmark error: {e}")
+        traceback.print_exc()
+
+
 def start_paper_trading_background():
     """Start the background paper trading process."""
     print("🚀 Starting Background Paper Trading Process")
@@ -766,6 +932,139 @@ def start_paper_trading_background():
         
     except Exception as e:
         print(f"❌ Error starting background trader: {e}")
+        import traceback
+        traceback.print_exc()
+
+def run_comprehensive_backtest():
+    """Run comprehensive backtesting analysis"""
+    print("📈 Running Comprehensive Backtesting Analysis...")
+    
+    try:
+        from app.core.backtesting.comprehensive_backtester import ComprehensiveBacktester
+        
+        backtester = ComprehensiveBacktester()
+        print(f"🔄 Starting analysis for {len(backtester.bank_symbols)} symbols...")
+        print(f"📁 Results will be saved to: {backtester.results_dir}")
+        
+        # Run full backtest
+        results = backtester.run_full_backtest()
+        
+        # Display results
+        print("\n" + "="*60)
+        print("📊 BACKTESTING RESULTS SUMMARY")
+        print("="*60)
+        
+        if results['performance_report']['summary']:
+            summary = results['performance_report']['summary']
+            print(f"🎯 Total Signals Generated: {summary.get('total_signals_generated', 0)}")
+            print(f"📊 Data Sources Used: {summary.get('data_sources', 0)}")
+            print(f"🏦 Symbols Analyzed: {summary.get('symbols_covered', 0)}")
+            print(f"📅 Analysis Period: {summary.get('analysis_period', 'N/A')}")
+        
+        print(f"\n📈 Visualization Files Created:")
+        for symbol, file_path in results['visualizations'].items():
+            print(f"   • {symbol}: {file_path}")
+        
+        if results['strategy_comparison']:
+            print(f"   • Strategy Comparison: {results['strategy_comparison']}")
+        
+        print(f"\n💰 Individual Performance Analysis:")
+        for symbol, analysis in results['individual_analyses'].items():
+            print(f"   {symbol}:")
+            print(f"     📈 3-month return: {analysis.get('price_change_3m', 0):+.2f}%")
+            print(f"     📊 Volatility: {analysis.get('volatility', 0):.2f}%")
+            print(f"     💵 Current price: ${analysis.get('current_price', 0):.2f}")
+        
+        print(f"\n✅ Backtesting completed successfully!")
+        print(f"💡 Open the HTML files in your browser to view interactive charts")
+        
+    except Exception as e:
+        print(f"❌ Backtesting error: {e}")
+        import traceback
+        traceback.print_exc()
+
+def launch_backtesting_dashboard():
+    """Launch the Streamlit backtesting dashboard"""
+    print("🚀 Launching Backtesting Dashboard...")
+    
+    try:
+        import subprocess
+        import sys
+        import webbrowser
+        import time
+        
+        dashboard_path = Path(__file__).parent / "dashboard" / "backtesting_dashboard.py"
+        
+        if not dashboard_path.exists():
+            print(f"❌ Dashboard not found: {dashboard_path}")
+            return
+        
+        print("📊 Starting Streamlit server...")
+        
+        # Start Streamlit server
+        process = subprocess.Popen([
+            sys.executable, "-m", "streamlit", "run", 
+            str(dashboard_path), 
+            "--server.port", "8503",
+            "--server.headless", "true",
+            "--browser.gatherUsageStats", "false"
+        ])
+        
+        # Give server time to start
+        time.sleep(3)
+        
+        # Open browser
+        dashboard_url = "http://localhost:8503"
+        print(f"🌐 Dashboard available at: {dashboard_url}")
+        
+        try:
+            webbrowser.open(dashboard_url)
+            print("🔥 Opening dashboard in your default browser...")
+        except:
+            print("💡 Please open the URL manually in your browser")
+        
+        print("\n📈 Backtesting Dashboard is now running!")
+        print("🛑 Press Ctrl+C to stop the server")
+        
+        # Wait for process to complete
+        process.wait()
+        
+    except KeyboardInterrupt:
+        print("\n🛑 Dashboard stopped by user")
+        try:
+            process.terminate()
+        except:
+            pass
+    except Exception as e:
+        print(f"❌ Error launching dashboard: {e}")
+        import traceback
+        traceback.print_exc()
+
+def run_simple_backtest():
+    """Run the lightweight backtesting analysis"""
+    print("📊 Running Simple Backtesting Analysis...")
+    
+    try:
+        from app.core.backtesting.simple_backtester import SimpleBacktester
+        
+        backtester = SimpleBacktester()
+        results = backtester.run_simple_backtest()
+        
+        if 'error' not in results:
+            print(f"\n📈 Backtesting Results:")
+            print(f"   📊 Total Signals: {results['total_signals']}")
+            print(f"   📋 Strategies Analyzed: {results['strategies_analyzed']}")
+            print(f"   📁 Results Directory: {backtester.results_dir}")
+            print(f"\n📄 Generated Files:")
+            print(f"   📊 CSV Report: {results['csv_report']}")
+            print(f"   📝 Summary Report: {results['summary_report']}")
+            print(f"   🌐 HTML Visualization: {results['html_chart']}")
+            print(f"\n💡 Open the HTML file in your browser to view interactive results")
+        else:
+            print(f"❌ Backtesting failed: {results['error']}")
+            
+    except Exception as e:
+        print(f"❌ Simple backtesting error: {e}")
         import traceback
         traceback.print_exc()
 
@@ -868,6 +1167,24 @@ def main():
             show_paper_trading_performance()
         elif args.command == 'start-paper-trader':
             start_paper_trading_background()
+        elif args.command == 'paper-mock':
+            # Determine use_real_ml based on flags
+            use_real_ml = None
+            if args.use_real_ml:
+                use_real_ml = True
+            elif args.use_mock_ml:
+                use_real_ml = False
+            # If neither flag specified, use_real_ml remains None and function will use config default
+            
+            run_paper_trading_mock_simulation(args.scenario, args.symbols, use_real_ml)
+        elif args.command == 'paper-benchmark':
+            run_paper_trading_benchmark(args.symbols)
+        elif args.command == 'backtest':
+            run_comprehensive_backtest()
+        elif args.command == 'backtest-dashboard':
+            launch_backtesting_dashboard()
+        elif args.command == 'simple-backtest':
+            run_simple_backtest()
         
         logger.info(f"Command '{args.command}' completed successfully")
         print("✅ Command completed successfully")

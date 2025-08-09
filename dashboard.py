@@ -115,7 +115,7 @@ def fetch_enhanced_ml_training_metrics() -> Dict:
                 created_at
             FROM model_performance_enhanced 
             WHERE direction_accuracy_4h IS NOT NULL
-            ORDER BY created_at DESC 
+            ORDER BY training_date DESC 
             LIMIT 1
         """)
         
@@ -129,7 +129,7 @@ def fetch_enhanced_ml_training_metrics() -> Dict:
                 magnitude_mae_1d,
                 created_at
             FROM model_performance_enhanced 
-            ORDER BY created_at DESC 
+            ORDER BY training_date DESC 
             LIMIT 10
         """)
         
