@@ -15,9 +15,19 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
 
+# Import enhanced confidence metrics
+try:
+    from enhanced_confidence_metrics import compute_enhanced_confidence_metrics
+except ImportError:
+    def compute_enhanced_confidence_metrics():
+        return {
+            'overall_integration': {'confidence': 0.5, 'status': 'UNKNOWN'},
+            'component_summary': {'total_features': 0, 'completed_outcomes': 0}
+        }
+
 # Page configuration
 st.set_page_config(
-    page_title="ML Trading Dashboard",
+    page_title="ML Trading Dashboard - Fresh Data",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -28,7 +38,7 @@ def get_db_connection():
     """Get database connection"""
     return sqlite3.connect('data/trading_unified.db')
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+# Remove caching to ensure fresh data
 def load_latest_combined_data():
     """Load the latest combined analysis data for each symbol"""
     query = """
@@ -46,9 +56,9 @@ def load_latest_combined_data():
             ef.price_change_1d,
             ef.volatility_20d,
             eo.optimal_action,
-            eo.confidence_score as ml_confidence,
+            COALESCE(eo.confidence_score, 0.0) as ml_confidence,
             eo.return_pct,
-            eo.price_direction_1d,
+            COALESCE(eo.price_direction_1d, 0) as price_direction_1d,
             ROW_NUMBER() OVER (PARTITION BY ef.symbol ORDER BY ef.timestamp DESC) as rn
         FROM enhanced_features ef
         JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
@@ -77,9 +87,19 @@ def load_latest_combined_data():
     conn = get_db_connection()
     df = pd.read_sql_query(query, conn)
     conn.close()
+    
+    # Ensure all numeric columns are properly typed
+    numeric_columns = ['sentiment_score', 'sentiment_confidence', 'news_count', 'reddit_sentiment',
+                      'rsi', 'macd_line', 'current_price', 'price_change_1d', 'volatility_20d',
+                      'ml_confidence', 'return_pct', 'price_direction_1d']
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+    
     return df
 
-@st.cache_data(ttl=300)
+# Remove caching to ensure fresh data
 def load_ml_performance_data():
     """Load ML model performance metrics by symbol - filtering out NULL/zero data"""
     query = """
@@ -99,7 +119,6 @@ def load_ml_performance_data():
     WHERE return_pct IS NOT NULL 
       AND entry_price IS NOT NULL 
       AND entry_price > 0
-      AND price_magnitude_1d IS NOT NULL
     GROUP BY symbol 
     ORDER BY avg_return DESC
     """
@@ -109,7 +128,7 @@ def load_ml_performance_data():
     conn.close()
     return df
 
-@st.cache_data(ttl=300)
+#@st.cache_data(ttl=300) - REMOVED FOR FRESH DATA
 def load_training_overview():
     """Load training data overview"""
     query = """
@@ -129,7 +148,7 @@ def load_training_overview():
     conn.close()
     return df.iloc[0].to_dict()
 
-@st.cache_data(ttl=300)
+#@st.cache_data(ttl=300) - REMOVED FOR FRESH DATA
 def load_action_distribution():
     """Load distribution of trading actions - filtering out NULL/zero data"""
     query = """
@@ -149,7 +168,7 @@ def load_action_distribution():
     WHERE return_pct IS NOT NULL 
       AND entry_price IS NOT NULL 
       AND entry_price > 0
-      AND price_magnitude_1d IS NOT NULL
+      AND optimal_action IS NOT NULL
     GROUP BY optimal_action 
     ORDER BY count DESC
     """
@@ -159,7 +178,7 @@ def load_action_distribution():
     conn.close()
     return df
 
-@st.cache_data(ttl=300)
+#@st.cache_data(ttl=300) - REMOVED FOR FRESH DATA
 def load_position_win_rates():
     """Load win rates specifically by position type with clean data only"""
     query = """
@@ -178,7 +197,7 @@ def load_position_win_rates():
     WHERE return_pct IS NOT NULL 
       AND entry_price IS NOT NULL 
       AND entry_price > 0
-      AND price_magnitude_1d IS NOT NULL
+      AND optimal_action IS NOT NULL
     GROUP BY optimal_action 
     ORDER BY win_rate_pct DESC
     """
@@ -188,7 +207,7 @@ def load_position_win_rates():
     conn.close()
     return df
 
-@st.cache_data(ttl=300)
+#@st.cache_data(ttl=300) - REMOVED FOR FRESH DATA
 def load_time_series_data(days=30):
     """Load time series data for charts"""
     query = """
@@ -200,7 +219,7 @@ def load_time_series_data(days=30):
         ef.rsi,
         ef.current_price,
         eo.optimal_action,
-        eo.confidence_score as ml_confidence,
+        COALESCE(eo.confidence_score, 0.0) as ml_confidence,
         eo.return_pct
     FROM enhanced_features ef
     JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
@@ -211,6 +230,15 @@ def load_time_series_data(days=30):
     conn = get_db_connection()
     df = pd.read_sql_query(query, conn)
     conn.close()
+    
+    # Ensure all numeric columns are properly typed
+    numeric_columns = ['sentiment_score', 'sentiment_confidence', 'rsi', 'current_price', 
+                      'ml_confidence', 'return_pct']
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+    
     return df
 
 def format_action_color(action):
@@ -225,8 +253,41 @@ def format_action_color(action):
     return colors.get(action, '⚪')
 
 def main():
-    st.title("🤖 ML Trading Dashboard")
+    # Clear cache at startup to ensure fresh data
+    st.cache_data.clear()
+    
+    st.title("🤖 ML Trading Dashboard - Fresh Data")
     st.markdown("**Real-time machine learning trading analysis combining news, social media, technical indicators, and ML predictions**")
+    
+    # Enhanced cache clearing controls in sidebar
+    st.sidebar.title("🔄 Data Control")
+    st.sidebar.markdown(f"**Last Updated:** {datetime.now().strftime('%H:%M:%S')}")
+    
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        if st.button("� Refresh"):
+            st.cache_data.clear()
+            st.rerun()
+    
+    with col2:
+        if st.button("🔥 Force Refresh"):
+            st.cache_data.clear()
+            if hasattr(st, 'cache_resource'):
+                st.cache_resource.clear()
+            st.rerun()
+    
+    # Debug mode for troubleshooting
+    debug_mode = st.sidebar.checkbox("🔍 Debug Mode", value=False, help="Show raw data values")
+    
+    if debug_mode:
+        st.sidebar.markdown("### 🔍 Debug Info")
+        try:
+            confidence = compute_enhanced_confidence_metrics()
+            st.sidebar.write(f"Features: {confidence['component_summary']['total_features']}")
+            st.sidebar.write(f"Outcomes: {confidence['component_summary']['completed_outcomes']}")
+            st.sidebar.write(f"Confidence: {confidence['overall_integration']['confidence']:.1%}")
+        except Exception as e:
+            st.sidebar.error(f"Debug error: {e}")
     
     # Sidebar for navigation
     st.sidebar.title("Navigation")
@@ -242,8 +303,12 @@ def main():
     # Filter options
     st.sidebar.title("Filters")
     show_only_buy = st.sidebar.checkbox("Show only BUY signals", value=False)
+    exclude_hold = st.sidebar.checkbox("Exclude HOLD positions", value=False)
+    
     if show_only_buy:
         st.sidebar.info("📈 Filtering for BUY/STRONG_BUY signals only")
+    elif exclude_hold:
+        st.sidebar.info("🚫 Excluding HOLD positions - showing active trades only")
     
     # Load data
     try:
@@ -253,34 +318,44 @@ def main():
         action_dist = load_action_distribution()
         position_win_rates = load_position_win_rates()
         
-        # Apply BUY filter if selected
+        # Apply filters
         if show_only_buy:
             latest_data = latest_data[latest_data['optimal_action'].isin(['BUY', 'STRONG_BUY'])]
             performance_data = performance_data[performance_data['buy_signals'] > 0]  # Only symbols with buy signals
+            action_dist = action_dist[action_dist['optimal_action'].isin(['BUY', 'STRONG_BUY'])]
+            position_win_rates = position_win_rates[position_win_rates['position'].isin(['BUY', 'STRONG_BUY'])]
+        elif exclude_hold:
+            latest_data = latest_data[latest_data['optimal_action'] != 'HOLD']
+            # Filter performance data to only include symbols with non-HOLD signals
+            performance_data = performance_data[(performance_data['buy_signals'] > 0) | (performance_data['sell_signals'] > 0)]
+            action_dist = action_dist[action_dist['optimal_action'] != 'HOLD']
+            position_win_rates = position_win_rates[position_win_rates['position'] != 'HOLD']
         
         if page == "Overview":
-            show_overview(latest_data, performance_data, training_overview, action_dist, show_only_buy)
+            show_overview(latest_data, performance_data, training_overview, action_dist, show_only_buy, exclude_hold)
         elif page == "Latest Analysis":
-            show_latest_analysis(latest_data, show_only_buy)
+            show_latest_analysis(latest_data, show_only_buy, exclude_hold)
         elif page == "ML Performance":
-            show_ml_performance(performance_data, show_only_buy)
+            show_ml_performance(performance_data, show_only_buy, exclude_hold)
         elif page == "Position Win Rates":
-            show_position_win_rates(position_win_rates, show_only_buy)
+            show_position_win_rates(position_win_rates, show_only_buy, exclude_hold)
         elif page == "Training Data":
-            show_training_data(training_overview, action_dist, show_only_buy)
+            show_training_data(training_overview, action_dist, show_only_buy, exclude_hold)
         elif page == "Time Series Analysis":
-            show_time_series_analysis(show_only_buy)
+            show_time_series_analysis(show_only_buy, exclude_hold)
             
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
         st.info("Make sure the database file exists at: data/trading_unified.db")
 
-def show_overview(latest_data, performance_data, training_overview, action_dist, show_only_buy=False):
+def show_overview(latest_data, performance_data, training_overview, action_dist, show_only_buy=False, exclude_hold=False):
     """Show overview page"""
     st.header("📊 ML Trading System Overview")
     
     if show_only_buy:
         st.info("📈 Showing only BUY/STRONG_BUY signals")
+    elif exclude_hold:
+        st.info("🚫 Excluding HOLD positions - showing active trades only")
     
     # Key metrics
     col1, col2, col3, col4 = st.columns(4)
@@ -308,10 +383,10 @@ def show_overview(latest_data, performance_data, training_overview, action_dist,
         )
     
     with col4:
-        total_predictions = performance_data['total_predictions'].sum()
+        # Show true total predictions from enhanced_features table
         st.metric(
             "Total Predictions", 
-            f"{total_predictions:,}",
+            f"{training_overview['total_samples']:,}",
             delta=f"Last: {training_overview['latest_date']}"
         )
     
@@ -363,11 +438,13 @@ def show_overview(latest_data, performance_data, training_overview, action_dist,
         use_container_width=True
     )
 
-def show_latest_analysis(latest_data, show_only_buy=False):
+def show_latest_analysis(latest_data, show_only_buy=False, exclude_hold=False):
     """Show latest analysis page"""
     st.header("📈 Latest Combined Analysis")
     if show_only_buy:
         st.markdown("**Showing only BUY/STRONG_BUY signals - Real-time view of bullish analysis**")
+    elif exclude_hold:
+        st.markdown("**Excluding HOLD positions - Real-time view of active trading signals**")
     else:
         st.markdown("**Real-time view of all analysis sources for each symbol**")
     
@@ -377,8 +454,13 @@ def show_latest_analysis(latest_data, show_only_buy=False):
     if show_only_buy and latest_data.empty:
         st.warning("No BUY/STRONG_BUY signals found in current data")
         return
+    elif exclude_hold and latest_data.empty:
+        st.warning("No active trading signals found (all signals were HOLD)")
+        return
     elif show_only_buy:
         st.success(f"Found {len(latest_data)} BUY/STRONG_BUY signals")
+    elif exclude_hold:
+        st.success(f"Found {len(latest_data)} active trading signals (excluding HOLD)")
     
     # Format the data for better display
     display_df = latest_data.copy()
@@ -444,12 +526,14 @@ def show_latest_analysis(latest_data, show_only_buy=False):
             st.metric("Return %", f"{symbol_data['return_pct']:.3f}%")
             st.metric("Volatility", f"{symbol_data['volatility_20d']:.3f}%")
 
-def show_ml_performance(performance_data, show_only_buy=False):
+def show_ml_performance(performance_data, show_only_buy=False, exclude_hold=False):
     """Show ML performance metrics"""
     st.header("🧠 ML Model Performance")
     
     if show_only_buy:
         st.info("📈 Showing performance for symbols with BUY signals")
+    elif exclude_hold:
+        st.info("🚫 Showing performance excluding HOLD positions")
     
     # Performance table
     st.subheader("Performance by Symbol")
@@ -499,6 +583,8 @@ def show_ml_performance(performance_data, show_only_buy=False):
     action_analysis = load_action_distribution()
     if show_only_buy:
         action_analysis = action_analysis[action_analysis['optimal_action'].isin(['BUY', 'STRONG_BUY'])]
+    elif exclude_hold:
+        action_analysis = action_analysis[action_analysis['optimal_action'] != 'HOLD']
     
     col1, col2 = st.columns(2)
     
@@ -530,13 +616,14 @@ def show_ml_performance(performance_data, show_only_buy=False):
         fig.update_layout(xaxis_title="Position Type", yaxis_title="Win Rate (%)")
         st.plotly_chart(fig, use_container_width=True)
 
-def show_position_win_rates(position_win_rates, show_only_buy=False):
+def show_position_win_rates(position_win_rates, show_only_buy=False, exclude_hold=False):
     """Show win rates by position type"""
     st.header("🎯 Position Win Rates Analysis")
     
     if show_only_buy:
-        position_win_rates = position_win_rates[position_win_rates['position'].isin(['BUY', 'STRONG_BUY'])]
         st.info("📈 Showing win rates for BUY positions only")
+    elif exclude_hold:
+        st.info("� Showing win rates excluding HOLD positions")
     
     st.markdown("**Performance analysis by trading position (filtered for clean data only)**")
     
@@ -631,14 +718,14 @@ def show_position_win_rates(position_win_rates, show_only_buy=False):
         - **Most Active:** {position_win_rates.loc[position_win_rates['total_trades'].idxmax(), 'position']} with {position_win_rates['total_trades'].max():,} trades
         """)
 
-def show_training_data(training_overview, action_dist, show_only_buy=False):
+def show_training_data(training_overview, action_dist, show_only_buy=False, exclude_hold=False):
     """Show training data information"""
     st.header("📚 Training Data Overview")
     
     if show_only_buy:
-        # Filter action distribution to only show BUY actions
-        action_dist = action_dist[action_dist['optimal_action'].isin(['BUY', 'STRONG_BUY'])]
         st.info("📈 Showing training data for BUY signals only")
+    elif exclude_hold:
+        st.info("� Showing training data excluding HOLD positions")
     
     # Training data metrics
     col1, col2, col3 = st.columns(3)
@@ -697,24 +784,30 @@ def show_training_data(training_overview, action_dist, show_only_buy=False):
         use_container_width=True
     )
 
-def show_time_series_analysis(show_only_buy=False):
+def show_time_series_analysis(show_only_buy=False, exclude_hold=False):
     """Show time series analysis"""
     st.header("📊 Time Series Analysis")
     
     if show_only_buy:
         st.info("📈 Time series data filtered for BUY/STRONG_BUY signals")
+    elif exclude_hold:
+        st.info("🚫 Time series data excluding HOLD positions")
     
     # Date range selector
     days = st.slider("Select time range (days)", 7, 60, 30)
     time_data = load_time_series_data(days)
     
-    # Apply BUY filter if selected
+    # Apply filters if selected
     if show_only_buy and not time_data.empty:
         time_data = time_data[time_data['optimal_action'].isin(['BUY', 'STRONG_BUY'])]
+    elif exclude_hold and not time_data.empty:
+        time_data = time_data[time_data['optimal_action'] != 'HOLD']
     
     if time_data.empty:
         if show_only_buy:
             st.warning("No BUY/STRONG_BUY signals found for the selected time range")
+        elif exclude_hold:
+            st.warning("No active trading signals found for the selected time range (excluding HOLD)")
         else:
             st.warning("No data available for the selected time range")
         return

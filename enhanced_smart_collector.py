@@ -109,7 +109,7 @@ class EnhancedSmartCollector:
                     entry_price = pred['entry_price']
                     
                     # Calculate return
-                    return_pct = (current_price - entry_price) / entry_price
+                    return_pct = ((current_price - entry_price) / entry_price) * 100
                     
                     # Record outcome in database
                     outcome_success = self.record_trading_outcome(pred, current_price, return_pct)

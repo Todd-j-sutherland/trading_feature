@@ -103,7 +103,7 @@ class CorrectedSmartCollector:
                     entry_price = feature['entry_price']
                     
                     # Calculate return
-                    return_pct = (current_price - entry_price) / entry_price
+                    return_pct = ((current_price - entry_price) / entry_price) * 100
                     
                     # Record outcome in database
                     outcome_success = self.record_enhanced_outcome(feature, current_price, return_pct)

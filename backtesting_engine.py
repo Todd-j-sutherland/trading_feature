@@ -235,7 +235,7 @@ class BacktestingEngine:
             if row['signal'] in ['BUY', 'SELL']:
                 # Calculate return based on actual price data
                 if row['entry_price'] > 0 and row['exit_price'] > 0:
-                    return_pct = (row['exit_price'] - row['entry_price']) / row['entry_price']
+                    return_pct = ((row['exit_price'] - row['entry_price']) / row['entry_price']) * 100
                     
                     # For SELL signals, invert the return (short position)
                     if row['signal'] == 'SELL':

@@ -133,7 +133,7 @@ class TargetedBackfill:
         
         try:
             # Calculate return percentage
-            return_pct = (exit_price - entry_price) / entry_price if entry_price > 0 else 0
+            return_pct = ((exit_price - entry_price) / entry_price) * 100 if entry_price > 0 else 0
             price_magnitude = abs(return_pct)
             
             cursor.execute('''

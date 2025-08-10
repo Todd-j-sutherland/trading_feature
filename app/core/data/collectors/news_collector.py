@@ -132,7 +132,7 @@ class SmartCollector:
                     entry_price = signal['current_price']
                     
                     # Calculate return
-                    return_pct = (current_price - entry_price) / entry_price
+                    return_pct = ((current_price - entry_price) / entry_price) * 100
                     
                     # Record outcome
                     outcome_data = {
