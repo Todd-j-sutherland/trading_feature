@@ -201,6 +201,27 @@ class EnhancedMorningAnalyzer:
                             self.logger.info(f"✅ {symbol}: Enhanced prediction generated ({feature_count} features)")
                             self.logger.info(f"   - Action: {ml_prediction['optimal_action']}")
                             self.logger.info(f"   - Confidence: {ml_prediction['confidence_scores']['average']:.3f}")
+                            
+                            # BUGFIX: Record enhanced outcomes - this was missing!
+                            try:
+                                outcome_data = {
+                                    'prediction_timestamp': datetime.now().isoformat(),
+                                    'price_direction_1h': ml_prediction['direction_predictions']['1h'],
+                                    'price_direction_4h': ml_prediction['direction_predictions']['4h'],
+                                    'price_direction_1d': ml_prediction['direction_predictions']['1d'],
+                                    'price_magnitude_1h': ml_prediction['magnitude_predictions']['1h'],
+                                    'price_magnitude_4h': ml_prediction['magnitude_predictions']['4h'],
+                                    'price_magnitude_1d': ml_prediction['magnitude_predictions']['1d'],
+                                    'optimal_action': ml_prediction['optimal_action'],
+                                    'confidence_score': ml_prediction['confidence_scores']['average'],
+                                    'entry_price': technical_result.get('current_price', 0),
+                                    'exit_timestamp': datetime.now().isoformat(),
+                                    'return_pct': 0  # Will be updated later with actual outcomes
+                                }
+                                self.enhanced_pipeline.record_enhanced_outcomes(feature_id, symbol, outcome_data)
+                                self.logger.info(f"✅ {symbol}: Enhanced outcomes recorded (feature_id: {feature_id})")
+                            except Exception as outcome_error:
+                                self.logger.error(f"❌ {symbol}: Failed to record outcomes - {outcome_error}")
                         else:
                             self.logger.warning(f"❌ {symbol}: ML prediction failed - {ml_prediction['error']}")
                     
