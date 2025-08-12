@@ -819,20 +819,44 @@ class EnhancedMLTrainingPipeline:
             # Load models
             direction_model_path = os.path.join(self.models_dir, 'current_direction_model.pkl')
             magnitude_model_path = os.path.join(self.models_dir, 'current_magnitude_model.pkl')
+            metadata_path = os.path.join(self.models_dir, 'current_enhanced_metadata.json')
             
-            if not (os.path.exists(direction_model_path) and os.path.exists(magnitude_model_path)):
-                # Fallback to basic prediction based on sentiment and technical indicators
-                return self._fallback_prediction(features, sentiment_data, symbol)
+            # Check if all required model files exist
+            missing_files = []
+            if not os.path.exists(direction_model_path):
+                missing_files.append('direction model')
+            if not os.path.exists(magnitude_model_path):
+                missing_files.append('magnitude model')
+            if not os.path.exists(metadata_path):
+                missing_files.append('metadata')
             
-            direction_model = joblib.load(direction_model_path)
-            magnitude_model = joblib.load(magnitude_model_path)
+            if missing_files:
+                error_msg = f"ML models not available for {symbol}: missing {', '.join(missing_files)}. Please retrain models or use manual analysis."
+                logger.error(error_msg)
+                return {'error': error_msg, 'requires_manual_analysis': True}
+            
+            try:
+                direction_model = joblib.load(direction_model_path)
+                magnitude_model = joblib.load(magnitude_model_path)
+            except Exception as e:
+                error_msg = f"Failed to load ML models for {symbol}: {str(e)}. Models may be corrupted."
+                logger.error(error_msg)
+                return {'error': error_msg, 'requires_model_retraining': True}
             
             # Prepare feature vector
-            metadata_path = os.path.join(self.models_dir, 'current_enhanced_metadata.json')
-            with open(metadata_path, 'r') as f:
-                metadata = json.load(f)
+            try:
+                with open(metadata_path, 'r') as f:
+                    metadata = json.load(f)
+            except Exception as e:
+                error_msg = f"Failed to load model metadata for {symbol}: {str(e)}"
+                logger.error(error_msg)
+                return {'error': error_msg, 'requires_model_retraining': True}
             
-            feature_columns = metadata['feature_columns']
+            feature_columns = metadata.get('feature_columns', [])
+            if not feature_columns:
+                error_msg = f"Invalid model metadata for {symbol}: no feature columns defined"
+                logger.error(error_msg)
+                return {'error': error_msg, 'requires_model_retraining': True}
             feature_vector = [features.get(col, 0) for col in feature_columns]
             X = np.array(feature_vector).reshape(1, -1)
             
@@ -881,89 +905,38 @@ class EnhancedMLTrainingPipeline:
             return {'error': str(e)}
     
     def _determine_optimal_action(self, direction_pred: np.ndarray, magnitude_pred: np.ndarray, confidence: float) -> str:
-        """Determine optimal trading action"""
+        """
+        Determine optimal trading action with balanced logic
+        
+        Args:
+            direction_pred: Array of direction predictions (1=up, 0=down) for [1h, 4h, 1d]
+            magnitude_pred: Array of magnitude predictions (% change) for [1h, 4h, 1d]
+            confidence: Average confidence score
+            
+        Returns:
+            Action recommendation: STRONG_BUY, BUY, HOLD, SELL, STRONG_SELL
+        """
         # Average direction (1 = up, 0 = down)
         avg_direction = np.mean(direction_pred)
         avg_magnitude = np.mean(np.abs(magnitude_pred))
         
-        if avg_direction > 0.6 and avg_magnitude > 2.0 and confidence > 0.8:
+        # More balanced thresholds - avoid SELL bias
+        # Strong signals require high confidence AND magnitude
+        if avg_direction >= 0.67 and avg_magnitude > 2.0 and confidence > 0.8:
             return 'STRONG_BUY'
-        elif avg_direction > 0.6 and confidence > 0.6:
-            return 'BUY'
-        elif avg_direction < 0.4 and avg_magnitude > 2.0 and confidence > 0.8:
+        elif avg_direction <= 0.33 and avg_magnitude > 2.0 and confidence > 0.8:
             return 'STRONG_SELL'
-        elif avg_direction < 0.4 and confidence > 0.6:
+        
+        # Regular signals - require moderate confidence
+        elif avg_direction >= 0.6 and confidence > 0.65:
+            return 'BUY' 
+        elif avg_direction <= 0.4 and confidence > 0.65:
             return 'SELL'
+        
+        # Neutral zone - prefer HOLD over risky trades
         else:
             return 'HOLD'
 
-    def _fallback_prediction(self, features: Dict, sentiment_data: Dict, symbol: str) -> Dict:
-        """Fallback prediction when models aren't available"""
-        try:
-            # Use sentiment and technical indicators for basic prediction
-            sentiment_score = sentiment_data.get('overall_sentiment', 0)
-            confidence = sentiment_data.get('confidence', 0.5)
-            rsi = features.get('rsi', 50)
-            momentum_score = features.get('momentum_score', 0)
-            
-            # Simple rule-based prediction
-            # Direction: positive sentiment + technical momentum
-            direction_signal = sentiment_score + (momentum_score / 100)
-            direction_up = 1 if direction_signal > 0 else 0
-            
-            # Magnitude: based on sentiment strength and RSI divergence
-            rsi_divergence = abs(rsi - 50) / 50  # 0 to 1
-            magnitude_base = abs(sentiment_score) * confidence * rsi_divergence
-            
-            # Scale magnitude to reasonable range (0.5% to 3%)
-            magnitude = magnitude_base * 2.5 + 0.5
-            if direction_signal < 0:
-                magnitude = -magnitude
-                
-            # Determine action based on signals
-            if abs(magnitude) > 2.0 and confidence > 0.7:
-                action = 'STRONG_BUY' if magnitude > 0 else 'STRONG_SELL'
-            elif abs(magnitude) > 1.0 and confidence > 0.5:
-                action = 'BUY' if magnitude > 0 else 'SELL'
-            else:
-                action = 'HOLD'
-            
-            return {
-                'direction_predictions': {
-                    '1h': direction_up,
-                    '4h': direction_up,
-                    '1d': direction_up
-                },
-                'magnitude_predictions': {
-                    '1h': round(magnitude * 0.3, 2),  # Shorter timeframe, smaller magnitude
-                    '4h': round(magnitude * 0.7, 2),
-                    '1d': round(magnitude, 2)
-                },
-                'optimal_action': action,
-                'confidence_scores': {
-                    'direction': {'1h': confidence, '4h': confidence, '1d': confidence},
-                    'magnitude': {'1h': confidence * 0.8, '4h': confidence * 0.9, '1d': confidence},
-                    'average': confidence
-                },
-                'timestamp': datetime.now().isoformat(),
-                'prediction_method': 'fallback_rule_based',
-                'features_used': {
-                    'sentiment_score': sentiment_score,
-                    'confidence': confidence,
-                    'rsi': rsi,
-                    'momentum_score': momentum_score
-                }
-            }
-            
-        except Exception as e:
-            return {
-                'error': f'Fallback prediction failed: {str(e)}',
-                'optimal_action': 'HOLD',
-                'confidence_scores': {'average': 0.1},
-                'direction_predictions': {'1h': 0, '4h': 0, '1d': 0},
-                'magnitude_predictions': {'1h': 0.0, '4h': 0.0, '1d': 0.0}
-            }
-    
 # Data Validation Framework
 class DataValidator:
     """Comprehensive data validation framework"""
