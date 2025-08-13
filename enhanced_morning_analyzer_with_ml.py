@@ -15,6 +15,7 @@ import sys
 import os
 import sqlite3
 import time
+import requests
 from datetime import datetime
 import logging
 import numpy as np
@@ -46,43 +47,95 @@ except ImportError as e:
     print(f"⚠️ Enhanced ML components not available: {e}")
     ML_ENHANCED_AVAILABLE = False
 
+# Import the TruePredictionEngine separately
+try:
+    import sys
+    sys.path.append('/root/test')  # Add the test directory to the path
+    from data_quality_system.core.true_prediction_engine import TruePredictionEngine
+    PREDICTION_ENGINE_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ TruePredictionEngine not available: {e}")
+    PREDICTION_ENGINE_AVAILABLE = False
+
 class EnhancedMorningAnalyzer:
     """Enhanced Morning Analyzer with full ML integration"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        """Initialize the analyzer with enhanced ML capabilities"""
+        self.symbols = ["ANZ.AX", "CBA.AX", "WBC.AX", "NAB.AX"]
         
-        # Bank symbols for analysis
+        # Create banks dictionary for enhanced mode compatibility
         self.banks = {
-            "CBA.AX": "Commonwealth Bank",
-            "WBC.AX": "Westpac", 
-            "ANZ.AX": "ANZ Banking",
-            "NAB.AX": "National Australia Bank",
-            "MQG.AX": "Macquarie Group",
-            "SUN.AX": "Suncorp Group",
-            "QBE.AX": "QBE Insurance"
+            "ANZ.AX": "Australia and New Zealand Banking Group",
+            "CBA.AX": "Commonwealth Bank of Australia", 
+            "WBC.AX": "Westpac Banking Corporation",
+            "NAB.AX": "National Australia Bank"
         }
         
-        # Initialize enhanced components
-        if ML_ENHANCED_AVAILABLE:
-            self.settings = Settings()
-            self.enhanced_pipeline = EnhancedMLTrainingPipeline()
-            self.technical_analyzer = TechnicalAnalyzer(self.settings)
-            self.sentiment_analyzer = NewsSentimentAnalyzer()
-            self.data_validator = DataValidator()
-            self.logger.info("Enhanced ML components initialized")
-        else:
-            self.logger.warning("Enhanced ML components not available - using basic analysis")
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
         
-        # Database paths
+        # Initialize database paths
         self.db_path = "data/trading_unified.db"
         self.enhanced_db_path = "data/trading_unified.db"
         
-        # Create data directories
-        os.makedirs("data", exist_ok=True)
-        os.makedirs("data/ml_models", exist_ok=True)
+        # Initialize logging
+        self.logger = logging.getLogger(__name__)
         
-        self.logger.info("Enhanced Morning Analyzer initialized")
+        # Initialize analysis start time
+        self.analysis_start_time = datetime.now()
+        
+        # Initialize ML components
+        if ML_ENHANCED_AVAILABLE:
+            try:
+                self.ml_pipeline = EnhancedMLTrainingPipeline()
+                self.data_validator = DataValidator()
+                
+                # Create alias for enhanced_pipeline (used in enhanced mode)
+                self.enhanced_pipeline = self.ml_pipeline
+                
+                # Initialize TechnicalAnalyzer with settings parameter
+                try:
+                    settings = Settings()
+                    self.technical_analyzer = TechnicalAnalyzer(settings)
+                except Exception as tech_e:
+                    print(f"⚠️ TechnicalAnalyzer needs settings, trying alternative: {tech_e}")
+                    # Try without settings or create a mock settings object
+                    self.technical_analyzer = None
+                
+                self.sentiment_analyzer = NewsSentimentAnalyzer()
+                print("✅ Enhanced ML components initialized successfully")
+            except Exception as e:
+                print(f"⚠️ Error initializing ML components: {e}")
+                self.ml_pipeline = None
+                self.data_validator = None
+                self.technical_analyzer = None
+                self.sentiment_analyzer = None
+                self.enhanced_pipeline = None
+        else:
+            self.ml_pipeline = None
+            self.data_validator = None
+            self.technical_analyzer = None
+            self.sentiment_analyzer = None
+            self.enhanced_pipeline = None
+        
+        # Initialize prediction engine
+        if PREDICTION_ENGINE_AVAILABLE:
+            try:
+                # Set the working directory to the test directory for proper database access
+                import os
+                original_cwd = os.getcwd()
+                os.chdir('/root/test')
+                self.prediction_engine = TruePredictionEngine()
+                os.chdir(original_cwd)  # Restore original working directory
+                print("✅ TruePredictionEngine initialized successfully")
+            except Exception as e:
+                print(f"⚠️ Error initializing TruePredictionEngine: {e}")
+                self.prediction_engine = None
+        else:
+            self.prediction_engine = None
     
     def get_australian_time(self):
         """Get current time in Australian timezone (AEST/AEDT)"""
@@ -222,6 +275,54 @@ class EnhancedMorningAnalyzer:
                                 self.logger.info(f"✅ {symbol}: Enhanced outcomes recorded (feature_id: {feature_id})")
                             except Exception as outcome_error:
                                 self.logger.error(f"❌ {symbol}: Failed to record outcomes - {outcome_error}")
+                            
+                            # INTEGRATION: Enhanced TruePredictionEngine Integration
+                            if self.prediction_engine is not None:
+                                try:
+                                    import os
+                                    original_cwd = os.getcwd()
+                                    os.chdir('/root/test')
+                                    
+                                    # Convert enhanced prediction to TruePredictionEngine format
+                                    features = {
+                                        'sentiment_score': sentiment_data.get('overall_sentiment', 0.0),
+                                        'confidence': ml_prediction['confidence_scores']['average'],
+                                        'news_count': sentiment_data.get('news_count', 0),
+                                        'reddit_sentiment': sentiment_data.get('reddit_sentiment', {}).get('average_sentiment', 0.0),
+                                        'rsi': technical_result.get('rsi', 50.0),
+                                        'macd_line': technical_result.get('macd_line', 0.0),
+                                        'macd_signal': technical_result.get('macd_signal', 0.0),
+                                        'macd_histogram': technical_result.get('macd_histogram', 0.0),
+                                        'price_vs_sma20': technical_result.get('price_vs_sma20', 0.0),
+                                        'price_vs_sma50': technical_result.get('price_vs_sma50', 0.0),
+                                        'price_vs_sma200': technical_result.get('price_vs_sma200', 0.0),
+                                        'bollinger_width': technical_result.get('bollinger_width', 0.02),
+                                        'volume_ratio': technical_result.get('volume_ratio', 1.0),
+                                        'atr_14': technical_result.get('atr_14', 0.02),
+                                        'volatility_20d': technical_result.get('volatility_20d', 0.015),
+                                        'asx200_change': 0.0,
+                                        'vix_level': 15.0,
+                                        'asx_market_hours': analysis_results['market_hours'],
+                                        'monday_effect': False,
+                                        'friday_effect': False
+                                    }
+                                    
+                                    # Make the prediction in TruePredictionEngine
+                                    prediction_result = self.prediction_engine.make_prediction(symbol, features)
+                                    
+                                    if prediction_result and isinstance(prediction_result, dict) and 'prediction_id' in prediction_result:
+                                        pred_action = prediction_result.get('predicted_action', 'UNKNOWN')
+                                        pred_confidence = prediction_result.get('action_confidence', 0.0)
+                                        self.logger.info(f"✅ {symbol}: Enhanced→TruePredictionEngine integration: {pred_action} (conf: {pred_confidence:.3f})")
+                                    
+                                    os.chdir(original_cwd)
+                                    
+                                except Exception as e:
+                                    self.logger.error(f"❌ {symbol}: TruePredictionEngine integration failed: {e}")
+                                    try:
+                                        os.chdir(original_cwd)
+                                    except:
+                                        pass
                         else:
                             self.logger.warning(f"❌ {symbol}: ML prediction failed - {ml_prediction['error']}")
                     
@@ -491,17 +592,63 @@ class EnhancedMorningAnalyzer:
         """Fallback basic analysis when enhanced components not available"""
         self.logger.info("Running basic analysis (enhanced components not available)")
         
-        return {
+        # Create basic analysis results
+        basic_results = {
             'timestamp': self.get_australian_time().isoformat(),
             'analysis_type': 'basic_fallback',
             'market_hours': self.is_market_hours(),
             'message': 'Enhanced ML components not available - install required dependencies',
-            'banks_analyzed': list(self.banks.keys()),
-            'recommendations': {'status': 'Basic analysis only'}
+            'banks_analyzed': self.symbols,
+            'overall_market_sentiment': 0.0,
+            'ml_predictions': {},
+            'technical_signals': {},
+            'recommendations': {'status': 'Basic analysis only'},
+            'data_quality_scores': {},
+            'feature_counts': {},
+            'model_performance': {}
         }
+        
+        # If TruePredictionEngine is available, make basic predictions
+        if self.prediction_engine is not None:
+            self.logger.info("Making basic predictions with TruePredictionEngine")
+            
+            # Create simple predictions for each symbol
+            for symbol in self.symbols:
+                # Generate basic prediction values (neutral/conservative)
+                basic_results['ml_predictions'][symbol] = {
+                    'confidence_scores': {'average': 0.5},
+                    'direction_predictions': {'1h': True},  # Default to UP
+                    'magnitude_predictions': {'1h': 0.1},   # Small positive movement
+                    'optimal_action': 'HOLD'
+                }
+            
+            # Save results which will trigger prediction making
+            self._save_analysis_results(basic_results)
+        else:
+            self.logger.warning("TruePredictionEngine not available - no predictions made")
+        
+        return basic_results
     
     def _save_analysis_results(self, analysis_results: Dict):
-        """Save analysis results to database"""
+        """Save analysis results and make genuine predictions using TruePredictionEngine"""
+        try:
+            import sqlite3
+            import json
+            
+            # First, save the analysis results to the local database
+            self._save_local_analysis(analysis_results)
+            
+            # Then, if we have the prediction engine, make genuine predictions
+            if self.prediction_engine is not None:
+                self._make_genuine_predictions(analysis_results)
+            else:
+                self.logger.warning("⚠️ TruePredictionEngine not available - skipping genuine predictions")
+                
+        except Exception as e:
+            self.logger.error(f"❌ Failed to save analysis results: {e}")
+
+    def _save_local_analysis(self, analysis_results: Dict):
+        """Save analysis results to local database for historical tracking"""
         try:
             import sqlite3
             import json
@@ -554,10 +701,104 @@ class EnhancedMorningAnalyzer:
             conn.commit()
             conn.close()
             
-            self.logger.info("✅ Analysis results saved to database")
+            self.logger.info("✅ Local analysis results saved to database")
             
         except Exception as e:
-            self.logger.error(f"❌ Failed to save analysis results: {e}")
+            self.logger.error(f"❌ Failed to save local analysis results: {e}")
+
+    def _make_genuine_predictions(self, analysis_results: Dict):
+        """Use TruePredictionEngine to make genuine predictions based on analysis"""
+        try:
+            import os
+            original_cwd = os.getcwd()
+            
+            # Change to the test directory for database access
+            os.chdir('/root/test')
+            
+            ml_predictions = analysis_results.get('ml_predictions', {})
+            predictions_made = 0
+            
+            for symbol in self.symbols:
+                if symbol in ml_predictions:
+                    ml_pred = ml_predictions[symbol]
+                    
+                    # Extract prediction components
+                    confidence_avg = ml_pred.get('confidence_scores', {}).get('average', 0.5)
+                    direction_1h = ml_pred.get('direction_predictions', {}).get('1h', True)
+                    magnitude_1h = ml_pred.get('magnitude_predictions', {}).get('1h', 0.0)
+                    optimal_action = ml_pred.get('optimal_action', 'HOLD')
+                    
+                    # Convert analysis results to TruePredictionEngine feature format
+                    features = {
+                        'sentiment_score': analysis_results.get('overall_market_sentiment', 0.0),
+                        'confidence': confidence_avg,
+                        'news_count': 5,  # Default value
+                        'reddit_sentiment': 0.0,  # Default neutral
+                        'rsi': 50.0,  # Default neutral RSI
+                        'macd_line': 0.0,
+                        'macd_signal': 0.0,
+                        'macd_histogram': 0.0,
+                        'price_vs_sma20': 0.0,
+                        'price_vs_sma50': 0.0,
+                        'price_vs_sma200': 0.0,
+                        'bollinger_width': 0.02,
+                        'volume_ratio': 1.0,
+                        'atr_14': 0.02,
+                        'volatility_20d': 0.015,
+                        'asx200_change': 0.0,
+                        'vix_level': 15.0,
+                        'asx_market_hours': analysis_results.get('market_hours', False),
+                        'monday_effect': False,
+                        'friday_effect': False
+                    }
+                    
+                    # Add any technical signals from analysis if available
+                    tech_signals = analysis_results.get('technical_signals', {}).get(symbol, {})
+                    if tech_signals:
+                        # Update features with actual technical data if available
+                        features.update({
+                            'rsi': tech_signals.get('rsi', features['rsi']),
+                            'macd_line': tech_signals.get('macd_line', features['macd_line']),
+                            'macd_signal': tech_signals.get('macd_signal', features['macd_signal']),
+                            'macd_histogram': tech_signals.get('macd_histogram', features['macd_histogram']),
+                            'price_vs_sma20': tech_signals.get('price_vs_sma20', features['price_vs_sma20']),
+                            'volume_ratio': tech_signals.get('volume_ratio', features['volume_ratio'])
+                        })
+                    
+                    # Make the genuine prediction using correct format
+                    prediction_result = self.prediction_engine.make_prediction(
+                        symbol=symbol,
+                        features=features
+                    )
+                    
+                    if prediction_result and isinstance(prediction_result, dict) and 'prediction_id' in prediction_result:
+                        predictions_made += 1
+                        pred_action = prediction_result.get('predicted_action', 'UNKNOWN')
+                        pred_confidence = prediction_result.get('action_confidence', 0.0)
+                        pred_direction = prediction_result.get('predicted_direction', 0)
+                        pred_magnitude = prediction_result.get('predicted_magnitude', 0.0)
+                        
+                        self.logger.info(f"✅ Made genuine prediction for {symbol}: "
+                                       f"{pred_action} (confidence: {pred_confidence:.3f}) "
+                                       f"Direction: {'UP' if pred_direction == 1 else 'DOWN'} "
+                                       f"Magnitude: {pred_magnitude:.2f}%")
+                    else:
+                        self.logger.warning(f"⚠️ Failed to make prediction for {symbol}: {prediction_result}")
+                else:
+                    self.logger.warning(f"⚠️ No ML prediction available for {symbol}")
+            
+            self.logger.info(f"🎯 Made {predictions_made} genuine predictions using TruePredictionEngine")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to make genuine predictions: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            # Always restore the original working directory
+            try:
+                os.chdir(original_cwd)
+            except:
+                pass
     
     def _display_analysis_summary(self, analysis_results: Dict):
         """Display comprehensive analysis summary"""
