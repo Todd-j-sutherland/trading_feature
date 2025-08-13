@@ -286,31 +286,45 @@ class EnhancedMorningAnalyzer:
                                 try:
                                     import os
                                     original_cwd = os.getcwd()
-                                    os.chdir('/root/test')
+                                    # No need to change directory for local development
                                     
-                                    # Convert enhanced prediction to TruePredictionEngine format with FULL DATA
+                                    # Convert enhanced prediction to TruePredictionEngine format with REAL DATA
+                                    indicators = technical_result.get('indicators', {})
+                                    macd = indicators.get('macd', {})
+                                    sma = indicators.get('sma', {})
+                                    
+                                    # Calculate price vs SMA ratios for real technical signals
+                                    current_price = technical_result.get('current_price', 0.0)
+                                    sma20 = sma.get('sma_20', current_price)
+                                    sma50 = sma.get('sma_50', current_price)
+                                    sma200 = sma.get('sma_200', current_price)
+                                    
+                                    price_vs_sma20 = ((current_price - sma20) / sma20 * 100) if sma20 > 0 else 0.0
+                                    price_vs_sma50 = ((current_price - sma50) / sma50 * 100) if sma50 > 0 else 0.0
+                                    price_vs_sma200 = ((current_price - sma200) / sma200 * 100) if sma200 > 0 else 0.0
+                                    
                                     features = {
                                         'sentiment_score': sentiment_data.get('overall_sentiment', 0.0),
                                         'confidence': ml_prediction['confidence_scores']['average'],
                                         'news_count': sentiment_data.get('news_count', 0),
                                         'reddit_sentiment': sentiment_data.get('reddit_sentiment', {}).get('average_sentiment', 0.0),
-                                        'rsi': technical_result.get('indicators', {}).get('rsi', 50.0),
-                                        'macd_line': technical_result.get('indicators', {}).get('macd_line', 0.0),
-                                        'macd_signal': technical_result.get('indicators', {}).get('macd_signal', 0.0),
-                                        'macd_histogram': technical_result.get('indicators', {}).get('macd_histogram', 0.0),
-                                        'price_vs_sma20': technical_result.get('price_vs_sma20', 0.0),
-                                        'price_vs_sma50': technical_result.get('price_vs_sma50', 0.0),
-                                        'price_vs_sma200': technical_result.get('price_vs_sma200', 0.0),
+                                        'rsi': indicators.get('rsi', 50.0),
+                                        'macd_line': macd.get('line', 0.0),
+                                        'macd_signal': macd.get('signal', 0.0),
+                                        'macd_histogram': macd.get('histogram', 0.0),
+                                        'price_vs_sma20': price_vs_sma20,
+                                        'price_vs_sma50': price_vs_sma50,
+                                        'price_vs_sma200': price_vs_sma200,
                                         'bollinger_width': technical_result.get('bollinger_width', 0.02),
-                                        'volume_ratio': technical_result.get('volume_ratio', 1.0),
+                                        'volume_ratio': indicators.get('volume', {}).get('volume_ratio', 1.0),
                                         'atr_14': technical_result.get('atr_14', 0.02),
                                         'volatility_20d': technical_result.get('volatility_20d', 0.015),
-                                        'current_price': technical_result.get('current_price', 0.0),
-                                        'asx200_change': 0.0,
-                                        'vix_level': 15.0,
+                                        'current_price': current_price,
+                                        'asx200_change': 0.0,  # TODO: Fetch real ASX200 data
+                                        'vix_level': 15.0,  # TODO: Fetch real VIX data
                                         'asx_market_hours': analysis_results['market_hours'],
-                                        'monday_effect': False,
-                                        'friday_effect': False,
+                                        'monday_effect': datetime.now().weekday() == 0,  # Real Monday check
+                                        'friday_effect': datetime.now().weekday() == 4,  # Real Friday check
                                         # ENHANCED: Add ML prediction data for richer training
                                         'direction_prediction_1h': 1 if ml_prediction['direction_predictions']['1h'] else -1,
                                         'direction_prediction_4h': 1 if ml_prediction['direction_predictions']['4h'] else -1,
@@ -330,14 +344,11 @@ class EnhancedMorningAnalyzer:
                                         pred_confidence = prediction_result.get('action_confidence', 0.0)
                                         self.logger.info(f"✅ {symbol}: Enhanced→TruePredictionEngine integration: {pred_action} (conf: {pred_confidence:.3f})")
                                     
-                                    os.chdir(original_cwd)
+                                    # No need to restore directory in local development
                                     
                                 except Exception as e:
                                     self.logger.error(f"❌ {symbol}: TruePredictionEngine integration failed: {e}")
-                                    try:
-                                        os.chdir(original_cwd)
-                                    except:
-                                        pass
+                                    # No directory restoration needed
                         else:
                             self.logger.warning(f"❌ {symbol}: ML prediction failed - {ml_prediction['error']}")
                     
