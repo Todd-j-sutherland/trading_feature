@@ -40,7 +40,7 @@ def get_db_connection():
 
 # Remove caching to ensure fresh data
 def load_latest_combined_data():
-    """Load the latest combined analysis data for each symbol from new prediction system"""
+    """Load the latest combined analysis data for each symbol from new prediction system with REAL DATA"""
     query = """
     WITH latest_predictions AS (
         SELECT 
@@ -50,8 +50,15 @@ def load_latest_combined_data():
             p.action_confidence as ml_confidence,
             p.predicted_direction,
             p.predicted_magnitude,
+            -- Extract real features from JSON if available
+            json_extract(p.features, '$.sentiment_score') as sentiment_score,
+            json_extract(p.features, '$.rsi') as rsi,
+            json_extract(p.features, '$.current_price') as current_price,
+            json_extract(p.features, '$.news_count') as news_count,
+            json_extract(p.features, '$.volatility_20d') as volatility_20d,
+            json_extract(p.features, '$.macd_line') as macd_line,
             o.actual_return as return_pct,
-            o.entry_price as current_price,
+            o.entry_price,
             ROW_NUMBER() OVER (PARTITION BY p.symbol ORDER BY p.prediction_timestamp DESC) as rn
         FROM predictions p
         LEFT JOIN outcomes o ON p.prediction_id = o.prediction_id
@@ -59,15 +66,19 @@ def load_latest_combined_data():
     SELECT 
         symbol,
         timestamp,
-        0.0 as sentiment_score,
-        0.0 as sentiment_confidence,
-        0 as news_count,
-        0.0 as reddit_sentiment,
-        0.0 as rsi,
-        0.0 as macd_line,
-        COALESCE(current_price, 0.0) as current_price,
-        0.0 as price_change_1d,
-        0.0 as volatility_20d,
+        COALESCE(sentiment_score, 0.0) as sentiment_score,
+        0.0 as sentiment_confidence,  -- Not stored separately
+        COALESCE(news_count, 0) as news_count,
+        0.0 as reddit_sentiment,  -- Not stored separately
+        COALESCE(rsi, 50.0) as rsi,
+        COALESCE(macd_line, 0.0) as macd_line,
+        COALESCE(CASE 
+            WHEN current_price > 0 THEN current_price
+            WHEN entry_price > 0 THEN entry_price
+            ELSE 0.0
+        END, 0.0) as current_price,
+        0.0 as price_change_1d,  -- Could be calculated from price history
+        COALESCE(volatility_20d, 0.015) as volatility_20d,
         optimal_action,
         ml_confidence,
         COALESCE(return_pct, 0.0) as return_pct,
@@ -222,15 +233,21 @@ def load_position_win_rates():
 
 #@st.cache_data(ttl=300) - REMOVED FOR FRESH DATA
 def load_time_series_data(days=30):
-    """Load time series data for charts from new prediction system"""
+    """Load time series data for charts from new prediction system with REAL DATA"""
     query = """
     SELECT 
         p.symbol,
         p.prediction_timestamp as timestamp,
-        0.0 as sentiment_score,
+        COALESCE(json_extract(p.features, '$.sentiment_score'), 0.0) as sentiment_score,
         0.0 as sentiment_confidence,
-        0.0 as rsi,
-        o.entry_price as current_price,
+        COALESCE(json_extract(p.features, '$.rsi'), 50.0) as rsi,
+        COALESCE(
+            CASE 
+                WHEN json_extract(p.features, '$.current_price') > 0 THEN json_extract(p.features, '$.current_price')
+                WHEN o.entry_price > 0 THEN o.entry_price
+                ELSE 0.0
+            END, 0.0
+        ) as current_price,
         p.predicted_action as optimal_action,
         p.action_confidence as ml_confidence,
         o.actual_return as return_pct

@@ -276,6 +276,11 @@ class EnhancedMorningAnalyzer:
                             except Exception as outcome_error:
                                 self.logger.error(f"❌ {symbol}: Failed to record outcomes - {outcome_error}")
                             
+                            # Calculate data quality score for TruePredictionEngine integration
+                            quality_score = self._calculate_data_quality_score(
+                                sentiment_data, technical_result, market_data
+                            )
+                            
                             # INTEGRATION: Enhanced TruePredictionEngine Integration
                             if self.prediction_engine is not None:
                                 try:
@@ -283,16 +288,16 @@ class EnhancedMorningAnalyzer:
                                     original_cwd = os.getcwd()
                                     os.chdir('/root/test')
                                     
-                                    # Convert enhanced prediction to TruePredictionEngine format
+                                    # Convert enhanced prediction to TruePredictionEngine format with FULL DATA
                                     features = {
                                         'sentiment_score': sentiment_data.get('overall_sentiment', 0.0),
                                         'confidence': ml_prediction['confidence_scores']['average'],
                                         'news_count': sentiment_data.get('news_count', 0),
                                         'reddit_sentiment': sentiment_data.get('reddit_sentiment', {}).get('average_sentiment', 0.0),
-                                        'rsi': technical_result.get('rsi', 50.0),
-                                        'macd_line': technical_result.get('macd_line', 0.0),
-                                        'macd_signal': technical_result.get('macd_signal', 0.0),
-                                        'macd_histogram': technical_result.get('macd_histogram', 0.0),
+                                        'rsi': technical_result.get('indicators', {}).get('rsi', 50.0),
+                                        'macd_line': technical_result.get('indicators', {}).get('macd_line', 0.0),
+                                        'macd_signal': technical_result.get('indicators', {}).get('macd_signal', 0.0),
+                                        'macd_histogram': technical_result.get('indicators', {}).get('macd_histogram', 0.0),
                                         'price_vs_sma20': technical_result.get('price_vs_sma20', 0.0),
                                         'price_vs_sma50': technical_result.get('price_vs_sma50', 0.0),
                                         'price_vs_sma200': technical_result.get('price_vs_sma200', 0.0),
@@ -300,11 +305,21 @@ class EnhancedMorningAnalyzer:
                                         'volume_ratio': technical_result.get('volume_ratio', 1.0),
                                         'atr_14': technical_result.get('atr_14', 0.02),
                                         'volatility_20d': technical_result.get('volatility_20d', 0.015),
+                                        'current_price': technical_result.get('current_price', 0.0),
                                         'asx200_change': 0.0,
                                         'vix_level': 15.0,
                                         'asx_market_hours': analysis_results['market_hours'],
                                         'monday_effect': False,
-                                        'friday_effect': False
+                                        'friday_effect': False,
+                                        # ENHANCED: Add ML prediction data for richer training
+                                        'direction_prediction_1h': 1 if ml_prediction['direction_predictions']['1h'] else -1,
+                                        'direction_prediction_4h': 1 if ml_prediction['direction_predictions']['4h'] else -1,
+                                        'direction_prediction_1d': 1 if ml_prediction['direction_predictions']['1d'] else -1,
+                                        'magnitude_prediction_1h': ml_prediction['magnitude_predictions']['1h'],
+                                        'magnitude_prediction_4h': ml_prediction['magnitude_predictions']['4h'],
+                                        'magnitude_prediction_1d': ml_prediction['magnitude_predictions']['1d'],
+                                        'optimal_action_encoded': self._encode_action(ml_prediction['optimal_action']),
+                                        'data_quality_score': quality_score / 100.0  # Normalize to 0-1
                                     }
                                     
                                     # Make the prediction in TruePredictionEngine
@@ -338,10 +353,7 @@ class EnhancedMorningAnalyzer:
                     
                     analysis_results['banks_analyzed'].append(symbol)
                     
-                    # Calculate data quality score
-                    quality_score = self._calculate_data_quality_score(
-                        sentiment_data, technical_result, market_data
-                    )
+                    # Store data quality score for this symbol
                     analysis_results['data_quality_scores'][symbol] = quality_score
                     
                     self.logger.info(f"✅ {symbol}: Complete analysis finished (Quality: {quality_score:.1f}%)")
@@ -706,6 +718,17 @@ class EnhancedMorningAnalyzer:
         except Exception as e:
             self.logger.error(f"❌ Failed to save local analysis results: {e}")
 
+    def _encode_action(self, action: str) -> int:
+        """Encode trading action to numeric value for ML training"""
+        action_map = {
+            'STRONG_SELL': -2,
+            'SELL': -1,
+            'HOLD': 0,
+            'BUY': 1,
+            'STRONG_BUY': 2
+        }
+        return action_map.get(action, 0)
+    
     def _make_genuine_predictions(self, analysis_results: Dict):
         """Use TruePredictionEngine to make genuine predictions based on analysis"""
         try:
@@ -758,12 +781,25 @@ class EnhancedMorningAnalyzer:
                         # Update features with actual technical data if available
                         features.update({
                             'rsi': tech_signals.get('rsi', features['rsi']),
-                            'macd_line': tech_signals.get('macd_line', features['macd_line']),
-                            'macd_signal': tech_signals.get('macd_signal', features['macd_signal']),
-                            'macd_histogram': tech_signals.get('macd_histogram', features['macd_histogram']),
-                            'price_vs_sma20': tech_signals.get('price_vs_sma20', features['price_vs_sma20']),
-                            'volume_ratio': tech_signals.get('volume_ratio', features['volume_ratio'])
+                            'current_price': tech_signals.get('current_price', 0.0),
+                            'sentiment_score': tech_signals.get('sentiment_contribution', features['sentiment_score'])
                         })
+                    
+                    # ENHANCEMENT: Add rich sentiment and news data for training
+                    # This provides much better features for the ML model to learn from
+                    ml_pred_data = ml_predictions.get(symbol, {})
+                    if ml_pred_data:
+                        features.update({
+                            'confidence': ml_pred_data.get('confidence_scores', {}).get('average', 0.5),
+                            'direction_prediction_1h': 1 if ml_pred_data.get('direction_predictions', {}).get('1h', True) else -1,
+                            'magnitude_prediction_1h': ml_pred_data.get('magnitude_predictions', {}).get('1h', 0.0),
+                            'optimal_action_encoded': self._encode_action(ml_pred_data.get('optimal_action', 'HOLD'))
+                        })
+                    
+                    # Add data quality score for training insights
+                    quality_scores = analysis_results.get('data_quality_scores', {})
+                    if symbol in quality_scores:
+                        features['data_quality_score'] = quality_scores[symbol] / 100.0  # Normalize to 0-1
                     
                     # Make the genuine prediction using correct format
                     prediction_result = self.prediction_engine.make_prediction(
