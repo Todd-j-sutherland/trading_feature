@@ -64,16 +64,63 @@ def load_latest_combined_data():
     SELECT 
         symbol,
         timestamp,
-        -- Use placeholder values for features not extractable from numeric array
-        0.0 as sentiment_score,
-        0.0 as sentiment_confidence,
-        0 as news_count,
-        0.0 as reddit_sentiment,
-        50.0 as rsi,  -- Neutral RSI
-        0.0 as macd_line,
-        COALESCE(entry_price, 0.0) as current_price,
-        0.0 as price_change_1d,
-        0.015 as volatility_20d,  -- Default volatility
+        -- Extract real values from feature_vector JSON array
+        -- TruePredictionEngine feature order: [sentiment_score, confidence, news_count, reddit_sentiment, rsi, ...]
+        CASE 
+            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
+                CAST(json_extract(feature_vector, '$[0]') AS REAL)
+            ELSE 0.0 
+        END as sentiment_score,
+        
+        CASE 
+            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
+                CAST(json_extract(feature_vector, '$[1]') AS REAL)
+            ELSE 0.0 
+        END as sentiment_confidence,
+        
+        CASE 
+            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
+                CAST(json_extract(feature_vector, '$[2]') AS INTEGER)
+            ELSE 0 
+        END as news_count,
+        
+        CASE 
+            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
+                CAST(json_extract(feature_vector, '$[3]') AS REAL)
+            ELSE 0.0 
+        END as reddit_sentiment,
+        
+        CASE 
+            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
+                CAST(json_extract(feature_vector, '$[4]') AS REAL)
+            ELSE 50.0 
+        END as rsi,
+        
+        CASE 
+            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
+                CAST(json_extract(feature_vector, '$[5]') AS REAL)
+            ELSE 0.0 
+        END as macd_line,
+        
+        -- Try to get current price from multiple sources
+        COALESCE(
+            CASE 
+                WHEN feature_vector IS NOT NULL AND length(feature_vector) > 15 THEN
+                    CAST(json_extract(feature_vector, '$[15]') AS REAL)
+                ELSE NULL 
+            END,
+            entry_price, 
+            0.0
+        ) as current_price,
+        
+        0.0 as price_change_1d,  -- Calculate from price history later
+        
+        CASE 
+            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 14 THEN
+                CAST(json_extract(feature_vector, '$[14]') AS REAL)
+            ELSE 0.015 
+        END as volatility_20d,
+        
         optimal_action,
         ml_confidence,
         COALESCE(return_pct, 0.0) as return_pct,
@@ -91,6 +138,9 @@ def load_latest_combined_data():
         df = pd.read_sql_query(query, conn)
         conn.close()
         
+        # Enhance data with real-time price information
+        df = enhance_with_current_prices(df)
+        
         # Ensure all numeric columns are properly typed
         numeric_columns = ['sentiment_score', 'sentiment_confidence', 'news_count', 'reddit_sentiment',
                           'rsi', 'macd_line', 'current_price', 'price_change_1d', 'volatility_20d',
@@ -104,6 +154,40 @@ def load_latest_combined_data():
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return pd.DataFrame()
+
+def enhance_with_current_prices(df):
+    """Enhance dataframe with current prices from Yahoo Finance"""
+    try:
+        import yfinance as yf
+        
+        for idx, row in df.iterrows():
+            symbol = row['symbol']
+            try:
+                # Get current price from Yahoo Finance
+                ticker = yf.Ticker(symbol)
+                info = ticker.info
+                current_price = info.get('currentPrice') or info.get('regularMarketPrice') or info.get('previousClose', 0)
+                
+                if current_price and current_price > 0:
+                    df.at[idx, 'current_price'] = current_price
+                    
+                    # Calculate price change if we have previous data
+                    previous_close = info.get('previousClose', 0)
+                    if previous_close and previous_close > 0:
+                        price_change = ((current_price - previous_close) / previous_close) * 100
+                        df.at[idx, 'price_change_1d'] = price_change
+                        
+            except Exception as e:
+                # If price fetch fails, keep existing values
+                continue
+                
+        return df
+    except ImportError:
+        # If yfinance not available, return original dataframe
+        return df
+    except Exception as e:
+        # If any error occurs, return original dataframe
+        return df
 
 # Remove caching to ensure fresh data
 def load_ml_performance_data():
