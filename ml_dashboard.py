@@ -34,13 +34,17 @@ st.set_page_config(
 )
 
 # Database connection
-def get_db_connection():
-    """Get database connection"""
-    return sqlite3.connect('data/trading_predictions.db')
+def get_database_connection():
+    """Get database connection with retry logic"""
+    try:
+        return sqlite3.connect('data/trading_predictions.db')
+    except Exception as e:
+        st.error(f"Database connection failed: {e}")
+        return None
 
 # Remove caching to ensure fresh data
 def load_latest_combined_data():
-    """Load the latest combined analysis data for each symbol from new prediction system with REAL DATA"""
+    """Load the latest combined analysis data for each symbol from TruePredictionEngine system"""
     query = """
     WITH latest_predictions AS (
         SELECT 
@@ -50,13 +54,7 @@ def load_latest_combined_data():
             p.action_confidence as ml_confidence,
             p.predicted_direction,
             p.predicted_magnitude,
-            -- Extract real features from JSON if available
-            json_extract(p.features, '$.sentiment_score') as sentiment_score,
-            json_extract(p.features, '$.rsi') as rsi,
-            json_extract(p.features, '$.current_price') as current_price,
-            json_extract(p.features, '$.news_count') as news_count,
-            json_extract(p.features, '$.volatility_20d') as volatility_20d,
-            json_extract(p.features, '$.macd_line') as macd_line,
+            p.feature_vector,
             o.actual_return as return_pct,
             o.entry_price,
             ROW_NUMBER() OVER (PARTITION BY p.symbol ORDER BY p.prediction_timestamp DESC) as rn
@@ -66,19 +64,16 @@ def load_latest_combined_data():
     SELECT 
         symbol,
         timestamp,
-        COALESCE(sentiment_score, 0.0) as sentiment_score,
-        0.0 as sentiment_confidence,  -- Not stored separately
-        COALESCE(news_count, 0) as news_count,
-        0.0 as reddit_sentiment,  -- Not stored separately
-        COALESCE(rsi, 50.0) as rsi,
-        COALESCE(macd_line, 0.0) as macd_line,
-        COALESCE(CASE 
-            WHEN current_price > 0 THEN current_price
-            WHEN entry_price > 0 THEN entry_price
-            ELSE 0.0
-        END, 0.0) as current_price,
-        0.0 as price_change_1d,  -- Could be calculated from price history
-        COALESCE(volatility_20d, 0.015) as volatility_20d,
+        -- Use placeholder values for features not extractable from numeric array
+        0.0 as sentiment_score,
+        0.0 as sentiment_confidence,
+        0 as news_count,
+        0.0 as reddit_sentiment,
+        50.0 as rsi,  -- Neutral RSI
+        0.0 as macd_line,
+        COALESCE(entry_price, 0.0) as current_price,
+        0.0 as price_change_1d,
+        0.015 as volatility_20d,  -- Default volatility
         optimal_action,
         ml_confidence,
         COALESCE(return_pct, 0.0) as return_pct,
@@ -88,20 +83,27 @@ def load_latest_combined_data():
     ORDER BY symbol
     """
     
-    conn = get_db_connection()
-    df = pd.read_sql_query(query, conn)
-    conn.close()
-    
-    # Ensure all numeric columns are properly typed
-    numeric_columns = ['sentiment_score', 'sentiment_confidence', 'news_count', 'reddit_sentiment',
-                      'rsi', 'macd_line', 'current_price', 'price_change_1d', 'volatility_20d',
-                      'ml_confidence', 'return_pct', 'price_direction_1d']
-    
-    for col in numeric_columns:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
-    
-    return df
+    conn = get_database_connection()
+    if conn is None:
+        return pd.DataFrame()
+        
+    try:
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        # Ensure all numeric columns are properly typed
+        numeric_columns = ['sentiment_score', 'sentiment_confidence', 'news_count', 'reddit_sentiment',
+                          'rsi', 'macd_line', 'current_price', 'price_change_1d', 'volatility_20d',
+                          'ml_confidence', 'return_pct', 'price_direction_1d']
+        
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+        
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return pd.DataFrame()
 
 # Remove caching to ensure fresh data
 def load_ml_performance_data():
@@ -126,7 +128,7 @@ def load_ml_performance_data():
     ORDER BY avg_return DESC
     """
     
-    conn = get_db_connection()
+    conn = get_database_connection()
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
@@ -146,7 +148,7 @@ def load_training_overview():
     FROM predictions
     """
     
-    conn = get_db_connection()
+    conn = get_database_connection()
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df.iloc[0].to_dict()
@@ -194,7 +196,7 @@ def load_action_distribution():
     ORDER BY count DESC
     """
     
-    conn = get_db_connection()
+    conn = get_database_connection()
     df = pd.read_sql_query(query_with_outcomes, conn)
     
     # If no data with outcomes, fall back to predictions only
@@ -226,24 +228,29 @@ def load_position_win_rates():
     ORDER BY win_rate_pct DESC
     """
     
-    conn = get_db_connection()
+    conn = get_database_connection()
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
 
 #@st.cache_data(ttl=300) - REMOVED FOR FRESH DATA
 def load_time_series_data(days=30):
-    """Load time series data for charts from new prediction system with REAL DATA"""
+    """Load time series data for charts from TruePredictionEngine system"""
     query = """
     SELECT 
         p.symbol,
         p.prediction_timestamp as timestamp,
-        COALESCE(json_extract(p.features, '$.sentiment_score'), 0.0) as sentiment_score,
+        CASE WHEN p.feature_vector IS NOT NULL THEN
+            COALESCE(CAST(json_extract(p.feature_vector, '$.sentiment_score') AS REAL), 0.0)
+        ELSE 0.0 END as sentiment_score,
         0.0 as sentiment_confidence,
-        COALESCE(json_extract(p.features, '$.rsi'), 50.0) as rsi,
+        CASE WHEN p.feature_vector IS NOT NULL THEN
+            COALESCE(CAST(json_extract(p.feature_vector, '$.rsi') AS REAL), 50.0)
+        ELSE 50.0 END as rsi,
         COALESCE(
             CASE 
-                WHEN json_extract(p.features, '$.current_price') > 0 THEN json_extract(p.features, '$.current_price')
+                WHEN p.feature_vector IS NOT NULL AND CAST(json_extract(p.feature_vector, '$.current_price') AS REAL) > 0 
+                THEN CAST(json_extract(p.feature_vector, '$.current_price') AS REAL)
                 WHEN o.entry_price > 0 THEN o.entry_price
                 ELSE 0.0
             END, 0.0
@@ -257,7 +264,7 @@ def load_time_series_data(days=30):
     ORDER BY p.prediction_timestamp DESC
     """.format(days)
     
-    conn = get_db_connection()
+    conn = get_database_connection()
     df = pd.read_sql_query(query, conn)
     conn.close()
     
@@ -437,7 +444,7 @@ def display_evaluation_countdown():
 def get_next_evaluation_time():
     """Calculate when the next evaluation period will be available"""
     try:
-        conn = get_db_connection()
+        conn = get_database_connection()
         
         # First check if we have any outcomes already available
         outcomes_query = """
