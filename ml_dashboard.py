@@ -64,63 +64,8 @@ def load_latest_combined_data():
     SELECT 
         symbol,
         timestamp,
-        -- Extract real values from feature_vector JSON array
-        -- TruePredictionEngine feature order: [sentiment_score, confidence, news_count, reddit_sentiment, rsi, ...]
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
-                CAST(json_extract(feature_vector, '$[0]') AS REAL)
-            ELSE 0.0 
-        END as sentiment_score,
-        
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
-                CAST(json_extract(feature_vector, '$[1]') AS REAL)
-            ELSE 0.0 
-        END as sentiment_confidence,
-        
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
-                CAST(json_extract(feature_vector, '$[2]') AS INTEGER)
-            ELSE 0 
-        END as news_count,
-        
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
-                CAST(json_extract(feature_vector, '$[3]') AS REAL)
-            ELSE 0.0 
-        END as reddit_sentiment,
-        
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
-                CAST(json_extract(feature_vector, '$[4]') AS REAL)
-            ELSE 50.0 
-        END as rsi,
-        
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
-                CAST(json_extract(feature_vector, '$[5]') AS REAL)
-            ELSE 0.0 
-        END as macd_line,
-        
-        -- Try to get current price from multiple sources
-        COALESCE(
-            CASE 
-                WHEN feature_vector IS NOT NULL AND length(feature_vector) > 15 THEN
-                    CAST(json_extract(feature_vector, '$[15]') AS REAL)
-                ELSE NULL 
-            END,
-            entry_price, 
-            0.0
-        ) as current_price,
-        
-        0.0 as price_change_1d,  -- Calculate from price history later
-        
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 14 THEN
-                CAST(json_extract(feature_vector, '$[14]') AS REAL)
-            ELSE 0.015 
-        END as volatility_20d,
-        
+        feature_vector,
+        COALESCE(entry_price, 0.0) as current_price,
         optimal_action,
         ml_confidence,
         COALESCE(return_pct, 0.0) as return_pct,
@@ -138,6 +83,10 @@ def load_latest_combined_data():
         df = pd.read_sql_query(query, conn)
         conn.close()
         
+        # Process feature vectors in Python
+        if not df.empty and 'feature_vector' in df.columns:
+            df = process_feature_vectors(df)
+        
         # Enhance data with real-time price information
         df = enhance_with_current_prices(df)
         
@@ -154,6 +103,43 @@ def load_latest_combined_data():
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return pd.DataFrame()
+
+def process_feature_vectors(df):
+    """Process feature vectors from JSON arrays into individual columns"""
+    import json
+    
+    # Initialize new columns with default values
+    df['sentiment_score'] = 0.0
+    df['sentiment_confidence'] = 0.0
+    df['news_count'] = 0
+    df['reddit_sentiment'] = 0.0
+    df['rsi'] = 50.0
+    df['macd_line'] = 0.0
+    df['volatility_20d'] = 0.015
+    df['price_change_1d'] = 0.0
+    
+    # Process each row
+    for idx, row in df.iterrows():
+        feature_vector = row.get('feature_vector')
+        if feature_vector:
+            try:
+                features = json.loads(feature_vector)
+                if len(features) >= 20:  # Expected feature vector length
+                    df.at[idx, 'sentiment_score'] = float(features[0])
+                    df.at[idx, 'sentiment_confidence'] = float(features[1])
+                    df.at[idx, 'news_count'] = int(features[2])
+                    df.at[idx, 'reddit_sentiment'] = float(features[3])
+                    df.at[idx, 'rsi'] = float(features[4])
+                    df.at[idx, 'macd_line'] = float(features[5])
+                    df.at[idx, 'volatility_20d'] = float(features[14])
+                    # Try to get current price from features if available
+                    if len(features) > 15 and features[15] > 0:
+                        df.at[idx, 'current_price'] = float(features[15])
+            except (json.JSONDecodeError, ValueError, IndexError) as e:
+                # Keep default values if parsing fails
+                continue
+    
+    return df
 
 def enhance_with_current_prices(df):
     """Enhance dataframe with current prices from Yahoo Finance"""
