@@ -34,200 +34,237 @@ st.set_page_config(
 )
 
 # Database connection
-def get_db_connection():
-    """Get database connection"""
-    return sqlite3.connect('data/trading_unified.db')
+def get_database_connection():
+    """Get database connection with retry logic"""
+    try:
+        return sqlite3.connect('data/trading_predictions.db')
+    except Exception as e:
+        st.error(f"Database connection failed: {e}")
+        return None
 
 # Remove caching to ensure fresh data
 def load_latest_combined_data():
-    """Load the latest combined analysis data for each symbol"""
+    """Load the latest combined analysis data for each symbol from TruePredictionEngine system"""
     query = """
-    WITH latest_data AS (
+    WITH latest_predictions AS (
         SELECT 
-            ef.symbol,
-            ef.timestamp,
-            ef.sentiment_score,
-            ef.confidence as sentiment_confidence,
-            ef.news_count,
-            ef.reddit_sentiment,
-            ef.rsi,
-            ef.macd_line,
-            ef.current_price,
-            ef.price_change_1d,
-            ef.volatility_20d,
-            eo.optimal_action,
-            COALESCE(eo.confidence_score, 0.0) as ml_confidence,
-            eo.return_pct,
-            COALESCE(eo.price_direction_1d, 0) as price_direction_1d,
-            ROW_NUMBER() OVER (PARTITION BY ef.symbol ORDER BY ef.timestamp DESC) as rn
-        FROM enhanced_features ef
-        JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
+            p.symbol,
+            p.prediction_timestamp as timestamp,
+            p.predicted_action as optimal_action,
+            p.action_confidence as ml_confidence,
+            p.predicted_direction,
+            p.predicted_magnitude,
+            p.feature_vector,
+            o.actual_return as return_pct,
+            o.entry_price,
+            ROW_NUMBER() OVER (PARTITION BY p.symbol ORDER BY p.prediction_timestamp DESC) as rn
+        FROM predictions p
+        LEFT JOIN outcomes o ON p.prediction_id = o.prediction_id
     )
     SELECT 
         symbol,
         timestamp,
-        sentiment_score,
-        sentiment_confidence,
-        news_count,
-        reddit_sentiment,
-        rsi,
-        macd_line,
-        current_price,
-        price_change_1d,
-        volatility_20d,
+        -- Use placeholder values for features not extractable from numeric array
+        0.0 as sentiment_score,
+        0.0 as sentiment_confidence,
+        0 as news_count,
+        0.0 as reddit_sentiment,
+        50.0 as rsi,  -- Neutral RSI
+        0.0 as macd_line,
+        COALESCE(entry_price, 0.0) as current_price,
+        0.0 as price_change_1d,
+        0.015 as volatility_20d,  -- Default volatility
         optimal_action,
         ml_confidence,
-        return_pct,
-        price_direction_1d
-    FROM latest_data 
+        COALESCE(return_pct, 0.0) as return_pct,
+        COALESCE(predicted_direction, 0) as price_direction_1d
+    FROM latest_predictions 
     WHERE rn = 1
     ORDER BY symbol
     """
     
-    conn = get_db_connection()
-    df = pd.read_sql_query(query, conn)
-    conn.close()
-    
-    # Ensure all numeric columns are properly typed
-    numeric_columns = ['sentiment_score', 'sentiment_confidence', 'news_count', 'reddit_sentiment',
-                      'rsi', 'macd_line', 'current_price', 'price_change_1d', 'volatility_20d',
-                      'ml_confidence', 'return_pct', 'price_direction_1d']
-    
-    for col in numeric_columns:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
-    
-    return df
+    conn = get_database_connection()
+    if conn is None:
+        return pd.DataFrame()
+        
+    try:
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        # Ensure all numeric columns are properly typed
+        numeric_columns = ['sentiment_score', 'sentiment_confidence', 'news_count', 'reddit_sentiment',
+                          'rsi', 'macd_line', 'current_price', 'price_change_1d', 'volatility_20d',
+                          'ml_confidence', 'return_pct', 'price_direction_1d']
+        
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+        
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return pd.DataFrame()
 
 # Remove caching to ensure fresh data
 def load_ml_performance_data():
-    """Load ML model performance metrics by symbol - filtering out NULL/zero data"""
+    """Load ML model performance metrics by symbol from new prediction system"""
     query = """
     SELECT 
-        symbol,
+        p.symbol,
         COUNT(*) as total_predictions,
-        SUM(CASE WHEN optimal_action = 'BUY' THEN 1 ELSE 0 END) as buy_signals,
-        SUM(CASE WHEN optimal_action = 'SELL' THEN 1 ELSE 0 END) as sell_signals,
-        SUM(CASE WHEN optimal_action = 'HOLD' THEN 1 ELSE 0 END) as hold_signals,
-        ROUND(AVG(confidence_score), 3) as avg_ml_confidence,
-        ROUND(AVG(return_pct), 3) as avg_return,
-        ROUND(SUM(CASE WHEN return_pct > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as win_rate_pct,
-        ROUND(SUM(CASE WHEN price_direction_1d = 1 AND return_pct > 0 THEN 1 
-                       WHEN price_direction_1d = 0 AND return_pct <= 0 THEN 1 
-                       ELSE 0 END) * 100.0 / COUNT(*), 1) as direction_accuracy_pct
-    FROM enhanced_outcomes 
-    WHERE return_pct IS NOT NULL 
-      AND entry_price IS NOT NULL 
-      AND entry_price > 0
-    GROUP BY symbol 
+        SUM(CASE WHEN p.predicted_action = 'BUY' THEN 1 ELSE 0 END) as buy_signals,
+        SUM(CASE WHEN p.predicted_action = 'SELL' THEN 1 ELSE 0 END) as sell_signals,
+        SUM(CASE WHEN p.predicted_action = 'HOLD' THEN 1 ELSE 0 END) as hold_signals,
+        ROUND(AVG(p.action_confidence), 3) as avg_ml_confidence,
+        ROUND(AVG(o.actual_return), 3) as avg_return,
+        ROUND(SUM(CASE WHEN o.actual_return > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(o.outcome_id), 1) as win_rate_pct,
+        ROUND(SUM(CASE WHEN p.predicted_direction = 1 AND o.actual_return > 0 THEN 1 
+                       WHEN p.predicted_direction = -1 AND o.actual_return <= 0 THEN 1 
+                       ELSE 0 END) * 100.0 / COUNT(o.outcome_id), 1) as direction_accuracy_pct
+    FROM predictions p
+    LEFT JOIN outcomes o ON p.prediction_id = o.prediction_id
+    WHERE o.actual_return IS NOT NULL
+    GROUP BY p.symbol 
     ORDER BY avg_return DESC
     """
     
-    conn = get_db_connection()
+    conn = get_database_connection()
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
 
 #@st.cache_data(ttl=300) - REMOVED FOR FRESH DATA
 def load_training_overview():
-    """Load training data overview"""
+    """Load training data overview from new prediction system"""
     query = """
     SELECT 
         COUNT(*) as total_samples,
         COUNT(DISTINCT symbol) as unique_symbols,
-        MIN(date(timestamp)) as earliest_date,
-        MAX(date(timestamp)) as latest_date,
-        ROUND(AVG(sentiment_score), 3) as avg_sentiment,
-        ROUND(AVG(confidence), 3) as avg_confidence,
-        ROUND(AVG(rsi), 1) as avg_rsi
-    FROM enhanced_features
+        MIN(date(prediction_timestamp)) as earliest_date,
+        MAX(date(prediction_timestamp)) as latest_date,
+        0.0 as avg_sentiment,
+        ROUND(AVG(action_confidence), 3) as avg_confidence,
+        0.0 as avg_rsi
+    FROM predictions
     """
     
-    conn = get_db_connection()
+    conn = get_database_connection()
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df.iloc[0].to_dict()
 
 #@st.cache_data(ttl=300) - REMOVED FOR FRESH DATA
 def load_action_distribution():
-    """Load distribution of trading actions - filtering out NULL/zero data"""
-    query = """
+    """Load distribution of trading actions from new prediction system"""
+    # First try to get data with outcomes
+    query_with_outcomes = """
     SELECT 
-        optimal_action,
+        p.predicted_action as optimal_action,
         COUNT(*) as count,
-        SUM(CASE WHEN return_pct > 0 THEN 1 ELSE 0 END) as winning_positions,
-        SUM(CASE WHEN return_pct <= 0 THEN 1 ELSE 0 END) as losing_positions,
-        ROUND(AVG(confidence_score), 3) as avg_confidence,
-        ROUND(AVG(return_pct), 3) as avg_return_pct,
-        ROUND(SUM(CASE WHEN return_pct > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as win_rate_pct,
-        ROUND(MIN(return_pct), 3) as min_return,
-        ROUND(MAX(return_pct), 3) as max_return,
-        ROUND(MIN(return_pct), 3) as worst_return_pct,
-        ROUND(MAX(return_pct), 3) as best_return_pct
-    FROM enhanced_outcomes 
-    WHERE return_pct IS NOT NULL 
-      AND entry_price IS NOT NULL 
-      AND entry_price > 0
-      AND optimal_action IS NOT NULL
-    GROUP BY optimal_action 
+        SUM(CASE WHEN o.actual_return > 0 THEN 1 ELSE 0 END) as winning_positions,
+        SUM(CASE WHEN o.actual_return <= 0 THEN 1 ELSE 0 END) as losing_positions,
+        ROUND(AVG(p.action_confidence), 3) as avg_confidence,
+        ROUND(AVG(o.actual_return), 3) as avg_return_pct,
+        ROUND(SUM(CASE WHEN o.actual_return > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(o.outcome_id), 1) as win_rate_pct,
+        ROUND(MIN(o.actual_return), 3) as min_return,
+        ROUND(MAX(o.actual_return), 3) as max_return,
+        ROUND(MIN(o.actual_return), 3) as worst_return_pct,
+        ROUND(MAX(o.actual_return), 3) as best_return_pct
+    FROM predictions p
+    LEFT JOIN outcomes o ON p.prediction_id = o.prediction_id
+    WHERE o.actual_return IS NOT NULL
+    GROUP BY p.predicted_action 
     ORDER BY count DESC
     """
     
-    conn = get_db_connection()
-    df = pd.read_sql_query(query, conn)
+    # If no outcomes yet, get prediction distribution only
+    query_predictions_only = """
+    SELECT 
+        predicted_action as optimal_action,
+        COUNT(*) as count,
+        0 as winning_positions,
+        0 as losing_positions,
+        ROUND(AVG(action_confidence), 3) as avg_confidence,
+        0.0 as avg_return_pct,
+        0.0 as win_rate_pct,
+        0.0 as min_return,
+        0.0 as max_return,
+        0.0 as worst_return_pct,
+        0.0 as best_return_pct
+    FROM predictions
+    GROUP BY predicted_action 
+    ORDER BY count DESC
+    """
+    
+    conn = get_database_connection()
+    df = pd.read_sql_query(query_with_outcomes, conn)
+    
+    # If no data with outcomes, fall back to predictions only
+    if df.empty:
+        df = pd.read_sql_query(query_predictions_only, conn)
+        
     conn.close()
     return df
 
 #@st.cache_data(ttl=300) - REMOVED FOR FRESH DATA
 def load_position_win_rates():
-    """Load win rates specifically by position type with clean data only"""
+    """Load win rates specifically by position type from new prediction system"""
     query = """
     SELECT 
-        optimal_action as position,
-        COUNT(*) as total_trades,
-        SUM(CASE WHEN return_pct > 0 THEN 1 ELSE 0 END) as winning_positions,
-        SUM(CASE WHEN return_pct <= 0 THEN 1 ELSE 0 END) as losing_positions,
-        ROUND(AVG(return_pct), 4) as avg_return_pct,
-        ROUND(SUM(CASE WHEN return_pct > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as win_rate_pct,
-        ROUND(AVG(CASE WHEN return_pct > 0 THEN return_pct END), 4) as avg_winning_return,
-        ROUND(AVG(CASE WHEN return_pct <= 0 THEN return_pct END), 4) as avg_losing_return,
-        ROUND(MAX(return_pct), 4) as best_return,
-        ROUND(MIN(return_pct), 4) as worst_return
-    FROM enhanced_outcomes 
-    WHERE return_pct IS NOT NULL 
-      AND entry_price IS NOT NULL 
-      AND entry_price > 0
-      AND optimal_action IS NOT NULL
-    GROUP BY optimal_action 
+        p.predicted_action as position,
+        COUNT(o.outcome_id) as total_trades,
+        SUM(CASE WHEN o.actual_return > 0 THEN 1 ELSE 0 END) as winning_positions,
+        SUM(CASE WHEN o.actual_return <= 0 THEN 1 ELSE 0 END) as losing_positions,
+        ROUND(AVG(o.actual_return), 4) as avg_return_pct,
+        ROUND(SUM(CASE WHEN o.actual_return > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(o.outcome_id), 2) as win_rate_pct,
+        ROUND(AVG(CASE WHEN o.actual_return > 0 THEN o.actual_return END), 4) as avg_winning_return,
+        ROUND(AVG(CASE WHEN o.actual_return <= 0 THEN o.actual_return END), 4) as avg_losing_return,
+        ROUND(MAX(o.actual_return), 4) as best_return,
+        ROUND(MIN(o.actual_return), 4) as worst_return
+    FROM predictions p
+    LEFT JOIN outcomes o ON p.prediction_id = o.prediction_id
+    WHERE o.actual_return IS NOT NULL
+    GROUP BY p.predicted_action 
     ORDER BY win_rate_pct DESC
     """
     
-    conn = get_db_connection()
+    conn = get_database_connection()
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
 
 #@st.cache_data(ttl=300) - REMOVED FOR FRESH DATA
 def load_time_series_data(days=30):
-    """Load time series data for charts"""
+    """Load time series data for charts from TruePredictionEngine system"""
     query = """
     SELECT 
-        ef.symbol,
-        ef.timestamp,
-        ef.sentiment_score,
-        ef.confidence as sentiment_confidence,
-        ef.rsi,
-        ef.current_price,
-        eo.optimal_action,
-        COALESCE(eo.confidence_score, 0.0) as ml_confidence,
-        eo.return_pct
-    FROM enhanced_features ef
-    JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
-    WHERE ef.timestamp >= datetime('now', '-{} days')
-    ORDER BY ef.timestamp DESC
+        p.symbol,
+        p.prediction_timestamp as timestamp,
+        CASE WHEN p.feature_vector IS NOT NULL THEN
+            COALESCE(CAST(json_extract(p.feature_vector, '$.sentiment_score') AS REAL), 0.0)
+        ELSE 0.0 END as sentiment_score,
+        0.0 as sentiment_confidence,
+        CASE WHEN p.feature_vector IS NOT NULL THEN
+            COALESCE(CAST(json_extract(p.feature_vector, '$.rsi') AS REAL), 50.0)
+        ELSE 50.0 END as rsi,
+        COALESCE(
+            CASE 
+                WHEN p.feature_vector IS NOT NULL AND CAST(json_extract(p.feature_vector, '$.current_price') AS REAL) > 0 
+                THEN CAST(json_extract(p.feature_vector, '$.current_price') AS REAL)
+                WHEN o.entry_price > 0 THEN o.entry_price
+                ELSE 0.0
+            END, 0.0
+        ) as current_price,
+        p.predicted_action as optimal_action,
+        p.action_confidence as ml_confidence,
+        o.actual_return as return_pct
+    FROM predictions p
+    LEFT JOIN outcomes o ON p.prediction_id = o.prediction_id
+    WHERE p.prediction_timestamp >= datetime('now', '-{} days')
+    ORDER BY p.prediction_timestamp DESC
     """.format(days)
     
-    conn = get_db_connection()
+    conn = get_database_connection()
     df = pd.read_sql_query(query, conn)
     conn.close()
     
@@ -346,18 +383,152 @@ def main():
             
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
-        st.info("Make sure the database file exists at: data/trading_unified.db")
+        st.info("Make sure the database file exists at: data/trading_predictions.db")
+        st.info("This dashboard now shows data from the new prediction system.")
+
+def display_evaluation_countdown():
+    """Display a prominent countdown widget for the evaluation period"""
+    eval_time, time_msg = get_next_evaluation_time()
+    
+    if eval_time:
+        # Create a prominent countdown display
+        st.markdown(f"""
+        <div style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); 
+                    padding: 20px; border-radius: 10px; margin: 10px 0; text-align: center;">
+            <h3 style="color: white; margin: 0;">⏰ Next Evaluation Period</h3>
+            <div id="main-countdown" style="font-size: 24px; font-weight: bold; color: #fff; margin: 10px 0;">
+                {time_msg}
+            </div>
+            <p style="color: #e0e0e0; margin: 0; font-size: 14px;">
+                Performance metrics will be available at {eval_time.strftime('%Y-%m-%d %H:%M')}
+            </p>
+        </div>
+        <script>
+        function updateMainCountdown() {{
+            const now = new Date().getTime();
+            const evalTime = new Date("{eval_time.isoformat()}").getTime();
+            const distance = evalTime - now;
+            
+            if (distance > 0) {{
+                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                
+                let display = "";
+                if (days > 0) display += days + "d ";
+                if (hours > 0) display += hours + "h ";
+                display += minutes + "m " + seconds + "s";
+                
+                document.getElementById("main-countdown").innerHTML = display;
+            }} else {{
+                document.getElementById("main-countdown").innerHTML = "🎉 Evaluation Ready! Refreshing...";
+                // Auto-refresh when countdown reaches zero
+                setTimeout(function() {{
+                    window.location.reload();
+                }}, 2000);
+            }}
+        }}
+        updateMainCountdown();
+        setInterval(updateMainCountdown, 1000);
+        </script>
+        """, unsafe_allow_html=True)
+        return True
+    elif "available" in time_msg:
+        st.success(f"✅ {time_msg}")
+        return False
+    else:
+        st.info(f"ℹ️ {time_msg}")
+        return False
+
+def get_next_evaluation_time():
+    """Calculate when the next evaluation period will be available"""
+    try:
+        conn = get_database_connection()
+        
+        # First check if we have any outcomes already available
+        outcomes_query = """
+        SELECT COUNT(*) as outcome_count
+        FROM outcomes o 
+        JOIN predictions p ON o.prediction_id = p.prediction_id
+        WHERE p.prediction_timestamp >= datetime('now', '-7 days')
+        """
+        outcomes_result = pd.read_sql_query(outcomes_query, conn)
+        has_outcomes = outcomes_result['outcome_count'].iloc[0] > 0
+        
+        if has_outcomes:
+            conn.close()
+            return None, "Evaluation data available"
+        
+        # Get latest predictions info
+        query = """
+        SELECT 
+            MAX(prediction_timestamp) as latest_prediction,
+            COUNT(*) as total_predictions,
+            MIN(prediction_timestamp) as first_prediction
+        FROM predictions
+        WHERE prediction_timestamp >= datetime('now', '-48 hours')
+        """
+        result = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        if result.empty or result['latest_prediction'].iloc[0] is None:
+            return None, "No recent predictions found"
+        
+        latest_prediction = pd.to_datetime(result['latest_prediction'].iloc[0])
+        total_predictions = result['total_predictions'].iloc[0]
+        first_prediction = pd.to_datetime(result['first_prediction'].iloc[0]) if result['first_prediction'].iloc[0] else None
+        
+        # Calculate evaluation time (24 hours after latest prediction)
+        evaluation_time = latest_prediction + timedelta(hours=24)
+        now = datetime.now()
+        
+        if now >= evaluation_time:
+            return None, "Evaluation period has passed - refresh for results"
+        
+        time_remaining = evaluation_time - now
+        hours_remaining = time_remaining.total_seconds() / 3600
+        
+        # Format the remaining time nicely
+        if hours_remaining < 1:
+            minutes_remaining = int(time_remaining.total_seconds() / 60)
+            if minutes_remaining < 1:
+                seconds_remaining = int(time_remaining.total_seconds())
+                time_str = f"{seconds_remaining} seconds"
+            else:
+                time_str = f"{minutes_remaining} minutes"
+        elif hours_remaining < 24:
+            hours = int(hours_remaining)
+            minutes = int((hours_remaining - hours) * 60)
+            time_str = f"{hours}h {minutes}m"
+        else:
+            days = int(hours_remaining / 24)
+            remaining_hours = int(hours_remaining % 24)
+            time_str = f"{days}d {remaining_hours}h"
+        
+        # Add context about prediction volume
+        context = f" ({total_predictions} predictions)"
+        
+        return evaluation_time, time_str + context
+            
+    except Exception as e:
+        return None, f"Error calculating evaluation time: {e}"
 
 def show_overview(latest_data, performance_data, training_overview, action_dist, show_only_buy=False, exclude_hold=False):
     """Show overview page"""
     st.header("📊 ML Trading System Overview")
     
+    # Check if we have evaluation data
+    has_outcomes = not performance_data.empty and not performance_data['avg_return'].isna().all()
+    
+    # Display countdown if waiting for evaluation
+    if not has_outcomes:
+        display_evaluation_countdown()
+    
     if show_only_buy:
         st.info("📈 Showing only BUY/STRONG_BUY signals")
     elif exclude_hold:
-        st.info("🚫 Excluding HOLD positions - showing active trades only")
-    
-    # Key metrics
+        st.info("🚫 Excluding HOLD positions - showing active trades only")    # Key metrics
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -368,19 +539,35 @@ def show_overview(latest_data, performance_data, training_overview, action_dist,
         )
     
     with col2:
-        avg_return = performance_data['avg_return'].mean()
-        st.metric(
-            "Avg Return", 
-            f"{avg_return:.3f}%",
-            delta=f"{performance_data['win_rate_pct'].mean():.1f}% win rate"
-        )
+        if performance_data.empty or performance_data['avg_return'].isna().all():
+            eval_time, time_msg = get_next_evaluation_time()
+            st.metric(
+                "Avg Return", 
+                "Pending",
+                delta=f"Ready in {time_msg}" if eval_time else time_msg
+            )
+        else:
+            avg_return = performance_data['avg_return'].mean()
+            st.metric(
+                "Avg Return", 
+                f"{avg_return:.3f}%",
+                delta=f"{performance_data['win_rate_pct'].mean():.1f}% win rate"
+            )
     
     with col3:
-        st.metric(
-            "Avg ML Confidence", 
-            f"{performance_data['avg_ml_confidence'].mean():.3f}",
-            delta=f"{training_overview['avg_confidence']:.3f} sentiment conf"
-        )
+        if performance_data.empty or performance_data['avg_ml_confidence'].isna().all():
+            # Get confidence from predictions table directly
+            st.metric(
+                "Avg ML Confidence", 
+                f"{training_overview['avg_confidence']:.3f}",
+                delta="From predictions"
+            )
+        else:
+            st.metric(
+                "Avg ML Confidence", 
+                f"{performance_data['avg_ml_confidence'].mean():.3f}",
+                delta=f"{training_overview['avg_confidence']:.3f} sentiment conf"
+            )
     
     with col4:
         # Show true total predictions from enhanced_features table
@@ -395,34 +582,71 @@ def show_overview(latest_data, performance_data, training_overview, action_dist,
     
     with col1:
         st.subheader("Trading Action Distribution")
-        fig = px.pie(action_dist, values='count', names='optimal_action', 
-                    title="ML Trading Recommendations")
-        st.plotly_chart(fig, use_container_width=True)
+        if not action_dist.empty:
+            fig = px.pie(action_dist, values='count', names='optimal_action', 
+                        title="ML Trading Recommendations")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No prediction data available yet")
     
     with col2:
         st.subheader("Win Rate by Position Type")
-        fig = px.bar(action_dist, x='optimal_action', y='win_rate_pct', 
-                    color='win_rate_pct', title="Win Rate % by Trading Action",
-                    color_continuous_scale='RdYlGn')
-        fig.update_layout(xaxis_title="Trading Action", yaxis_title="Win Rate (%)")
-        st.plotly_chart(fig, use_container_width=True)
+        if not action_dist.empty and action_dist['win_rate_pct'].sum() > 0:
+            fig = px.bar(action_dist, x='optimal_action', y='win_rate_pct', 
+                        color='win_rate_pct', title="Win Rate % by Trading Action",
+                        color_continuous_scale='RdYlGn')
+            fig.update_layout(xaxis_title="Trading Action", yaxis_title="Win Rate (%)")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            eval_time, time_msg = get_next_evaluation_time()
+            if eval_time:
+                st.info(f"Win rates will appear in {time_msg} (evaluation at {eval_time.strftime('%H:%M')})")
+            else:
+                st.info(f"Win rate calculation: {time_msg}")
+            # Show confidence instead
+            if not action_dist.empty:
+                fig = px.bar(action_dist, x='optimal_action', y='avg_confidence', 
+                            title="Prediction Confidence by Action",
+                            color='avg_confidence', color_continuous_scale='Blues')
+                fig.update_layout(xaxis_title="Trading Action", yaxis_title="Avg Confidence")
+                st.plotly_chart(fig, use_container_width=True)
     
     # Win Rate Analysis Table
     st.subheader("📊 Win Rate Analysis by Position")
-    win_rate_df = action_dist.copy()
-    win_rate_df['Action'] = win_rate_df['optimal_action'].apply(lambda x: f"{format_action_color(x)} {x}")
-    win_rate_df['Total Positions'] = win_rate_df['count']
-    win_rate_df['Winning'] = win_rate_df['winning_positions']
-    win_rate_df['Losing'] = win_rate_df['losing_positions']
-    win_rate_df['Win Rate'] = win_rate_df['win_rate_pct'].apply(lambda x: f"{x}%")
-    win_rate_df['Avg Return'] = win_rate_df['avg_return_pct'].apply(lambda x: f"{x}%")
-    win_rate_df['Best Return'] = win_rate_df['best_return_pct'].apply(lambda x: f"{x}%")
-    win_rate_df['Worst Return'] = win_rate_df['worst_return_pct'].apply(lambda x: f"{x}%")
     
-    st.dataframe(
-        win_rate_df[['Action', 'Total Positions', 'Winning', 'Losing', 'Win Rate', 'Avg Return', 'Best Return', 'Worst Return']],
-        use_container_width=True
-    )
+    if not action_dist.empty:
+        win_rate_df = action_dist.copy()
+        win_rate_df['Action'] = win_rate_df['optimal_action'].apply(lambda x: f"{format_action_color(x)} {x}")
+        win_rate_df['Total Positions'] = win_rate_df['count']
+        win_rate_df['Winning'] = win_rate_df['winning_positions']
+        win_rate_df['Losing'] = win_rate_df['losing_positions']
+        
+        if has_outcomes:
+            win_rate_df['Win Rate'] = win_rate_df['win_rate_pct'].apply(lambda x: f"{x}%")
+            win_rate_df['Avg Return'] = win_rate_df['avg_return_pct'].apply(lambda x: f"{x}%")
+            win_rate_df['Best Return'] = win_rate_df['best_return_pct'].apply(lambda x: f"{x}%")
+            win_rate_df['Worst Return'] = win_rate_df['worst_return_pct'].apply(lambda x: f"{x}%")
+            
+            st.dataframe(
+                win_rate_df[['Action', 'Total Positions', 'Winning', 'Losing', 'Win Rate', 'Avg Return', 'Best Return', 'Worst Return']],
+                use_container_width=True
+            )
+        else:
+            win_rate_df['Avg Confidence'] = win_rate_df['avg_confidence'].apply(lambda x: f"{x:.3f}")
+            eval_time, time_msg = get_next_evaluation_time()
+            status_msg = f"Ready in {time_msg}" if eval_time else time_msg
+            win_rate_df['Status'] = status_msg
+            
+            st.dataframe(
+                win_rate_df[['Action', 'Total Positions', 'Avg Confidence', 'Status']],
+                use_container_width=True
+            )
+            if eval_time:
+                st.info(f"⏰ Win rates and returns will be calculated in **{time_msg}** (at {eval_time.strftime('%Y-%m-%d %H:%M')})")
+            else:
+                st.info(f"📊 Win rate calculation status: {time_msg}")
+    else:
+        st.info("No prediction data available yet.")
     
     # Latest signals
     st.subheader("🎯 Latest Trading Signals")
