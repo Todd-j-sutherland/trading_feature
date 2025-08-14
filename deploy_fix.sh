@@ -130,12 +130,17 @@ echo
 ssh "$REMOTE_HOST" "
     cd $REMOTE_DIR
     
+    echo 'Activating virtual environment...'
+    source venv/bin/activate
+    
     echo 'Installing required Python packages...'
-    pip3 install --upgrade scikit-learn pandas numpy yfinance sqlite3 joblib >/dev/null 2>&1 || true
+    pip install --upgrade scikit-learn pandas numpy yfinance joblib >/dev/null 2>&1 || true
     
     echo 'Checking Python environment...'
-    python3 --version
-    python3 -c 'import sklearn, pandas, numpy, yfinance; print(\"All required packages available\")'
+    python --version
+    python -c 'import sklearn, pandas, numpy, yfinance; print(\"All required packages available\")'
+    
+    echo 'Virtual environment activated and packages verified'
 "
 
 success "Dependencies installed"
@@ -157,7 +162,8 @@ ssh "$REMOTE_HOST" "
     cd $REMOTE_DIR
     
     echo '🔍 Running migration analysis...'
-    python3 data_quality_system/core/migration_script.py
+    source venv/bin/activate
+    python data_quality_system/core/migration_script.py
     
     echo
     echo '✅ Migration completed successfully!'
@@ -184,7 +190,8 @@ ssh "$REMOTE_HOST" "
     cd $REMOTE_DIR
     
     echo 'Testing prediction engine...'
-    python3 -c \"
+    source venv/bin/activate
+    python -c \"
 from data_quality_system.core.true_prediction_engine import TruePredictionEngine
 import json
 
@@ -227,13 +234,14 @@ ssh "$REMOTE_HOST" "
     # Create evaluation script
     cat > evaluate_predictions.sh << 'EOF'
 #!/bin/bash
-cd $REMOTE_DIR
-python3 -c \"
+cd /root/test
+source venv/bin/activate
+python -c "
 from data_quality_system.core.true_prediction_engine import OutcomeEvaluator
 evaluator = OutcomeEvaluator()
 count = evaluator.evaluate_pending_predictions()
 print(f'Evaluated {count} pending predictions')
-\" >> logs/evaluation.log 2>&1
+" >> logs/evaluation.log 2>&1
 EOF
     
     chmod +x evaluate_predictions.sh
@@ -273,9 +281,9 @@ echo "   • Verify no contradictions: No BUY predictions with DOWN direction"
 echo "   • Track model learning: Accuracy should improve over time"
 echo
 echo "📋 Remote Commands to Try:"
-ssh_cmd="ssh $REMOTE_HOST 'cd $REMOTE_DIR && "
+ssh_cmd="ssh $REMOTE_HOST 'cd $REMOTE_DIR && source ../trading_venv/bin/activate && "
 echo "   ${ssh_cmd}sqlite3 data/trading_predictions.db \"SELECT COUNT(*) as predictions FROM predictions;\"'"
-echo "   ${ssh_cmd}python3 -c \"from data_quality_system.core.true_prediction_engine import TruePredictionEngine; print('System ready')\"'"
+echo "   ${ssh_cmd}python -c \"from data_quality_system.core.true_prediction_engine import TruePredictionEngine; print('System ready')\"'"
 echo "   ${ssh_cmd}tail -f logs/evaluation.log'"
 echo
 warning "Remember: Initial accuracy may be lower but will be honest and improvable!"

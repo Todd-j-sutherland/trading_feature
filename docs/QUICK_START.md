@@ -111,6 +111,11 @@ export ALPACA_SECRET_KEY=your_secret
 - ✅ Pre-trade risk assessment
 - ✅ Alpaca paper trading integration
 - ✅ Enhanced trading dashboard
+- ✅ **NEW: Buy Positions Deep Analysis**
+  - Entry and exit reasoning for all BUY signals
+  - Real-time performance tracking for open positions
+  - Technical indicator analysis at entry point
+  - Performance breakdown by RSI and sentiment ranges
 
 ## 🚨 Troubleshooting
 
@@ -151,6 +156,45 @@ Then just run: `./setup.sh` before using any commands.
 - **Port 8501 in use**: Dashboard is already running in another terminal
 
 Ready to trade with ML! 🚀
+
+## 💰 NEW: Buy Positions Deep Analysis
+
+The enhanced ML dashboard now includes comprehensive analysis of BUY positions:
+
+### 🎯 Key Features
+
+**📊 Position Performance Tracking**
+- Real-time unrealized gains/losses for open positions
+- Entry and exit price analysis
+- Win rate and average return calculations
+
+**🧠 Entry Decision Reasoning**
+- Why each BUY signal was generated:
+  - Sentiment analysis scores and confidence levels
+  - Technical indicators (RSI, MACD) at time of entry
+  - News volume and market activity
+  - ML model confidence scores
+- Example reasoning: "Strong positive sentiment (0.156); Oversold RSI (28.4) - potential bounce; High news activity (45 articles)"
+
+**🎯 Exit Analysis**
+- For closed positions: Actual profit/loss and exit reasoning
+- For open positions: Current unrealized P&L with live price updates
+- Performance breakdown by technical indicator ranges
+
+**📈 Performance Analytics**
+- Best and worst performing BUY signals
+- Success rates by RSI ranges (Oversold, Normal, Overbought)
+- Performance by sentiment levels (Negative, Neutral, Positive)
+
+### 🖥️ Dashboard Access
+
+Navigate to **"Buy Positions Analysis"** page in the ML dashboard for:
+- Complete position history with entry/exit reasoning
+- Live tracking of open positions
+- Performance analysis by technical indicators
+- Position-by-position detailed breakdown
+
+**Dashboard URL:** `http://localhost:8502` (or your server IP:8502)
 
 ---
 
