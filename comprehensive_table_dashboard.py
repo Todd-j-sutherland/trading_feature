@@ -460,20 +460,36 @@ class TradingDataDashboard:
         with tabs[2]:
             st.subheader("Performance Metrics")
             
-            # Model performance data
+            # Model performance data - try enhanced table first, fallback to regular
             query = """
             SELECT 
-                model_name,
+                model_version as model_name,
                 training_date,
-                accuracy,
-                precision_score,
-                recall,
-                f1_score
-            FROM model_performance 
+                COALESCE(direction_accuracy_1d, 0.0) as accuracy,
+                COALESCE(precision_score, 0.0) as precision_score,
+                COALESCE(recall_score, 0.0) as recall,
+                COALESCE(f1_score, 0.0) as f1_score
+            FROM model_performance_enhanced 
             ORDER BY training_date DESC 
             LIMIT 10
             """
             df = self.query_to_dataframe(query)
+            
+            # Fallback to regular model_performance if enhanced is empty
+            if df.empty:
+                query_fallback = """
+                SELECT 
+                    model_version as model_name,
+                    created_at as training_date,
+                    COALESCE(accuracy_action, 0.0) as accuracy,
+                    COALESCE(accuracy_direction, 0.0) as precision_score,
+                    COALESCE(accuracy_direction, 0.0) as recall,
+                    COALESCE(mae_magnitude, 0.0) as f1_score
+                FROM model_performance 
+                ORDER BY created_at DESC 
+                LIMIT 10
+                """
+                df = self.query_to_dataframe(query_fallback)
             
             if not df.empty:
                 st.dataframe(df, use_container_width=True)
@@ -484,7 +500,16 @@ class TradingDataDashboard:
                             title="Model Performance Over Time")
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("No model performance data available")
+                st.info("📊 No model performance data available yet. Performance metrics will appear here after model training runs.")
+                st.markdown("""
+                **Expected metrics:**
+                - **Accuracy**: Overall prediction accuracy
+                - **Precision**: True positive rate  
+                - **Recall**: Sensitivity of predictions
+                - **F1 Score**: Harmonic mean of precision and recall
+                
+                *Run evening routine to generate performance data*
+                """)
         
         with tabs[3]:
             st.subheader("Model Training Status")

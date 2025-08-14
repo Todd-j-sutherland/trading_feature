@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-08-14T22:02:54.326847",
+  "local_analysis": {
+    "database_path": "data/trading_predictions.db",
+    "timestamp_analysis": {},
+    "leakage_detected": [],
+    "sync_issues": [
+      "Error analyzing timestamps: no such function: HOUR"
+    ],
+    "recommendations": []
+  },
+  "remote_analysis": {
+    "success": false,
+    "leakage_count": 0,
+    "total_predictions": 0,
+    "total_features": 0,
+    "issues": [
+      "Command '['scp', '-o', 'StrictHostKeyChecking=no', '/var/folders/8g/yrttrjfn58q5v0_y7zd4qmn00000gn/T/tmpx91qm8ko.py', 'root@147.185.221.19:/root/test/remote_analysis.py']' returned non-zero exit status 1."
+    ]
+  },
+  "local_fixes": {
+    "fixes_applied": [],
+    "constraints_created": [
+      "Created temporal_safe_predictions view",
+      "Created data leakage prevention trigger"
+    ]
+  },
+  "remote_fixes": {
+    "success": false,
+    "output": "",
+    "error": "Command '['scp', '-o', 'StrictHostKeyChecking=no', '/var/folders/8g/yrttrjfn58q5v0_y7zd4qmn00000gn/T/tmp705yfsjo.py', 'root@147.185.221.19:/root/test/remote_timestamp_fix.py']' returned non-zero exit status 1.",
+    "report": null
+  },
+  "success": false
+}

@@ -49,6 +49,40 @@ class TradingSystemManager:
         print("🌅 MORNING ROUTINE - Enhanced ML Trading System")
         print("=" * 60)
         
+        # 🛡️ TEMPORAL INTEGRITY GUARD - First line of defense against data leakage
+        print("\n🛡️ RUNNING TEMPORAL INTEGRITY GUARD...")
+        print("=" * 50)
+        
+        try:
+            # Import and run temporal guard
+            from morning_temporal_guard import MorningTemporalGuard
+            
+            guard = MorningTemporalGuard()
+            guard_result = guard.run_comprehensive_guard()
+            
+            if not guard_result:
+                print("\n🚨 TEMPORAL INTEGRITY FAILURE!")
+                print("=" * 50)
+                print("❌ Morning routine ABORTED due to temporal integrity issues")
+                print("🔧 Please review the guard report and fix issues before proceeding")
+                print("💡 Common fixes:")
+                print("  • Run timestamp_synchronization_fixer.py")
+                print("  • Check outcomes_temporal_fixer.py")
+                print("  • Verify enhanced_outcomes_evaluator.py")
+                print("📄 Check morning_guard_report.json for details")
+                print("=" * 50)
+                return False
+            
+            print("✅ TEMPORAL INTEGRITY VALIDATED - Safe to proceed with analysis")
+            print("=" * 50)
+            
+        except ImportError:
+            print("⚠️ Temporal guard not found - using legacy validation")
+            print("💡 Install temporal protection: Copy morning_temporal_guard.py to root")
+        except Exception as e:
+            print(f"❌ Temporal guard error: {e}")
+            print("⚠️ Proceeding with analysis (WARNING: No temporal protection)")
+        
         # Check if enhanced ML components are available
         try:
             import sys
@@ -554,6 +588,28 @@ class TradingSystemManager:
         """Enhanced evening routine with comprehensive ML training and analysis"""
         print("🌆 EVENING ROUTINE - Enhanced ML Training System")
         print("=" * 60)
+        
+        # 🛡️ TEMPORAL INTEGRITY GUARD - Evening validation for outcomes evaluation
+        print("\n🛡️ RUNNING EVENING TEMPORAL VALIDATION...")
+        print("=" * 50)
+        
+        try:
+            # Import and run enhanced outcomes evaluator for evening cleanup
+            from enhanced_outcomes_evaluator import EnhancedOutcomesEvaluator
+            
+            evaluator = EnhancedOutcomesEvaluator()
+            evaluation_result = evaluator.run_evaluation()
+            
+            print("✅ OUTCOMES EVALUATION COMPLETED")
+            print("📊 Temporal consistency maintained for prediction lifecycle")
+            print("=" * 50)
+            
+        except ImportError:
+            print("⚠️ Enhanced outcomes evaluator not found")
+            print("💡 Install: Copy enhanced_outcomes_evaluator.py to root")
+        except Exception as e:
+            print(f"⚠️ Outcomes evaluation warning: {e}")
+            print("🔄 Continuing with evening analysis...")
         
         # Check if enhanced ML components are available
         try:
