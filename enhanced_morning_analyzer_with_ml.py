@@ -78,8 +78,8 @@ class EnhancedMorningAnalyzer:
         })
         
         # Initialize database paths
-        self.db_path = "data/trading_unified.db"
-        self.enhanced_db_path = "data/trading_unified.db"
+        self.db_path = "data/trading_predictions.db"
+        self.enhanced_db_path = "data/trading_predictions.db"
         
         # Initialize logging
         self.logger = logging.getLogger(__name__)

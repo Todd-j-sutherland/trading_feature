@@ -11,19 +11,122 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import yfinance as yf
 import logging
+import pytz
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class TechnicalAnalysisEngine:
-    """
-    Standalone technical analysis engine for ASX banks
-    Calculates RSI, MACD, moving averages, and generates composite technical scores
-    """
+    """Enhanced Technical Analysis Engine with Market Hours Detection"""
     
-    def __init__(self, db_path: str = "data/ml_models/training_data.db"):
-        self.db_path = db_path
-        self.asx_banks = ["CBA.AX", "ANZ.AX", "WBC.AX", "NAB.AX", "MQG.AX", "SUN.AX", "QBE.AX"]
+    def __init__(self):
+        self.asx_banks = [
+            'CBA.AX', 'WBC.AX', 'ANZ.AX', 'NAB.AX',
+            'MQG.AX', 'BOQ.AX', 'BEN.AX'
+        ]
+        
+        # ASX timezone
+        self.asx_tz = pytz.timezone('Australia/Sydney')
+        
+    def is_asx_market_open(self) -> Tuple[bool, str]:
+        """
+        Check if ASX market is currently open
+        Returns: (is_open: bool, status_message: str)
+        """
+        now_utc = datetime.now(pytz.UTC)
+        now_asx = now_utc.astimezone(self.asx_tz)
+        
+        # ASX trading hours: 10:00 AM - 4:00 PM AEST/AEDT, Monday-Friday
+        weekday = now_asx.weekday()  # 0=Monday, 6=Sunday
+        current_time = now_asx.time()
+        
+        # Check if it's a weekday
+        if weekday >= 5:  # Saturday or Sunday
+            next_open = self._get_next_market_open(now_asx)
+            return False, f"Market closed (weekend). Next open: {next_open}"
+        
+        # Check if within trading hours (10:00 AM - 4:00 PM)
+        market_open = datetime.strptime("10:00", "%H:%M").time()
+        market_close = datetime.strptime("16:00", "%H:%M").time()
+        
+        if market_open <= current_time <= market_close:
+            return True, f"Market open (ASX time: {now_asx.strftime('%H:%M %Z')})"
+        else:
+            if current_time < market_open:
+                status = f"Market closed (pre-market). Opens at 10:00 AM (current: {now_asx.strftime('%H:%M %Z')})"
+            else:
+                next_open = self._get_next_market_open(now_asx)
+                status = f"Market closed (after-hours). Next open: {next_open}"
+            return False, status
+    
+    def _get_next_market_open(self, current_asx_time: datetime) -> str:
+        """Get the next market opening time"""
+        weekday = current_asx_time.weekday()
+        
+        if weekday == 4:  # Friday
+            # Next open is Monday
+            days_until_monday = 3
+            next_open = current_asx_time + timedelta(days=days_until_monday)
+            next_open = next_open.replace(hour=10, minute=0, second=0, microsecond=0)
+        elif weekday == 5:  # Saturday
+            days_until_monday = 2
+            next_open = current_asx_time + timedelta(days=days_until_monday)
+            next_open = next_open.replace(hour=10, minute=0, second=0, microsecond=0)
+        elif weekday == 6:  # Sunday
+            days_until_monday = 1
+            next_open = current_asx_time + timedelta(days=days_until_monday)
+            next_open = next_open.replace(hour=10, minute=0, second=0, microsecond=0)
+        else:  # Monday-Thursday
+            if current_asx_time.time() >= datetime.strptime("16:00", "%H:%M").time():
+                # After close, next day
+                next_open = current_asx_time + timedelta(days=1)
+                next_open = next_open.replace(hour=10, minute=0, second=0, microsecond=0)
+            else:
+                # Before open today
+                next_open = current_asx_time.replace(hour=10, minute=0, second=0, microsecond=0)
+        
+        return next_open.strftime('%a %b %d, %H:%M %Z')
+    
+    def get_current_or_last_price(self, symbol: str) -> Tuple[float, str]:
+        """
+        Get current price if market is open, otherwise get last closing price
+        Returns: (price: float, source: str)
+        """
+        is_open, market_status = self.is_asx_market_open()
+        
+        try:
+            ticker = yf.Ticker(symbol)
+            
+            if is_open:
+                # Market is open, try to get current price
+                info = ticker.info
+                current_price = info.get('currentPrice') or info.get('regularMarketPrice')
+                
+                if current_price and current_price > 0:
+                    logger.info(f"✅ {symbol}: Current price ${current_price:.2f} (market open)")
+                    return float(current_price), "current_price"
+                else:
+                    # Fallback to recent history
+                    hist = ticker.history(period="1d", interval="1m")
+                    if not hist.empty:
+                        last_price = float(hist['Close'].iloc[-1])
+                        logger.info(f"✅ {symbol}: Recent price ${last_price:.2f} (1min history)")
+                        return last_price, "recent_price"
+            
+            # Market is closed or current price unavailable, get last closing price
+            hist = ticker.history(period="5d")  # Get last 5 days to ensure we have data
+            if not hist.empty:
+                last_close = float(hist['Close'].iloc[-1])
+                last_date = hist.index[-1].strftime('%Y-%m-%d')
+                logger.info(f"✅ {symbol}: Last close ${last_close:.2f} on {last_date} ({market_status})")
+                return last_close, "last_close"
+            
+        except Exception as e:
+            logger.error(f"❌ Error fetching price for {symbol}: {e}")
+        
+        # Ultimate fallback - should never reach here
+        logger.warning(f"⚠️ {symbol}: No price data available, using 0")
+        return 0.0, "no_data"
         
     def calculate_rsi(self, prices: pd.Series, period: int = 14) -> float:
         """
@@ -201,6 +304,7 @@ class TechnicalAnalysisEngine:
         return {
             'symbol': symbol,
             'technical_score': round(technical_score, 2),
+            'current_price': round(current_price, 2),  # Add current_price at top level for compatibility
             'rsi': round(rsi, 1),
             'macd': {
                 'line': round(macd_line, 4),
@@ -217,6 +321,64 @@ class TechnicalAnalysisEngine:
             'timestamp': datetime.now().isoformat(),
             'data_quality': 'GOOD'
         }
+    
+    def analyze(self, symbol: str, market_data: Optional[pd.DataFrame] = None) -> Dict:
+        """
+        Analyze a single symbol with market hours detection and proper price handling
+        This is the method called by enhanced_morning_analyzer_with_ml.py
+        """
+        # Check market status
+        is_open, market_status = self.is_asx_market_open()
+        
+        # Get current or last closing price
+        current_price, price_source = self.get_current_or_last_price(symbol)
+        
+        # Use provided market data or fetch fresh data
+        if market_data is not None and not market_data.empty:
+            data = market_data
+        else:
+            data = self.get_stock_data(symbol)
+        
+        if data is None or len(data) < 20:
+            logger.warning(f"⚠️ {symbol}: Insufficient data for technical analysis")
+            return {
+                'symbol': symbol,
+                'technical_score': 0.0,
+                'current_price': current_price,  # Use fetched price instead of 0
+                'signal': 'INSUFFICIENT_DATA',
+                'confidence': 0.0,
+                'rsi': None,
+                'macd': None,
+                'moving_averages': {},
+                'price_action': {
+                    'current_price': current_price,
+                    'price_source': price_source
+                },
+                'market_status': market_status,
+                'data_quality': 'POOR'
+            }
+        
+        # Calculate technical indicators using the existing logic
+        result = self.calculate_technical_score(symbol)
+        
+        # Override the current_price with our enhanced price fetching
+        if result and isinstance(result, dict):
+            result['current_price'] = current_price
+            result['price_action']['current_price'] = current_price
+            result['price_action']['price_source'] = price_source
+            result['market_status'] = market_status
+            
+            # Update data quality based on price source
+            if price_source == "current_price":
+                result['data_quality'] = 'EXCELLENT'
+            elif price_source == "recent_price":
+                result['data_quality'] = 'GOOD'
+            elif price_source == "last_close":
+                result['data_quality'] = 'FAIR'
+            else:
+                result['data_quality'] = 'POOR'
+        
+        return result
     
     def analyze_all_banks(self) -> List[Dict]:
         """
@@ -372,6 +534,48 @@ def test_technical_analysis_isolated():
         return False
 
 if __name__ == "__main__":
-    # Run isolated technical analysis tests
+    # Test the enhanced technical analysis engine with market hours detection
+    engine = TechnicalAnalysisEngine()
+    
+    print("🕐 ASX MARKET HOURS & PRICE TESTING")
+    print("=" * 50)
+    
+    # Test market hours detection
+    is_open, status = engine.is_asx_market_open()
+    print(f"Market Status: {status}")
+    print(f"Market Open: {'✅ YES' if is_open else '❌ NO'}")
+    print()
+    
+    # Test price fetching for main banks
+    test_symbols = ['CBA.AX', 'ANZ.AX', 'WBC.AX', 'NAB.AX']
+    
+    print("💰 PRICE FETCHING TEST")
+    print("=" * 30)
+    for symbol in test_symbols:
+        price, source = engine.get_current_or_last_price(symbol)
+        print(f"{symbol}: ${price:.2f} ({source})")
+    print()
+    
+    # Test full analysis
+    print("🔧 TECHNICAL ANALYSIS TEST")
+    print("=" * 35)
+    result = engine.analyze('CBA.AX')
+    
+    if result:
+        print(f"Symbol: {result['symbol']}")
+        print(f"Current Price: ${result['current_price']:.2f}")
+        print(f"Price Source: {result['price_action'].get('price_source', 'unknown')}")
+        print(f"Technical Score: {result['technical_score']:.1f}/100")
+        print(f"Signal: {result.get('overall_signal', result.get('signal', 'N/A'))}")
+        print(f"Data Quality: {result['data_quality']}")
+        print(f"Market Status: {result.get('market_status', 'unknown')}")
+    else:
+        print("❌ Analysis failed")
+    
+    print("\n✅ Enhanced Technical Analysis Engine Test Complete!")
+    
+    # Also run the original isolated tests
+    print("\n" + "=" * 50)
+    print("🧪 RUNNING ORIGINAL ISOLATED TESTS")
     success = test_technical_analysis_isolated()
     exit(0 if success else 1)
