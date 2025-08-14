@@ -22,7 +22,8 @@ class TradingDataExporter:
     def get_database_summary(self):
         """Get overview of all tables and their record counts"""
         
-        summary = {}
+        content = ["📋 DATABASE SUMMARY"]
+        content.append("-" * 30)
         
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -35,12 +36,12 @@ class TradingDataExporter:
                 for table in tables:
                     cursor.execute(f"SELECT COUNT(*) FROM {table}")
                     count = cursor.fetchone()[0]
-                    summary[table] = count
+                    content.append(f"{table:<30} {count:>8} records")
                     
         except Exception as e:
-            summary['error'] = str(e)
+            content.append(f"Error: {str(e)}")
             
-        return summary
+        return content
     
     def get_predictions_data(self):
         """Get predictions table data"""
@@ -49,25 +50,23 @@ class TradingDataExporter:
             with sqlite3.connect(self.db_path) as conn:
                 df = pd.read_sql_query("""
                     SELECT 
-                        prediction_id,
                         symbol,
                         datetime(prediction_timestamp) as prediction_time,
                         predicted_action,
+                        action_confidence as confidence,
+                        entry_price,
                         predicted_direction,
                         predicted_magnitude,
-                        action_confidence as confidence_score,
-                        entry_price,
-                        optimal_action,
-                        datetime(created_at) as created_time
+                        model_version
                     FROM predictions 
                     ORDER BY prediction_timestamp DESC 
                     LIMIT 50
                 """, conn)
                 
-                return df
+                return self.format_dataframe_as_text(df, "📊 PREDICTIONS TABLE (Latest 50)")
                 
         except Exception as e:
-            return pd.DataFrame({'error': [str(e)]})
+            return f"📊 PREDICTIONS TABLE (Latest 50)\n{'=' * 40}\nError: {str(e)}\n"
     
     def get_enhanced_features_data(self):
         """Get enhanced features table data"""
@@ -95,10 +94,10 @@ class TradingDataExporter:
                     LIMIT 50
                 """, conn)
                 
-                return df
+                return self.format_dataframe_as_text(df, "🔍 ENHANCED FEATURES TABLE (Latest 50)")
                 
         except Exception as e:
-            return pd.DataFrame({'error': [str(e)]})
+            return f"🔍 ENHANCED FEATURES TABLE (Latest 50)\n{'=' * 40}\nError: {str(e)}\n"
     
     def get_outcomes_data(self):
         """Get outcomes table data"""
@@ -123,36 +122,58 @@ class TradingDataExporter:
                     LIMIT 50
                 """, conn)
                 
-                return df
+                return self.format_dataframe_as_text(df, "💰 OUTCOMES TABLE (Latest 50)")
                 
         except Exception as e:
-            return pd.DataFrame({'error': [str(e)]})
+            return f"💰 OUTCOMES TABLE (Latest 50)\n{'=' * 40}\nError: {str(e)}\n"
     
     def get_enhanced_outcomes_data(self):
-        """Get enhanced outcomes table data"""
+        """Get enhanced outcomes table data with schema-safe query"""
         
         try:
             with sqlite3.connect(self.db_path) as conn:
-                df = pd.read_sql_query("""
+                # Check what columns exist in enhanced_outcomes
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA table_info(enhanced_outcomes)")
+                columns = [row[1] for row in cursor.fetchall()]
+                
+                # Build query with available columns
+                base_query = """
                     SELECT 
                         symbol,
                         datetime(prediction_timestamp) as prediction_time,
-                        entry_price,
-                        exit_price_1d,
-                        exit_price_3d,
-                        exit_price_5d,
-                        return_1d,
-                        return_3d,
-                        return_5d
+                        entry_price"""
+                
+                optional_columns = []
+                if 'exit_price_1d' in columns:
+                    optional_columns.append('exit_price_1d')
+                if 'return_1d' in columns:
+                    optional_columns.append('return_1d')
+                if 'actual_return_1d' in columns:
+                    optional_columns.append('actual_return_1d')
+                if 'exit_price_5d' in columns:
+                    optional_columns.append('exit_price_5d')
+                if 'return_5d' in columns:
+                    optional_columns.append('return_5d')
+                if 'actual_return_5d' in columns:
+                    optional_columns.append('actual_return_5d')
+                
+                if optional_columns:
+                    query = base_query + ",\n                        " + ",\n                        ".join(optional_columns)
+                else:
+                    query = base_query
+                    
+                query += """
                     FROM enhanced_outcomes 
                     ORDER BY prediction_timestamp DESC 
                     LIMIT 50
-                """, conn)
+                """
                 
-                return df
+                df = pd.read_sql_query(query, conn)
+                return self.format_dataframe_as_text(df, "🎯 ENHANCED OUTCOMES TABLE (Latest 50)")
                 
         except Exception as e:
-            return pd.DataFrame({'error': [str(e)]})
+            return f"🎯 ENHANCED OUTCOMES TABLE (Latest 50)\n{'=' * 40}\nError: {str(e)}\n"
     
     def get_sentiment_features_data(self):
         """Get sentiment features table data"""
@@ -174,35 +195,37 @@ class TradingDataExporter:
                     LIMIT 50
                 """, conn)
                 
-                return df
+                return self.format_dataframe_as_text(df, "📰 SENTIMENT FEATURES TABLE (Latest 50)")
                 
         except Exception as e:
-            return pd.DataFrame({'error': [str(e)]})
+            return f"📰 SENTIMENT FEATURES TABLE (Latest 50)\n{'=' * 40}\nError: {str(e)}\n"
     
     def get_performance_metrics(self):
         """Calculate performance metrics"""
         
-        metrics = {}
+        content = ["📈 PERFORMANCE METRICS"]
+        content.append("-" * 30)
         
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 
-                # Win rate from outcomes
+                # Win rate calculation
                 cursor.execute("""
                     SELECT 
-                        COUNT(*) as total,
-                        SUM(CASE WHEN actual_return > 0 THEN 1 ELSE 0 END) as wins
+                        COUNT(*) as total_trades,
+                        SUM(CASE WHEN actual_return > 0 THEN 1 ELSE 0 END) as winning_trades
                     FROM outcomes 
                     WHERE actual_return IS NOT NULL
                 """)
                 result = cursor.fetchone()
+                
                 if result and result[0] > 0:
-                    metrics['win_rate'] = (result[1] / result[0]) * 100
-                    metrics['total_trades'] = result[0]
+                    win_rate = (result[1] / result[0]) * 100
+                    total_trades = result[0]
                 else:
-                    metrics['win_rate'] = 0
-                    metrics['total_trades'] = 0
+                    win_rate = 0
+                    total_trades = 0
                 
                 # Average return
                 cursor.execute("""
@@ -211,7 +234,7 @@ class TradingDataExporter:
                     WHERE actual_return IS NOT NULL
                 """)
                 result = cursor.fetchone()
-                metrics['avg_return'] = result[0] if result and result[0] else 0
+                avg_return = result[0] if result and result[0] else 0
                 
                 # Action distribution
                 cursor.execute("""
@@ -220,13 +243,143 @@ class TradingDataExporter:
                     GROUP BY predicted_action
                 """)
                 actions = dict(cursor.fetchall())
-                metrics['action_distribution'] = actions
+                
+                content.append(f"Total Trades:              {total_trades}")
+                content.append(f"Win Rate:               {win_rate:.1f}%")
+                content.append(f"Average Return:        {avg_return:.2f}%")
+                content.append("")
+                content.append("Action Distribution:")
+                for action, count in actions.items():
+                    content.append(f"  {action}: {count}")
                 
         except Exception as e:
-            metrics['error'] = str(e)
+            content.append(f"Error: {str(e)}")
             
-        return metrics
+        return content
     
+    def get_technical_analysis_data(self):
+        """Get technical analysis data from enhanced_morning_analysis"""
+        
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                df = pd.read_sql_query("""
+                    SELECT 
+                        symbol,
+                        datetime(analysis_timestamp) as analysis_time,
+                        sma_20,
+                        sma_50,
+                        rsi,
+                        macd,
+                        bollinger_upper,
+                        bollinger_lower,
+                        support_level,
+                        resistance_level,
+                        trend_direction,
+                        strength_score
+                    FROM enhanced_morning_analysis 
+                    ORDER BY analysis_timestamp DESC 
+                    LIMIT 50
+                """, conn)
+                
+                return self.format_dataframe_as_text(df, "🔧 TECHNICAL ANALYSIS DATA (Latest 50)")
+                
+        except Exception as e:
+            return f"🔧 TECHNICAL ANALYSIS DATA (Latest 50)\n{'=' * 40}\nError: {str(e)}\n"
+    
+    def get_model_performance_data(self):
+        """Get model performance metrics"""
+        
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                df = pd.read_sql_query("""
+                    SELECT 
+                        model_name,
+                        datetime(evaluation_date) as eval_date,
+                        accuracy,
+                        precision_score,
+                        recall,
+                        f1_score,
+                        auc_score,
+                        training_samples,
+                        test_samples
+                    FROM model_performance_enhanced 
+                    ORDER BY evaluation_date DESC 
+                    LIMIT 20
+                """, conn)
+                
+                return self.format_dataframe_as_text(df, "📈 MODEL PERFORMANCE METRICS (Latest 20)")
+                
+        except Exception as e:
+            return f"📈 MODEL PERFORMANCE METRICS (Latest 20)\n{'=' * 40}\nError: {str(e)}\n"
+    
+    def get_model_training_data(self):
+        """Get model training information"""
+        
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                df = pd.read_sql_query("""
+                    SELECT 
+                        model_name,
+                        datetime(training_date) as train_date,
+                        training_duration,
+                        feature_count,
+                        sample_count,
+                        validation_score,
+                        hyperparameters
+                    FROM model_training_log 
+                    ORDER BY training_date DESC 
+                    LIMIT 20
+                """, conn)
+                
+                return self.format_dataframe_as_text(df, "🧠 MODEL TRAINING LOG (Latest 20)")
+                
+        except Exception as e:
+            return f"🧠 MODEL TRAINING LOG (Latest 20)\n{'=' * 40}\nError: {str(e)}\n"
+    
+    def get_activity_summary(self):
+        """Get recent activity summary"""
+        
+        content = ["📅 RECENT ACTIVITY SUMMARY"]
+        content.append("-" * 40)
+        
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Last 24 hours activity
+                cursor.execute("""
+                    SELECT 
+                        COUNT(*) as predictions,
+                        COUNT(DISTINCT symbol) as symbols
+                    FROM predictions 
+                    WHERE prediction_timestamp > datetime('now', '-1 day')
+                """)
+                pred_stats = cursor.fetchone()
+                
+                cursor.execute("""
+                    SELECT COUNT(*) 
+                    FROM enhanced_features 
+                    WHERE feature_time > datetime('now', '-1 day')
+                """)
+                feature_count = cursor.fetchone()[0]
+                
+                cursor.execute("""
+                    SELECT COUNT(*) 
+                    FROM outcomes 
+                    WHERE outcome_timestamp > datetime('now', '-1 day')
+                """)
+                outcome_count = cursor.fetchone()[0]
+                
+                content.append("Last 24 Hours Activity:")
+                content.append(f"  Predictions:          {pred_stats[0] if pred_stats else 0}")
+                content.append(f"  Features:            {feature_count}")
+                content.append(f"  Outcomes:             {outcome_count}")
+                
+        except Exception as e:
+            content.append(f"Error: {str(e)}")
+            
+        return content
+
     def format_dataframe_as_text(self, df, title, max_width=120):
         """Format a pandas DataFrame as readable text"""
         
@@ -251,12 +404,7 @@ class TradingDataExporter:
         return text
     
     def export_comprehensive_data(self):
-        """Export all trading data to text file"""
-        
-        print(f"🚀 EXPORTING COMPREHENSIVE TRADING DATA")
-        print("=" * 50)
-        
-        # Start building the export content
+        """Export all trading data to a comprehensive text file"""
         content = []
         
         # Header
@@ -266,109 +414,58 @@ class TradingDataExporter:
         content.append(f"Database: {self.db_path}")
         content.append("")
         
-        # Database Summary
-        print("📋 Getting database summary...")
-        summary = self.get_database_summary()
-        content.append("📋 DATABASE SUMMARY")
-        content.append("-" * 30)
-        for table, count in summary.items():
-            content.append(f"{table:25} {count:>10} records")
+        # Database summary
+        content.extend(self.get_database_summary())
         content.append("")
         
-        # Performance Metrics
-        print("📈 Calculating performance metrics...")
-        metrics = self.get_performance_metrics()
-        content.append("📈 PERFORMANCE METRICS")
-        content.append("-" * 30)
-        content.append(f"Total Trades:     {metrics.get('total_trades', 0):>10}")
-        content.append(f"Win Rate:         {metrics.get('win_rate', 0):>9.1f}%")
-        content.append(f"Average Return:   {metrics.get('avg_return', 0):>9.2f}%")
+        # Performance metrics
+        content.extend(self.get_performance_metrics())
         content.append("")
         
-        if 'action_distribution' in metrics:
-            content.append("Action Distribution:")
-            for action, count in metrics['action_distribution'].items():
-                content.append(f"  {action:10} {count:>5} trades")
+        # MORNING ANALYSIS SECTIONS
+        content.append("🌅 MORNING ANALYSIS SECTIONS")
+        content.append("=" * 60)
         content.append("")
         
-        # Predictions Data
-        print("📊 Exporting predictions data...")
-        predictions_df = self.get_predictions_data()
-        content.append(self.format_dataframe_as_text(
-            predictions_df, 
-            "📊 PREDICTIONS TABLE (Latest 50)"
-        ))
+        predictions_text = self.get_predictions_data()
+        content.extend(predictions_text.split('\n'))
+        content.append("")
         
-        # Enhanced Features Data
-        print("🔍 Exporting enhanced features data...")
-        features_df = self.get_enhanced_features_data()
-        content.append(self.format_dataframe_as_text(
-            features_df, 
-            "🔍 ENHANCED FEATURES TABLE (Latest 50)"
-        ))
+        features_text = self.get_enhanced_features_data()
+        content.extend(features_text.split('\n'))
+        content.append("")
         
-        # Outcomes Data
-        print("💰 Exporting outcomes data...")
-        outcomes_df = self.get_outcomes_data()
-        content.append(self.format_dataframe_as_text(
-            outcomes_df, 
-            "💰 OUTCOMES TABLE (Latest 50)"
-        ))
+        sentiment_text = self.get_sentiment_features_data()
+        content.extend(sentiment_text.split('\n'))
+        content.append("")
         
-        # Enhanced Outcomes Data
-        print("🎯 Exporting enhanced outcomes data...")
-        enhanced_outcomes_df = self.get_enhanced_outcomes_data()
-        content.append(self.format_dataframe_as_text(
-            enhanced_outcomes_df, 
-            "🎯 ENHANCED OUTCOMES TABLE (Latest 50)"
-        ))
+        technical_text = self.get_technical_analysis_data()
+        content.extend(technical_text.split('\n'))
+        content.append("")
         
-        # Sentiment Features Data
-        print("📰 Exporting sentiment features data...")
-        sentiment_df = self.get_sentiment_features_data()
-        content.append(self.format_dataframe_as_text(
-            sentiment_df, 
-            "📰 SENTIMENT FEATURES TABLE (Latest 50)"
-        ))
+        # EVENING ANALYSIS SECTIONS
+        content.append("🌆 EVENING ANALYSIS SECTIONS")
+        content.append("=" * 60)
+        content.append("")
         
-        # Recent Activity Summary
-        content.append("📅 RECENT ACTIVITY SUMMARY")
-        content.append("-" * 40)
+        outcomes_text = self.get_outcomes_data()
+        content.extend(outcomes_text.split('\n'))
+        content.append("")
         
-        # Last 24 hours activity
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                
-                # Recent predictions
-                cursor.execute("""
-                    SELECT COUNT(*) FROM predictions 
-                    WHERE datetime(prediction_timestamp) > datetime('now', '-24 hours')
-                """)
-                recent_predictions = cursor.fetchone()[0]
-                
-                # Recent features
-                cursor.execute("""
-                    SELECT COUNT(*) FROM enhanced_features 
-                    WHERE datetime(timestamp) > datetime('now', '-24 hours')
-                """)
-                recent_features = cursor.fetchone()[0]
-                
-                # Recent outcomes
-                cursor.execute("""
-                    SELECT COUNT(*) FROM outcomes 
-                    WHERE datetime(evaluation_timestamp) > datetime('now', '-24 hours')
-                """)
-                recent_outcomes = cursor.fetchone()[0]
-                
-                content.append(f"Last 24 Hours Activity:")
-                content.append(f"  Predictions:      {recent_predictions:>5}")
-                content.append(f"  Features:         {recent_features:>5}")
-                content.append(f"  Outcomes:         {recent_outcomes:>5}")
-                
-        except Exception as e:
-            content.append(f"Error getting recent activity: {e}")
+        enhanced_outcomes_text = self.get_enhanced_outcomes_data()
+        content.extend(enhanced_outcomes_text.split('\n'))
+        content.append("")
         
+        model_perf_text = self.get_model_performance_data()
+        content.extend(model_perf_text.split('\n'))
+        content.append("")
+        
+        model_train_text = self.get_model_training_data()
+        content.extend(model_train_text.split('\n'))
+        content.append("")
+        
+        # Activity summary
+        content.extend(self.get_activity_summary())
         content.append("")
         
         # Footer
@@ -379,13 +476,18 @@ class TradingDataExporter:
         
         # Write to file
         full_content = "\n".join(content)
-        
         with open(self.output_file, 'w', encoding='utf-8') as f:
             f.write(full_content)
         
         print(f"✅ Export completed: {self.output_file}")
         print(f"📄 File size: {len(full_content):,} characters")
         print(f"📊 Total sections: {len([c for c in content if c.startswith('📊') or c.startswith('🔍')])}")
+        
+        # Also create a standard filename for easy copying
+        standard_filename = "latest_trading_data_export.txt"
+        with open(standard_filename, 'w', encoding='utf-8') as f:
+            f.write(full_content)
+        print(f"📋 Also saved as: {standard_filename}")
         
         return self.output_file
 
