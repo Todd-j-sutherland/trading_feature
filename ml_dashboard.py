@@ -14,6 +14,14 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
+import json
+
+# Try to import yfinance for price data
+try:
+    import yfinance as yf
+    YFINANCE_AVAILABLE = True
+except ImportError:
+    YFINANCE_AVAILABLE = False
 
 # Import enhanced confidence metrics
 try:
@@ -64,63 +72,8 @@ def load_latest_combined_data():
     SELECT 
         symbol,
         timestamp,
-        -- Extract real values from feature_vector JSON array
-        -- TruePredictionEngine feature order: [sentiment_score, confidence, news_count, reddit_sentiment, rsi, ...]
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
-                CAST(json_extract(feature_vector, '$[0]') AS REAL)
-            ELSE 0.0 
-        END as sentiment_score,
-        
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
-                CAST(json_extract(feature_vector, '$[1]') AS REAL)
-            ELSE 0.0 
-        END as sentiment_confidence,
-        
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
-                CAST(json_extract(feature_vector, '$[2]') AS INTEGER)
-            ELSE 0 
-        END as news_count,
-        
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
-                CAST(json_extract(feature_vector, '$[3]') AS REAL)
-            ELSE 0.0 
-        END as reddit_sentiment,
-        
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
-                CAST(json_extract(feature_vector, '$[4]') AS REAL)
-            ELSE 50.0 
-        END as rsi,
-        
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 10 THEN
-                CAST(json_extract(feature_vector, '$[5]') AS REAL)
-            ELSE 0.0 
-        END as macd_line,
-        
-        -- Try to get current price from multiple sources
-        COALESCE(
-            CASE 
-                WHEN feature_vector IS NOT NULL AND length(feature_vector) > 15 THEN
-                    CAST(json_extract(feature_vector, '$[15]') AS REAL)
-                ELSE NULL 
-            END,
-            entry_price, 
-            0.0
-        ) as current_price,
-        
-        0.0 as price_change_1d,  -- Calculate from price history later
-        
-        CASE 
-            WHEN feature_vector IS NOT NULL AND length(feature_vector) > 14 THEN
-                CAST(json_extract(feature_vector, '$[14]') AS REAL)
-            ELSE 0.015 
-        END as volatility_20d,
-        
+        feature_vector,
+        COALESCE(entry_price, 0.0) as current_price,
         optimal_action,
         ml_confidence,
         COALESCE(return_pct, 0.0) as return_pct,
@@ -137,6 +90,10 @@ def load_latest_combined_data():
     try:
         df = pd.read_sql_query(query, conn)
         conn.close()
+        
+        # Process feature vectors in Python
+        if not df.empty and 'feature_vector' in df.columns:
+            df = process_feature_vectors(df)
         
         # Enhance data with real-time price information
         df = enhance_with_current_prices(df)
@@ -155,11 +112,49 @@ def load_latest_combined_data():
         st.error(f"Error loading data: {e}")
         return pd.DataFrame()
 
+def process_feature_vectors(df):
+    """Process feature vectors from JSON arrays into individual columns"""
+    import json
+    
+    # Initialize new columns with default values
+    df['sentiment_score'] = 0.0
+    df['sentiment_confidence'] = 0.0
+    df['news_count'] = 0
+    df['reddit_sentiment'] = 0.0
+    df['rsi'] = 50.0
+    df['macd_line'] = 0.0
+    df['volatility_20d'] = 0.015
+    df['price_change_1d'] = 0.0
+    
+    # Process each row
+    for idx, row in df.iterrows():
+        feature_vector = row.get('feature_vector')
+        if feature_vector:
+            try:
+                features = json.loads(feature_vector)
+                if len(features) >= 20:  # Expected feature vector length
+                    df.at[idx, 'sentiment_score'] = float(features[0])
+                    df.at[idx, 'sentiment_confidence'] = float(features[1])
+                    df.at[idx, 'news_count'] = int(features[2])
+                    df.at[idx, 'reddit_sentiment'] = float(features[3])
+                    df.at[idx, 'rsi'] = float(features[4])
+                    df.at[idx, 'macd_line'] = float(features[5])
+                    df.at[idx, 'volatility_20d'] = float(features[14])
+                    # Try to get current price from features if available
+                    if len(features) > 15 and features[15] > 0:
+                        df.at[idx, 'current_price'] = float(features[15])
+            except (json.JSONDecodeError, ValueError, IndexError) as e:
+                # Keep default values if parsing fails
+                continue
+    
+    return df
+
 def enhance_with_current_prices(df):
     """Enhance dataframe with current prices from Yahoo Finance"""
-    try:
-        import yfinance as yf
+    if not YFINANCE_AVAILABLE:
+        return df
         
+    try:        
         for idx, row in df.iterrows():
             symbol = row['symbol']
             try:
@@ -181,9 +176,6 @@ def enhance_with_current_prices(df):
                 # If price fetch fails, keep existing values
                 continue
                 
-        return df
-    except ImportError:
-        # If yfinance not available, return original dataframe
         return df
     except Exception as e:
         # If any error occurs, return original dataframe
@@ -377,6 +369,10 @@ def main():
     # Clear cache at startup to ensure fresh data
     st.cache_data.clear()
     
+    # Clear any session state that might contain old data
+    if 'buy_positions_data' in st.session_state:
+        del st.session_state.buy_positions_data
+    
     st.title("🤖 ML Trading Dashboard - Fresh Data")
     st.markdown("**Real-time machine learning trading analysis combining news, social media, technical indicators, and ML predictions**")
     
@@ -398,23 +394,63 @@ def main():
             st.rerun()
     
     # Debug mode for troubleshooting
-    debug_mode = st.sidebar.checkbox("🔍 Debug Mode", value=False, help="Show raw data values")
+    debug_mode = st.sidebar.checkbox("🔍 Debug Mode", value=False, help="Show raw data values and database info")
     
     if debug_mode:
         st.sidebar.markdown("### 🔍 Debug Info")
+        
+        # Show actual database statistics
         try:
-            confidence = compute_enhanced_confidence_metrics()
-            st.sidebar.write(f"Features: {confidence['component_summary']['total_features']}")
-            st.sidebar.write(f"Outcomes: {confidence['component_summary']['completed_outcomes']}")
-            st.sidebar.write(f"Confidence: {confidence['overall_integration']['confidence']:.1%}")
+            conn = get_database_connection()
+            if conn:
+                # Get prediction counts
+                pred_query = """
+                SELECT 
+                    COUNT(*) as total_predictions,
+                    COUNT(CASE WHEN predicted_action = 'BUY' THEN 1 END) as buy_count,
+                    COUNT(CASE WHEN predicted_action = 'HOLD' THEN 1 END) as hold_count,
+                    COUNT(CASE WHEN predicted_action = 'SELL' THEN 1 END) as sell_count,
+                    MAX(prediction_timestamp) as latest_prediction
+                FROM predictions
+                """
+                pred_result = pd.read_sql_query(pred_query, conn)
+                
+                # Get outcome counts  
+                outcome_query = """
+                SELECT COUNT(*) as total_outcomes
+                FROM outcomes
+                """
+                outcome_result = pd.read_sql_query(outcome_query, conn)
+                
+                conn.close()
+                
+                st.sidebar.write(f"**Database Stats:**")
+                st.sidebar.write(f"Total Predictions: {pred_result['total_predictions'].iloc[0]}")
+                st.sidebar.write(f"BUY Signals: {pred_result['buy_count'].iloc[0]}")
+                st.sidebar.write(f"HOLD Signals: {pred_result['hold_count'].iloc[0]}")
+                st.sidebar.write(f"SELL Signals: {pred_result['sell_count'].iloc[0]}")
+                st.sidebar.write(f"Total Outcomes: {outcome_result['total_outcomes'].iloc[0]}")
+                st.sidebar.write(f"Latest: {pred_result['latest_prediction'].iloc[0]}")
+            else:
+                st.sidebar.error("Cannot connect to database")
+                
         except Exception as e:
             st.sidebar.error(f"Debug error: {e}")
+            # Fallback to old method
+            try:
+                confidence = compute_enhanced_confidence_metrics()
+                st.sidebar.write(f"Features: {confidence['component_summary']['total_features']}")
+                st.sidebar.write(f"Outcomes: {confidence['component_summary']['completed_outcomes']}")
+                st.sidebar.write(f"Confidence: {confidence['overall_integration']['confidence']:.1%}")
+            except Exception as e2:
+                st.sidebar.error(f"Fallback debug error: {e2}")
     
     # Sidebar for navigation
     st.sidebar.title("Navigation")
     page = st.sidebar.selectbox("Choose a page", [
         "Overview", 
-        "Latest Analysis", 
+        "Latest Analysis",
+        "Buy Positions Analysis", 
         "ML Performance", 
         "Position Win Rates",
         "Training Data", 
@@ -456,6 +492,8 @@ def main():
             show_overview(latest_data, performance_data, training_overview, action_dist, show_only_buy, exclude_hold)
         elif page == "Latest Analysis":
             show_latest_analysis(latest_data, show_only_buy, exclude_hold)
+        elif page == "Buy Positions Analysis":
+            show_buy_positions_analysis()
         elif page == "ML Performance":
             show_ml_performance(performance_data, show_only_buy, exclude_hold)
         elif page == "Position Win Rates":
@@ -469,6 +507,282 @@ def main():
         st.error(f"Error loading data: {str(e)}")
         st.info("Make sure the database file exists at: data/trading_predictions.db")
         st.info("This dashboard now shows data from the new prediction system.")
+    
+def show_buy_positions_analysis():
+    """Show detailed buy positions analysis"""
+    st.subheader("💰 Buy Positions Deep Analysis")
+    
+    # Load buy positions data
+    buy_data = load_buy_positions_detailed()
+    
+    # Show clear validation message
+    if buy_data.empty:
+        st.warning("� **No BUY positions found in the database**")
+        st.info("📊 **This means:**")
+        st.info("• Your ML model has not generated any BUY signals recently")
+        st.info("• All recent predictions were HOLD or other actions")
+        st.info("• The fake data you saw earlier was a dashboard display bug")
+        
+        # Show what IS in the database
+        try:
+            conn = get_database_connection()
+            if conn:
+                current_query = """
+                SELECT predicted_action, COUNT(*) as count 
+                FROM predictions 
+                GROUP BY predicted_action 
+                ORDER BY count DESC
+                """
+                current_data = pd.read_sql_query(current_query, conn)
+                conn.close()
+                
+                st.write("**📈 Current Prediction Distribution:**")
+                st.dataframe(current_data, use_container_width=True)
+        except Exception as e:
+            st.error(f"Error checking current predictions: {e}")
+        
+        return
+    
+    # If we have data, show it
+    st.success(f"✅ **Found {len(buy_data)} legitimate BUY position(s) in database**")
+    
+    # Summary metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        total_buys = len(buy_data)
+        st.metric("Total BUY Signals", total_buys)
+    
+    with col2:
+        closed_positions = buy_data[pd.notna(buy_data['actual_return'])]
+        if not closed_positions.empty:
+            avg_return = closed_positions['actual_return'].mean()
+            st.metric("Avg Return (Closed)", f"{avg_return:.2f}%")
+        else:
+            st.metric("Avg Return", "Pending", delta="Positions open")
+    
+    with col3:
+        if not closed_positions.empty:
+            win_rate = (closed_positions['actual_return'] > 0).mean() * 100
+            st.metric("Win Rate", f"{win_rate:.1f}%")
+        else:
+            st.metric("Win Rate", "Pending", delta="Positions open")
+    
+    with col4:
+        avg_confidence = buy_data['action_confidence'].mean()
+        st.metric("Avg ML Confidence", f"{avg_confidence:.3f}")
+    
+    # Show open positions with current performance
+    open_positions = buy_data[pd.isna(buy_data['actual_return'])]
+    if not open_positions.empty:
+        st.subheader("🔄 Open BUY Positions - Live Performance")
+        
+        # Calculate current performance for open positions
+        open_performance = []
+        for _, position in open_positions.iterrows():
+            entry_price = position.get('entry_price', 0)
+            symbol = position['symbol']
+            
+            if entry_price > 0:
+                current_price = get_current_price_yf(symbol)
+                if current_price > 0:
+                    unrealized_return = ((current_price - entry_price) / entry_price) * 100
+                    days_held = (datetime.now() - pd.to_datetime(position['prediction_timestamp'])).days
+                    
+                    open_performance.append({
+                        'Symbol': symbol,
+                        'Entry Date': pd.to_datetime(position['prediction_timestamp']).strftime('%Y-%m-%d'),
+                        'Entry Price': f"${entry_price:.2f}",
+                        'Current Price': f"${current_price:.2f}",
+                        'Unrealized Return': f"{unrealized_return:.2f}%",
+                        'Days Held': days_held,
+                        'ML Confidence': f"{position['action_confidence']:.3f}",
+                        'Entry Reason': position['entry_reason'][:50] + "..." if len(position['entry_reason']) > 50 else position['entry_reason']
+                    })
+        
+        if open_performance:
+            open_df = pd.DataFrame(open_performance)
+            
+            # Style the dataframe based on performance
+            def style_returns(val):
+                if 'Unrealized Return' in val.name:
+                    try:
+                        num_val = float(val.replace('%', ''))
+                        if num_val > 0:
+                            return 'color: green; font-weight: bold'
+                        elif num_val < 0:
+                            return 'color: red; font-weight: bold'
+                    except:
+                        pass
+                return ''
+            
+            styled_open_df = open_df.style.applymap(lambda x: style_returns(pd.Series([x], index=['Unrealized Return'])).iloc[0] if 'Unrealized Return' in str(x) else '', subset=['Unrealized Return'])
+            st.dataframe(styled_open_df, use_container_width=True)
+        else:
+            st.info("No open positions with entry prices available for performance calculation.")
+    
+    # Recent buy positions table with reasoning
+    st.subheader("📊 Recent BUY Positions with Analysis")
+    
+    # Format display data
+    display_df = buy_data.head(15).copy()
+    display_df['Date'] = pd.to_datetime(display_df['prediction_timestamp']).dt.strftime('%Y-%m-%d %H:%M')
+    display_df['Symbol'] = display_df['symbol']
+    display_df['Confidence'] = display_df['action_confidence'].round(3)
+    display_df['Entry Price'] = display_df['entry_price'].fillna(0).round(2)
+    display_df['Exit Price'] = display_df['exit_price'].fillna(0).round(2)
+    display_df['Return %'] = display_df['actual_return'].fillna(0).round(2)
+    display_df['Status'] = display_df.apply(lambda x: 
+        "✅ Closed" if pd.notna(x['actual_return']) else "🔄 Open", axis=1)
+    
+    # Show the table
+    st.dataframe(
+        display_df[['Date', 'Symbol', 'Confidence', 'Entry Price', 'Exit Price', 
+                   'Return %', 'Status', 'entry_reason']],
+        use_container_width=True,
+        column_config={
+            "entry_reason": st.column_config.TextColumn(
+                "Entry Reasoning",
+                help="Why this BUY position was recommended",
+                width="large"
+            )
+        }
+    )
+    
+    # Detailed position analysis
+    st.subheader("🔍 Position-by-Position Analysis")
+    
+    # Select a specific position for detailed analysis
+    position_ids = buy_data['prediction_id'].tolist()
+    symbols_dates = [f"{row['symbol']} - {pd.to_datetime(row['prediction_timestamp']).strftime('%Y-%m-%d %H:%M')}" 
+                    for _, row in buy_data.iterrows()]
+    
+    if symbols_dates:
+        selected_position = st.selectbox(
+            "Select a BUY position for detailed analysis:",
+            options=list(zip(position_ids, symbols_dates)),
+            format_func=lambda x: x[1]
+        )
+        
+        if selected_position:
+            position_id = selected_position[0]
+            position_data = buy_data[buy_data['prediction_id'] == position_id].iloc[0]
+            
+            # Create detailed analysis layout
+            col1, col2 = st.columns([1, 1])
+            
+            with col1:
+                st.write("**📈 Position Details**")
+                st.write(f"**Symbol:** {position_data['symbol']}")
+                st.write(f"**Entry Date:** {pd.to_datetime(position_data['prediction_timestamp']).strftime('%Y-%m-%d %H:%M:%S')}")
+                st.write(f"**ML Confidence:** {position_data['action_confidence']:.3f}")
+                st.write(f"**Entry Price:** ${position_data['entry_price']:.2f}" if pd.notna(position_data['entry_price']) else "**Entry Price:** Pending")
+                
+                if pd.notna(position_data['exit_price']):
+                    st.write(f"**Exit Price:** ${position_data['exit_price']:.2f}")
+                    st.write(f"**Return:** {position_data['actual_return']:.2f}%")
+                    if position_data['actual_return'] > 0:
+                        st.success(f"✅ Profitable position (+{position_data['actual_return']:.2f}%)")
+                    else:
+                        st.error(f"❌ Loss position ({position_data['actual_return']:.2f}%)")
+                else:
+                    st.info("🔄 Position still open")
+            
+            with col2:
+                st.write("**🧠 Technical Analysis at Entry**")
+                st.write(f"**Sentiment Score:** {position_data['sentiment_score']:.3f}")
+                st.write(f"**RSI:** {position_data['rsi']:.1f}")
+                st.write(f"**MACD:** {position_data['macd_line']:.3f}")
+                st.write(f"**News Articles:** {position_data['news_count']}")
+                
+                # RSI interpretation
+                rsi = position_data['rsi']
+                if rsi < 30:
+                    st.write("🔵 **RSI Signal:** Oversold - potential bounce opportunity")
+                elif rsi > 70:
+                    st.write("🔴 **RSI Signal:** Overbought - momentum play")
+                else:
+                    st.write("🟡 **RSI Signal:** Neutral zone")
+            
+            # Entry and exit reasoning
+            st.write("**💡 Entry Reasoning:**")
+            st.info(position_data['entry_reason'])
+            
+            st.write("**🎯 Exit Analysis:**")
+            st.info(position_data['exit_reason'])
+    
+    # Performance analysis by technical indicators
+    st.subheader("📊 BUY Signal Performance by Indicators")
+    
+    if not closed_positions.empty:
+        # Group by RSI ranges
+        closed_positions['rsi_range'] = pd.cut(
+            closed_positions['rsi'], 
+            bins=[0, 30, 50, 70, 100], 
+            labels=['Oversold (<30)', 'Low (30-50)', 'High (50-70)', 'Overbought (>70)']
+        )
+        
+        rsi_performance = closed_positions.groupby('rsi_range').agg({
+            'actual_return': ['mean', 'count'],
+            'action_confidence': 'mean'
+        }).round(3)
+        
+        rsi_performance.columns = ['Avg Return %', 'Position Count', 'Avg Confidence']
+        
+        st.write("**Performance by RSI Range:**")
+        st.dataframe(rsi_performance, use_container_width=True)
+        
+        # Sentiment performance
+        closed_positions['sentiment_range'] = pd.cut(
+            closed_positions['sentiment_score'], 
+            bins=[-1, -0.1, 0, 0.1, 1], 
+            labels=['Negative', 'Slightly Negative', 'Neutral', 'Positive']
+        )
+        
+        sentiment_performance = closed_positions.groupby('sentiment_range').agg({
+            'actual_return': ['mean', 'count'],
+            'action_confidence': 'mean'
+        }).round(3)
+        
+        sentiment_performance.columns = ['Avg Return %', 'Position Count', 'Avg Confidence']
+        
+        st.write("**Performance by Sentiment Range:**")
+        st.dataframe(sentiment_performance, use_container_width=True)
+        
+        # Best and worst performing signals
+        st.subheader("🏆 Best & Worst BUY Signals")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**🥇 Top 5 Best Performing BUY Signals**")
+            best_signals = closed_positions.nlargest(5, 'actual_return')[
+                ['symbol', 'prediction_timestamp', 'actual_return', 'entry_reason', 'action_confidence']
+            ].copy()
+            best_signals['Date'] = pd.to_datetime(best_signals['prediction_timestamp']).dt.strftime('%Y-%m-%d')
+            best_signals['Return %'] = best_signals['actual_return'].round(2)
+            best_signals['Confidence'] = best_signals['action_confidence'].round(3)
+            best_signals['Reason'] = best_signals['entry_reason'].apply(lambda x: x[:40] + "..." if len(x) > 40 else x)
+            
+            st.dataframe(
+                best_signals[['symbol', 'Date', 'Return %', 'Confidence', 'Reason']],
+                use_container_width=True
+            )
+        
+        with col2:
+            st.write("**🥲 Top 5 Worst Performing BUY Signals**")
+            worst_signals = closed_positions.nsmallest(5, 'actual_return')[
+                ['symbol', 'prediction_timestamp', 'actual_return', 'entry_reason', 'action_confidence']
+            ].copy()
+            worst_signals['Date'] = pd.to_datetime(worst_signals['prediction_timestamp']).dt.strftime('%Y-%m-%d')
+            worst_signals['Return %'] = worst_signals['actual_return'].round(2)
+            worst_signals['Confidence'] = worst_signals['action_confidence'].round(3)
+            worst_signals['Reason'] = worst_signals['entry_reason'].apply(lambda x: x[:40] + "..." if len(x) > 40 else x)
+            
+            st.dataframe(
+                worst_signals[['symbol', 'Date', 'Return %', 'Confidence', 'Reason']],
+                use_container_width=True
+            )
 
 def display_evaluation_countdown():
     """Display a prominent countdown widget for the evaluation period"""
@@ -746,6 +1060,182 @@ def show_overview(latest_data, performance_data, training_overview, action_dist,
         use_container_width=True
     )
 
+def load_buy_positions_detailed():
+    """Load detailed information about BUY positions with reasoning"""
+    query = """
+    SELECT 
+        p.prediction_id,
+        p.symbol,
+        p.prediction_timestamp,
+        p.predicted_action,
+        p.action_confidence,
+        p.feature_vector,
+        o.entry_price,
+        o.exit_price,
+        o.actual_return,
+        o.evaluation_timestamp
+    FROM predictions p
+    LEFT JOIN outcomes o ON p.prediction_id = o.prediction_id
+    WHERE p.predicted_action = 'BUY'
+    ORDER BY p.prediction_timestamp DESC
+    """
+    
+    conn = get_database_connection()
+    if conn is None:
+        return pd.DataFrame()
+        
+    try:
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        # Enhanced debugging - show in main area when debug mode is on
+        debug_checkbox = st.sidebar.checkbox("🔍 Debug Data Source", value=False)
+        if debug_checkbox:
+            st.write("**🔍 DEBUG: BUY Positions Query Results**")
+            st.write(f"Query returned {len(df)} BUY positions from database")
+            
+            if not df.empty:
+                st.write("**Raw Database Results:**")
+                debug_display = df[['symbol', 'prediction_timestamp', 'predicted_action', 'action_confidence']].copy()
+                debug_display['Date'] = pd.to_datetime(debug_display['prediction_timestamp']).dt.strftime('%Y-%m-%d %H:%M')
+                st.dataframe(debug_display[['symbol', 'Date', 'predicted_action', 'action_confidence']])
+                
+                st.write("**Feature Vector Status:**")
+                has_features = df['feature_vector'].notna().sum()
+                st.write(f"Rows with feature vectors: {has_features}/{len(df)}")
+                
+                if has_features > 0:
+                    sample_features = df[df['feature_vector'].notna()]['feature_vector'].iloc[0]
+                    try:
+                        parsed = json.loads(sample_features)
+                        st.write(f"Sample feature vector length: {len(parsed)}")
+                        st.write(f"First 5 features: {parsed[:5]}")
+                    except:
+                        st.write("Error parsing sample feature vector")
+            else:
+                st.write("❌ **No BUY positions found in database**")
+                st.write("This confirms that the fake data was being generated by the dashboard, not from the database.")
+        
+        # Process feature vectors to extract reasoning
+        if not df.empty and 'feature_vector' in df.columns:
+            df = extract_buy_reasoning(df)
+            
+        return df
+    except Exception as e:
+        st.error(f"Error loading buy positions: {e}")
+        return pd.DataFrame()
+
+def get_current_price_yf(symbol):
+    """Get current price from Yahoo Finance for entry/exit analysis"""
+    if not YFINANCE_AVAILABLE:
+        return 0
+        
+    try:
+        ticker = yf.Ticker(symbol)
+        info = ticker.info
+        current_price = info.get('currentPrice') or info.get('regularMarketPrice') or info.get('previousClose', 0)
+        return current_price if current_price and current_price > 0 else 0
+    except:
+        return 0
+
+def extract_buy_reasoning(df):
+    """Extract reasoning for buy decisions from feature vectors"""
+    import json
+    
+    # Initialize reasoning columns
+    df['entry_reason'] = ""
+    df['exit_reason'] = ""
+    df['sentiment_score'] = 0.0
+    df['rsi'] = 50.0
+    df['macd_line'] = 0.0
+    df['news_count'] = 0
+    df['current_price'] = 0.0
+    
+    for idx, row in df.iterrows():
+        feature_vector = row.get('feature_vector')
+        if feature_vector:
+            try:
+                features = json.loads(feature_vector)
+                if len(features) >= 20:
+                    sentiment = float(features[0])
+                    sentiment_conf = float(features[1])
+                    news_count = int(features[2])
+                    rsi = float(features[4])
+                    macd = float(features[5])
+                    
+                    df.at[idx, 'sentiment_score'] = sentiment
+                    df.at[idx, 'rsi'] = rsi
+                    df.at[idx, 'macd_line'] = macd
+                    df.at[idx, 'news_count'] = news_count
+                    
+                    # Generate entry reasoning based on indicators
+                    entry_reasons = []
+                    
+                    # Sentiment-based reasoning
+                    if sentiment > 0.1:
+                        entry_reasons.append(f"Strong positive sentiment ({sentiment:.3f})")
+                    elif sentiment > 0.05:
+                        entry_reasons.append(f"Moderate positive sentiment ({sentiment:.3f})")
+                    
+                    # Technical analysis reasoning
+                    if rsi < 30:
+                        entry_reasons.append(f"Oversold RSI ({rsi:.1f}) - potential bounce")
+                    elif rsi > 70:
+                        entry_reasons.append(f"Strong momentum RSI ({rsi:.1f})")
+                    elif 45 <= rsi <= 55:
+                        entry_reasons.append(f"Neutral RSI ({rsi:.1f}) - balanced entry")
+                    
+                    # MACD reasoning
+                    if macd > 0.1:
+                        entry_reasons.append(f"Bullish MACD signal ({macd:.3f})")
+                    elif macd > 0:
+                        entry_reasons.append(f"Positive MACD momentum ({macd:.3f})")
+                    
+                    # News volume reasoning
+                    if news_count > 40:
+                        entry_reasons.append(f"High news activity ({news_count} articles)")
+                    elif news_count > 20:
+                        entry_reasons.append(f"Moderate news coverage ({news_count} articles)")
+                    
+                    # ML confidence reasoning
+                    confidence = row.get('action_confidence', 0)
+                    if confidence > 0.7:
+                        entry_reasons.append(f"High ML confidence ({confidence:.3f})")
+                    elif confidence > 0.5:
+                        entry_reasons.append(f"Moderate ML confidence ({confidence:.3f})")
+                    
+                    df.at[idx, 'entry_reason'] = "; ".join(entry_reasons) if entry_reasons else "Standard technical signals"
+                    
+                    # Exit reasoning (if position is closed)
+                    if pd.notna(row.get('exit_price')) and pd.notna(row.get('actual_return')):
+                        actual_return = row['actual_return']
+                        if actual_return > 0:
+                            df.at[idx, 'exit_reason'] = f"Profitable exit (+{actual_return:.2f}% return)"
+                        else:
+                            df.at[idx, 'exit_reason'] = f"Stop loss triggered ({actual_return:.2f}% return)"
+                    else:
+                        # For open positions, calculate potential current return
+                        entry_price = row.get('entry_price', 0)
+                        if entry_price > 0:
+                            current_price = get_current_price_yf(row['symbol'])
+                            if current_price > 0:
+                                potential_return = ((current_price - entry_price) / entry_price) * 100
+                                df.at[idx, 'current_price'] = current_price
+                                if potential_return > 0:
+                                    df.at[idx, 'exit_reason'] = f"Position open - potential +{potential_return:.2f}% return"
+                                else:
+                                    df.at[idx, 'exit_reason'] = f"Position open - current {potential_return:.2f}% return"
+                            else:
+                                df.at[idx, 'exit_reason'] = "Position open - monitoring price"
+                        else:
+                            df.at[idx, 'exit_reason'] = "Position open - awaiting entry price"
+                        
+            except (json.JSONDecodeError, ValueError, IndexError):
+                df.at[idx, 'entry_reason'] = "Technical analysis signals"
+                df.at[idx, 'exit_reason'] = "Standard exit strategy"
+                
+    return df
+
 def show_latest_analysis(latest_data, show_only_buy=False, exclude_hold=False):
     """Show latest analysis page"""
     st.header("📈 Latest Combined Analysis")
@@ -755,6 +1245,10 @@ def show_latest_analysis(latest_data, show_only_buy=False, exclude_hold=False):
         st.markdown("**Excluding HOLD positions - Real-time view of active trading signals**")
     else:
         st.markdown("**Real-time view of all analysis sources for each symbol**")
+    
+    # Add Buy Positions Analysis section at the top
+    if show_only_buy or not exclude_hold:
+        show_buy_positions_analysis()
     
     # Detailed table
     st.subheader("Complete Analysis Dashboard")
