@@ -54,6 +54,8 @@ class EnhancedOutcomesEvaluator:
         except Exception as e:
             print(f"Error cleaning outcomes: {e}")
         
+        return cleanup_results
+        
     def run_evaluation(self) -> Dict:
         """Run complete outcomes evaluation process"""
         
