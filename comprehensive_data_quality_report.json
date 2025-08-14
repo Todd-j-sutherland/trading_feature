@@ -1,0 +1,976 @@
+{
+  "timestamp": "2025-08-14T21:52:44.647356",
+  "morning_routine_integrity": {
+    "timestamp_issues": [
+      {
+        "issue": "Large timestamp gap between predictions and features",
+        "gap_hours": 19.70183632611111,
+        "prediction_time": "2025-08-13T22:10:32.016855",
+        "feature_time": "2025-08-14T17:52:38.627629",
+        "severity": "CRITICAL"
+      }
+    ],
+    "technical_anomalies": [],
+    "ml_model_issues": [],
+    "data_quality_issues": [],
+    "severity": "CRITICAL"
+  },
+  "schema_analysis": {
+    "model_performance": {
+      "exists": true,
+      "actual_columns": [
+        "evaluation_id",
+        "model_version",
+        "evaluation_period_start",
+        "evaluation_period_end",
+        "total_predictions",
+        "accuracy_action",
+        "accuracy_direction",
+        "mae_magnitude",
+        "created_at"
+      ],
+      "missing_expected": [
+        "model_name",
+        "training_date",
+        "accuracy",
+        "precision_score",
+        "recall",
+        "f1_score"
+      ],
+      "query_context": "Performance metrics dashboard tab",
+      "schema": {
+        "evaluation_id": {
+          "type": "TEXT",
+          "not_null": false,
+          "default": null,
+          "primary_key": true
+        },
+        "model_version": {
+          "type": "TEXT",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "evaluation_period_start": {
+          "type": "DATETIME",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "evaluation_period_end": {
+          "type": "DATETIME",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "total_predictions": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "accuracy_action": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "accuracy_direction": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "mae_magnitude": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "created_at": {
+          "type": "DATETIME",
+          "not_null": false,
+          "default": "CURRENT_TIMESTAMP",
+          "primary_key": false
+        }
+      }
+    },
+    "enhanced_features": {
+      "exists": true,
+      "actual_columns": [
+        "id",
+        "symbol",
+        "timestamp",
+        "sentiment_score",
+        "confidence",
+        "news_count",
+        "reddit_sentiment",
+        "event_score",
+        "rsi",
+        "macd_line",
+        "macd_signal",
+        "macd_histogram",
+        "sma_20",
+        "sma_50",
+        "sma_200",
+        "ema_12",
+        "ema_26",
+        "bollinger_upper",
+        "bollinger_lower",
+        "bollinger_width",
+        "current_price",
+        "price_change_1h",
+        "price_change_4h",
+        "price_change_1d",
+        "price_change_5d",
+        "price_change_20d",
+        "price_vs_sma20",
+        "price_vs_sma50",
+        "price_vs_sma200",
+        "daily_range",
+        "atr_14",
+        "volatility_20d",
+        "volume",
+        "volume_sma20",
+        "volume_ratio",
+        "on_balance_volume",
+        "volume_price_trend",
+        "asx200_change",
+        "sector_performance",
+        "aud_usd_rate",
+        "vix_level",
+        "market_breadth",
+        "market_momentum",
+        "sentiment_momentum",
+        "sentiment_rsi",
+        "volume_sentiment",
+        "confidence_volatility",
+        "news_volume_impact",
+        "technical_sentiment_divergence",
+        "asx_market_hours",
+        "asx_opening_hour",
+        "asx_closing_hour",
+        "monday_effect",
+        "friday_effect",
+        "month_end",
+        "quarter_end",
+        "feature_version",
+        "created_at"
+      ],
+      "missing_expected": [
+        "analysis_timestamp",
+        "bb_upper",
+        "bb_lower",
+        "volume_ma"
+      ],
+      "query_context": "Technical analysis dashboard tab",
+      "schema": {
+        "id": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": true
+        },
+        "symbol": {
+          "type": "TEXT",
+          "not_null": true,
+          "default": null,
+          "primary_key": false
+        },
+        "timestamp": {
+          "type": "DATETIME",
+          "not_null": true,
+          "default": null,
+          "primary_key": false
+        },
+        "sentiment_score": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "confidence": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "news_count": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "reddit_sentiment": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "event_score": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "rsi": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "macd_line": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "macd_signal": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "macd_histogram": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "sma_20": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "sma_50": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "sma_200": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "ema_12": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "ema_26": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "bollinger_upper": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "bollinger_lower": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "bollinger_width": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "current_price": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price_change_1h": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price_change_4h": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price_change_1d": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price_change_5d": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price_change_20d": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price_vs_sma20": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price_vs_sma50": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price_vs_sma200": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "daily_range": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "atr_14": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "volatility_20d": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "volume": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "volume_sma20": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "volume_ratio": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "on_balance_volume": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "volume_price_trend": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "asx200_change": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "sector_performance": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "aud_usd_rate": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "vix_level": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "market_breadth": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "market_momentum": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "sentiment_momentum": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "sentiment_rsi": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "volume_sentiment": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "confidence_volatility": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "news_volume_impact": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "technical_sentiment_divergence": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "asx_market_hours": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "asx_opening_hour": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "asx_closing_hour": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "monday_effect": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "friday_effect": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "month_end": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "quarter_end": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "feature_version": {
+          "type": "TEXT",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "created_at": {
+          "type": "DATETIME",
+          "not_null": false,
+          "default": "CURRENT_TIMESTAMP",
+          "primary_key": false
+        }
+      }
+    },
+    "enhanced_outcomes": {
+      "exists": true,
+      "actual_columns": [
+        "id",
+        "feature_id",
+        "symbol",
+        "prediction_timestamp",
+        "price_direction_1h",
+        "price_direction_4h",
+        "price_direction_1d",
+        "price_magnitude_1h",
+        "price_magnitude_4h",
+        "price_magnitude_1d",
+        "volatility_next_1h",
+        "optimal_action",
+        "confidence_score",
+        "entry_price",
+        "exit_price_1h",
+        "exit_price_4h",
+        "exit_price_1d",
+        "exit_timestamp",
+        "return_pct",
+        "created_at"
+      ],
+      "missing_expected": [
+        "timestamp"
+      ],
+      "query_context": "Enhanced outcomes dashboard tab",
+      "schema": {
+        "id": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": true
+        },
+        "feature_id": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "symbol": {
+          "type": "TEXT",
+          "not_null": true,
+          "default": null,
+          "primary_key": false
+        },
+        "prediction_timestamp": {
+          "type": "DATETIME",
+          "not_null": true,
+          "default": null,
+          "primary_key": false
+        },
+        "price_direction_1h": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price_direction_4h": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price_direction_1d": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price_magnitude_1h": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price_magnitude_4h": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price_magnitude_1d": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "volatility_next_1h": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "optimal_action": {
+          "type": "TEXT",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "confidence_score": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "entry_price": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "exit_price_1h": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "exit_price_4h": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "exit_price_1d": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "exit_timestamp": {
+          "type": "DATETIME",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "return_pct": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "created_at": {
+          "type": "DATETIME",
+          "not_null": false,
+          "default": "CURRENT_TIMESTAMP",
+          "primary_key": false
+        }
+      }
+    },
+    "sentiment_features": {
+      "exists": true,
+      "actual_columns": [
+        "id",
+        "symbol",
+        "timestamp",
+        "overall_sentiment",
+        "news_count",
+        "confidence",
+        "technical_score",
+        "rsi",
+        "price",
+        "volume"
+      ],
+      "missing_expected": [
+        "created_at",
+        "sentiment_score",
+        "sentiment_confidence"
+      ],
+      "query_context": "Sentiment analysis dashboard tab",
+      "schema": {
+        "id": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": true
+        },
+        "symbol": {
+          "type": "TEXT",
+          "not_null": true,
+          "default": null,
+          "primary_key": false
+        },
+        "timestamp": {
+          "type": "DATETIME",
+          "not_null": false,
+          "default": "CURRENT_TIMESTAMP",
+          "primary_key": false
+        },
+        "overall_sentiment": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "news_count": {
+          "type": "INTEGER",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "confidence": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "technical_score": {
+          "type": "REAL",
+          "not_null": false,
+          "default": "0",
+          "primary_key": false
+        },
+        "rsi": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "price": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        },
+        "volume": {
+          "type": "REAL",
+          "not_null": false,
+          "default": null,
+          "primary_key": false
+        }
+      }
+    }
+  },
+  "data_quality": {
+    "timestamp": "2025-08-14T21:52:44.647367",
+    "database_path": "data/trading_predictions.db",
+    "tables_analyzed": {
+      "predictions": {
+        "record_count": 11,
+        "column_count": 12,
+        "columns": [
+          "prediction_id",
+          "symbol",
+          "prediction_timestamp",
+          "predicted_action",
+          "action_confidence",
+          "predicted_direction",
+          "predicted_magnitude",
+          "feature_vector",
+          "model_version",
+          "created_at",
+          "entry_price",
+          "optimal_action"
+        ]
+      },
+      "outcomes": {
+        "record_count": 11,
+        "column_count": 8,
+        "columns": [
+          "outcome_id",
+          "prediction_id",
+          "actual_return",
+          "actual_direction",
+          "entry_price",
+          "exit_price",
+          "evaluation_timestamp",
+          "created_at"
+        ]
+      },
+      "model_performance": {
+        "record_count": 0,
+        "column_count": 9,
+        "columns": [
+          "evaluation_id",
+          "model_version",
+          "evaluation_period_start",
+          "evaluation_period_end",
+          "total_predictions",
+          "accuracy_action",
+          "accuracy_direction",
+          "mae_magnitude",
+          "created_at"
+        ]
+      },
+      "sentiment_features": {
+        "record_count": 0,
+        "column_count": 10,
+        "columns": [
+          "id",
+          "symbol",
+          "timestamp",
+          "overall_sentiment",
+          "news_count",
+          "confidence",
+          "technical_score",
+          "rsi",
+          "price",
+          "volume"
+        ]
+      },
+      "sqlite_sequence": {
+        "record_count": 3,
+        "column_count": 2,
+        "columns": [
+          "name",
+          "seq"
+        ]
+      },
+      "enhanced_features": {
+        "record_count": 8,
+        "column_count": 58,
+        "columns": [
+          "id",
+          "symbol",
+          "timestamp",
+          "sentiment_score",
+          "confidence",
+          "news_count",
+          "reddit_sentiment",
+          "event_score",
+          "rsi",
+          "macd_line",
+          "macd_signal",
+          "macd_histogram",
+          "sma_20",
+          "sma_50",
+          "sma_200",
+          "ema_12",
+          "ema_26",
+          "bollinger_upper",
+          "bollinger_lower",
+          "bollinger_width",
+          "current_price",
+          "price_change_1h",
+          "price_change_4h",
+          "price_change_1d",
+          "price_change_5d",
+          "price_change_20d",
+          "price_vs_sma20",
+          "price_vs_sma50",
+          "price_vs_sma200",
+          "daily_range",
+          "atr_14",
+          "volatility_20d",
+          "volume",
+          "volume_sma20",
+          "volume_ratio",
+          "on_balance_volume",
+          "volume_price_trend",
+          "asx200_change",
+          "sector_performance",
+          "aud_usd_rate",
+          "vix_level",
+          "market_breadth",
+          "market_momentum",
+          "sentiment_momentum",
+          "sentiment_rsi",
+          "volume_sentiment",
+          "confidence_volatility",
+          "news_volume_impact",
+          "technical_sentiment_divergence",
+          "asx_market_hours",
+          "asx_opening_hour",
+          "asx_closing_hour",
+          "monday_effect",
+          "friday_effect",
+          "month_end",
+          "quarter_end",
+          "feature_version",
+          "created_at"
+        ]
+      },
+      "enhanced_outcomes": {
+        "record_count": 8,
+        "column_count": 20,
+        "columns": [
+          "id",
+          "feature_id",
+          "symbol",
+          "prediction_timestamp",
+          "price_direction_1h",
+          "price_direction_4h",
+          "price_direction_1d",
+          "price_magnitude_1h",
+          "price_magnitude_4h",
+          "price_magnitude_1d",
+          "volatility_next_1h",
+          "optimal_action",
+          "confidence_score",
+          "entry_price",
+          "exit_price_1h",
+          "exit_price_4h",
+          "exit_price_1d",
+          "exit_timestamp",
+          "return_pct",
+          "created_at"
+        ]
+      },
+      "model_performance_enhanced": {
+        "record_count": 0,
+        "column_count": 18,
+        "columns": [
+          "id",
+          "model_version",
+          "model_type",
+          "training_date",
+          "direction_accuracy_1h",
+          "direction_accuracy_4h",
+          "direction_accuracy_1d",
+          "magnitude_mae_1h",
+          "magnitude_mae_4h",
+          "magnitude_mae_1d",
+          "precision_score",
+          "recall_score",
+          "f1_score",
+          "feature_count",
+          "training_samples",
+          "parameters",
+          "feature_importance",
+          "created_at"
+        ]
+      },
+      "enhanced_morning_analysis": {
+        "record_count": 5,
+        "column_count": 13,
+        "columns": [
+          "id",
+          "timestamp",
+          "analysis_type",
+          "market_hours",
+          "banks_analyzed",
+          "overall_sentiment",
+          "ml_predictions",
+          "technical_signals",
+          "recommendations",
+          "data_quality_scores",
+          "feature_counts",
+          "model_performance",
+          "created_at"
+        ]
+      }
+    },
+    "issues_found": [
+      "Table model_performance: Missing expected columns ['model_name', 'training_date', 'accuracy', 'precision_score', 'recall', 'f1_score']",
+      "Table enhanced_features: Missing expected columns ['analysis_timestamp', 'bb_upper', 'bb_lower', 'volume_ma']",
+      "Table enhanced_outcomes: Missing expected columns ['timestamp']",
+      "Table sentiment_features: Missing expected columns ['created_at', 'sentiment_score', 'sentiment_confidence']"
+    ],
+    "fixes_suggested": [
+      "Suggested mappings for model_performance: {'model_name': 'model_version', 'training_date': 'created_at', 'accuracy': 'accuracy_action', 'precision_score': 'accuracy_action', 'recall': 'accuracy_direction', 'f1_score': 'mae_magnitude'}",
+      "Suggested mappings for enhanced_features: {'analysis_timestamp': 'timestamp', 'bb_upper': 'bollinger_upper', 'bb_lower': 'bollinger_lower', 'volume_ma': 'volume_sma20'}",
+      "Suggested mappings for enhanced_outcomes: {'timestamp': 'prediction_timestamp'}",
+      "Suggested mappings for sentiment_features: {'created_at': 'timestamp', 'sentiment_score': 'overall_sentiment', 'sentiment_confidence': 'confidence'}"
+    ],
+    "fixes_applied": []
+  }
+}

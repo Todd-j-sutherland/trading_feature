@@ -65,7 +65,7 @@ class EnhancedMLTrainingPipeline:
         # Initialize database for training data
         # Use the main unified database, not the one in ml_models subdirectory
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        self.db_path = os.path.join(project_root, "data", "trading_unified.db")
+        self.db_path = os.path.join(project_root, "data", "trading_predictions.db")
         self.init_database()
         
         # Initialize technical analyzer

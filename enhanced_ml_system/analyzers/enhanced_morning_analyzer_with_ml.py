@@ -78,8 +78,8 @@ class EnhancedMorningAnalyzer:
             self.logger.warning("Enhanced ML components not available - using basic analysis")
         
         # Database paths
-        self.db_path = "data/trading_unified.db"
-        self.enhanced_db_path = "data/trading_unified.db"
+        self.db_path = "data/trading_predictions.db"
+        self.enhanced_db_path = "data/trading_predictions.db"
         
         # Create data directories
         os.makedirs("data", exist_ok=True)

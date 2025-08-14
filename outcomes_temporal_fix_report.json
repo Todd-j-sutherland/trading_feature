@@ -1,0 +1,129 @@
+{
+  "timestamp": "2025-08-14T22:21:45.500116",
+  "analysis": {
+    "premature_evaluations": [
+      {
+        "outcome_id": null,
+        "prediction_id": "c64a441c-c98f-4983-8e9d-6eae81336af1",
+        "symbol": "QBE.AX",
+        "prediction_time": "2025-08-12T11:32:48.389219",
+        "evaluation_time": "2025-08-12T11:32:48.389219",
+        "hours_gap": 0.0
+      },
+      {
+        "outcome_id": null,
+        "prediction_id": "e36490f0-fa76-4db2-885d-ab86744f34cd",
+        "symbol": "SUN.AX",
+        "prediction_time": "2025-08-12T11:32:48.434248",
+        "evaluation_time": "2025-08-12T11:32:48.434248",
+        "hours_gap": 0.0
+      },
+      {
+        "outcome_id": null,
+        "prediction_id": "e65962a1-0840-4817-aa06-91d1972d21c0",
+        "symbol": "MQG.AX",
+        "prediction_time": "2025-08-12T11:32:48.478662",
+        "evaluation_time": "2025-08-12T11:32:48.478662",
+        "hours_gap": 0.0
+      }
+    ],
+    "temporal_inconsistencies": [],
+    "invalid_exit_times": [
+      {
+        "enhanced_outcome_id": 1,
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-14T17:42:26.658424",
+        "exit_time": "2025-08-14T17:42:26.658432",
+        "entry_price": 32.5,
+        "exit_price": 0.0
+      },
+      {
+        "enhanced_outcome_id": 2,
+        "symbol": "CBA.AX",
+        "prediction_time": "2025-08-14T17:43:26.268956",
+        "exit_time": "2025-08-14T17:43:26.268962",
+        "entry_price": 167.2100067138672,
+        "exit_price": 0.0
+      },
+      {
+        "enhanced_outcome_id": 3,
+        "symbol": "WBC.AX",
+        "prediction_time": "2025-08-14T17:44:20.744798",
+        "exit_time": "2025-08-14T17:44:20.744814",
+        "entry_price": 36.040000915527344,
+        "exit_price": 0.0
+      },
+      {
+        "enhanced_outcome_id": 4,
+        "symbol": "NAB.AX",
+        "prediction_time": "2025-08-14T17:45:17.840943",
+        "exit_time": "2025-08-14T17:45:17.840949",
+        "entry_price": 38.880001068115234,
+        "exit_price": 0.0
+      },
+      {
+        "enhanced_outcome_id": 5,
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-14T17:49:41.974574",
+        "exit_time": "2025-08-14T17:49:41.974579",
+        "entry_price": 32.5,
+        "exit_price": 0.0
+      },
+      {
+        "enhanced_outcome_id": 6,
+        "symbol": "CBA.AX",
+        "prediction_time": "2025-08-14T17:50:42.866328",
+        "exit_time": "2025-08-14T17:50:42.866334",
+        "entry_price": 167.2100067138672,
+        "exit_price": 0.0
+      },
+      {
+        "enhanced_outcome_id": 7,
+        "symbol": "WBC.AX",
+        "prediction_time": "2025-08-14T17:51:40.107392",
+        "exit_time": "2025-08-14T17:51:40.107397",
+        "entry_price": 36.040000915527344,
+        "exit_price": 0.0
+      },
+      {
+        "enhanced_outcome_id": 8,
+        "symbol": "NAB.AX",
+        "prediction_time": "2025-08-14T17:52:39.035952",
+        "exit_time": "2025-08-14T17:52:39.035957",
+        "entry_price": 38.880001068115234,
+        "exit_price": 0.0
+      }
+    ],
+    "extreme_returns": [],
+    "evaluation_gaps": [
+      {
+        "prediction_id": "e65962a1-0840-4817-aa06-91d1972d21c0",
+        "symbol": "MQG.AX",
+        "prediction_time": "2025-08-12T11:32:48.478662",
+        "hours_old": 48.82
+      },
+      {
+        "prediction_id": "e36490f0-fa76-4db2-885d-ab86744f34cd",
+        "symbol": "SUN.AX",
+        "prediction_time": "2025-08-12T11:32:48.434248",
+        "hours_old": 48.82
+      },
+      {
+        "prediction_id": "c64a441c-c98f-4983-8e9d-6eae81336af1",
+        "symbol": "QBE.AX",
+        "prediction_time": "2025-08-12T11:32:48.389219",
+        "hours_old": 48.82
+      }
+    ]
+  },
+  "fixes_applied": [
+    "Fixed 8 invalid exit timestamps"
+  ],
+  "constraints_created": [
+    "Created trigger to prevent premature outcome evaluation",
+    "Created temporal-safe enhanced outcomes view",
+    "Created trigger to validate exit times"
+  ],
+  "issues_before": 14,
+  "fixes_count": 1
+}

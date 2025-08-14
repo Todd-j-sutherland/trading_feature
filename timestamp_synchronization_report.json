@@ -1,0 +1,168 @@
+{
+  "timestamp": "2025-08-14T21:53:45.050753",
+  "integrity_analysis": {
+    "timestamp_analysis": {},
+    "leakage_detected": [
+      {
+        "prediction_id": "dfd56395-0baf-42a8-b29a-15aab3cbdf3b",
+        "feature_id": 1,
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-13T22:10:32.016855",
+        "feature_time": "2025-08-14T17:42:26.234146",
+        "hours_gap": 19.53,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "dfd56395-0baf-42a8-b29a-15aab3cbdf3b",
+        "feature_id": 5,
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-13T22:10:32.016855",
+        "feature_time": "2025-08-14T17:49:41.555288",
+        "hours_gap": 19.65,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "497e0949-4315-4e1c-8886-4eb642e49e12",
+        "feature_id": 2,
+        "symbol": "CBA.AX",
+        "prediction_time": "2025-08-12T11:32:48.763273",
+        "feature_time": "2025-08-14T17:43:25.821921",
+        "hours_gap": 54.18,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "497e0949-4315-4e1c-8886-4eb642e49e12",
+        "feature_id": 6,
+        "symbol": "CBA.AX",
+        "prediction_time": "2025-08-12T11:32:48.763273",
+        "feature_time": "2025-08-14T17:50:42.462105",
+        "hours_gap": 54.3,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "3e8e29dc-fa20-4774-b4f0-acf17f894f35",
+        "feature_id": 3,
+        "symbol": "WBC.AX",
+        "prediction_time": "2025-08-12T11:32:48.685829",
+        "feature_time": "2025-08-14T17:44:20.333569",
+        "hours_gap": 54.19,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "3e8e29dc-fa20-4774-b4f0-acf17f894f35",
+        "feature_id": 7,
+        "symbol": "WBC.AX",
+        "prediction_time": "2025-08-12T11:32:48.685829",
+        "feature_time": "2025-08-14T17:51:39.697819",
+        "hours_gap": 54.31,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "a8c1c36c-b7a4-4089-b335-f88d76b1f880",
+        "feature_id": 1,
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:32:48.603115",
+        "feature_time": "2025-08-14T17:42:26.234146",
+        "hours_gap": 54.16,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "a8c1c36c-b7a4-4089-b335-f88d76b1f880",
+        "feature_id": 5,
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:32:48.603115",
+        "feature_time": "2025-08-14T17:49:41.555288",
+        "hours_gap": 54.28,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "8a216ac5-eade-4438-a885-74aecd915715",
+        "feature_id": 4,
+        "symbol": "NAB.AX",
+        "prediction_time": "2025-08-12T11:32:48.524513",
+        "feature_time": "2025-08-14T17:45:17.429018",
+        "hours_gap": 54.21,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "8a216ac5-eade-4438-a885-74aecd915715",
+        "feature_id": 8,
+        "symbol": "NAB.AX",
+        "prediction_time": "2025-08-12T11:32:48.524513",
+        "feature_time": "2025-08-14T17:52:38.627629",
+        "hours_gap": 54.33,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "3c81bdba-2d9e-4927-a6fd-b86d24ec7961",
+        "feature_id": 1,
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:28:03.505922",
+        "feature_time": "2025-08-14T17:42:26.234146",
+        "hours_gap": 54.24,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "3c81bdba-2d9e-4927-a6fd-b86d24ec7961",
+        "feature_id": 5,
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:28:03.505922",
+        "feature_time": "2025-08-14T17:49:41.555288",
+        "hours_gap": 54.36,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "771122af-4317-4f5a-b8a0-6be3879aa00a",
+        "feature_id": 1,
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:27:52.678885",
+        "feature_time": "2025-08-14T17:42:26.234146",
+        "hours_gap": 54.24,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "771122af-4317-4f5a-b8a0-6be3879aa00a",
+        "feature_id": 5,
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:27:52.678885",
+        "feature_time": "2025-08-14T17:49:41.555288",
+        "hours_gap": 54.36,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "5934b87b-917b-4115-86f4-28b56d040d99",
+        "feature_id": 1,
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:24:10.692491",
+        "feature_time": "2025-08-14T17:42:26.234146",
+        "hours_gap": 54.3,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "5934b87b-917b-4115-86f4-28b56d040d99",
+        "feature_id": 5,
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:24:10.692491",
+        "feature_time": "2025-08-14T17:49:41.555288",
+        "hours_gap": 54.43,
+        "severity": "CRITICAL"
+      }
+    ],
+    "sync_issues": [
+      "Error analyzing timestamps: no such function: HOUR"
+    ],
+    "recommendations": [
+      "\ud83d\udea8 CRITICAL: Implement strict timestamp validation in morning routine",
+      "\ud83d\udd27 Add temporal constraints to prevent future data usage",
+      "\u23f0 Synchronize feature generation with prediction timing",
+      "\ud83d\udee1\ufe0f Add data leakage prevention checks"
+    ]
+  },
+  "fixes_applied": [
+    "Removed 8 predictions with data leakage"
+  ],
+  "constraints_created": [
+    "Created temporal_safe_predictions view",
+    "Created data leakage prevention trigger"
+  ]
+}
