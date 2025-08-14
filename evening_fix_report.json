@@ -1,13 +1,13 @@
 {
-  "fix_timestamp": "2025-08-14T22:48:11.099453",
+  "fix_timestamp": "2025-08-14T22:53:10.247684",
   "fixes_applied": {
     "duplicate_fixes": 0,
     "null_return_fixes": 0,
-    "consistency_fixes": 3,
+    "consistency_fixes": 0,
     "constraints_added": 4,
     "database_optimized": true
   },
-  "total_fixes": 7,
+  "total_fixes": 4,
   "recommendations": [
     "Monitor evening_guard_report.json for ongoing issues",
     "Run evening temporal guard regularly",

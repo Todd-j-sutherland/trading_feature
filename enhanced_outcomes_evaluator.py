@@ -55,6 +55,59 @@ class EnhancedOutcomesEvaluator:
             print(f"Error cleaning outcomes: {e}")
         
         return cleanup_results
+        
+    def run_evaluation(self) -> Dict:
+        """Run complete outcomes evaluation process"""
+        
+        print("📊 ENHANCED OUTCOMES EVALUATION SYSTEM")
+        print("=" * 50)
+        
+        results = {
+            'cleanup_results': {},
+            'evaluation_results': {},
+            'validation_results': {},
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Step 1: Clean invalid outcomes
+        print("\n🧹 CLEANING INVALID OUTCOMES DATA...")
+        cleanup_result = self.clean_invalid_outcomes()
+        if cleanup_result is None:
+            cleanup_result = {'deleted_incomplete': 0, 'deleted_invalid': 0}
+        results['cleanup_results'] = cleanup_result
+        
+        # Step 2: Evaluate pending predictions
+        print("\n📈 EVALUATING PENDING PREDICTIONS...")
+        evaluation_result = self.evaluate_pending_predictions()
+        if evaluation_result is None:
+            evaluation_result = {'evaluated_count': 0, 'skipped_too_recent': 0, 'errors': []}
+        results['evaluation_results'] = evaluation_result
+        
+        # Step 3: Validate outcomes integrity
+        print("\n🔍 VALIDATING OUTCOMES INTEGRITY...")
+        validation_result = self.validate_outcomes_integrity()
+        if validation_result is None:
+            validation_result = {'temporal_issues': 0, 'total_outcomes': 0, 'valid_outcomes': 0}
+        results['validation_results'] = validation_result
+        
+        # Summary
+        total_cleaned = results['cleanup_results'].get('deleted_incomplete', 0) + results['cleanup_results'].get('deleted_invalid', 0)
+        total_evaluated = results['evaluation_results'].get('evaluated_count', 0)
+        total_issues = results['validation_results'].get('temporal_issues', 0)
+        
+        print("\n" + "=" * 50)
+        if total_issues == 0:
+            print("✅ OUTCOMES EVALUATION SAFE!")
+            if total_evaluated > 0:
+                print(f"📊 Evaluated {total_evaluated} new predictions")
+            else:
+                print("ℹ️  No new evaluations needed at this time")
+        else:
+            print("⚠️  OUTCOMES EVALUATION HAS ISSUES!")
+            print(f"🔧 {total_issues} temporal issues detected")
+        print("=" * 50)
+        
+        return results
     
     def evaluate_pending_predictions(self, min_age_hours: int = 4) -> Dict:
         """Evaluate predictions that are old enough and don't have outcomes yet"""
