@@ -1,0 +1,24 @@
+{
+  "validation_time": "2025-08-14T22:48:26.863237",
+  "guard_passed": true,
+  "validation_type": "evening_temporal_guard",
+  "issues_found": [],
+  "warnings": [
+    "No outcomes data available"
+  ],
+  "recommendations": [
+    "Continue regular evening validation monitoring"
+  ],
+  "summary": {
+    "total_issues": 0,
+    "total_warnings": 1,
+    "critical_failures": 0,
+    "validation_categories": {
+      "outcomes_validation": "PASSED",
+      "data_consistency": "PASSED",
+      "leakage_detection": "PASSED",
+      "duplicate_check": "PASSED",
+      "database_integrity": "PASSED"
+    }
+  }
+}

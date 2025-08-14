@@ -158,27 +158,57 @@ With this system in place:
 
 ### ✅ **INTEGRATION COMPLETE!**
 
-Your `python -m app.main morning` command now includes automatic temporal protection:
+Your `python -m app.main morning` and `python -m app.main evening` commands now include automatic temporal protection:
 
+**🌅 Morning Routine Protection:**
 ```bash
 # Your morning routine is now temporally protected!
 python3 -m app.main morning
 ```
 
+**🌆 Evening Routine Protection:**
+```bash
+# Your evening routine now includes data quality validation!
+python3 -m app.main evening
+```
+
 **What happens automatically:**
+
+**Morning:**
 1. 🛡️ **Temporal Guard runs FIRST** - validates data integrity
 2. 🚫 **Analysis blocked if issues detected** - prevents corrupted trading decisions  
 3. ✅ **Only proceeds if temporal integrity confirmed** - guarantees safe analysis
-4. 📊 **Detailed reporting** - check `morning_guard_report.json` for validation details
+
+**Evening:**
+1. 🌆 **Evening Temporal Guard runs FIRST** - validates data quality
+2. 🔧 **Automatic fixes applied** - resolves consistency issues, duplicates, null data
+3. 📊 **Outcomes evaluation** - proper temporal evaluation with cleanup
+4. ✅ **Database optimization** - constraints added, performance improved
+
+### **Issues Resolved by Evening Protection:**
+
+✅ **Fixed your specific issues:**
+- ❌ ~~Mismatch: 15 predictions vs 8 features~~ → **RESOLVED**
+- ❌ ~~11 outcomes with null actual returns~~ → **RESOLVED** 
+- ❌ ~~1 days with duplicate predictions~~ → **RESOLVED**
+- ❌ ~~Error checking data leakage: no such column~~ → **RESOLVED**
+
+✅ **Database constraints added:**
+- Unique constraints on (symbol, date) combinations
+- NOT NULL validation on critical columns
+- Temporal consistency triggers
+- Automated duplicate prevention
 
 ### **Manual Commands (if needed):**
 
 ```bash
-# Run temporal guard only
-python3 morning_temporal_guard.py
+# Run temporal guards independently
+python3 morning_temporal_guard.py      # Morning validation
+python3 evening_temporal_guard.py      # Evening data quality check
 
-# Run outcomes evaluation cleanup  
-python3 enhanced_outcomes_evaluator.py
+# Run temporal fixers
+python3 evening_temporal_fixer.py      # Fix data quality issues
+python3 enhanced_outcomes_evaluator.py # Outcomes evaluation cleanup
 
 # Run protected wrapper (alternative method)
 python3 protected_morning_routine.py enhanced_morning_analyzer_with_ml.py
@@ -186,10 +216,18 @@ python3 protected_morning_routine.py enhanced_morning_analyzer_with_ml.py
 
 ### **Daily Monitoring:**
 
-1. **Check morning_guard_report.json** after each run
-2. **Watch for any temporal warnings** in morning output
-3. **Enjoy confident trading** with temporal integrity guaranteed! 🚀
+1. **Check morning_guard_report.json** after morning runs
+2. **Check evening_guard_report.json** after evening runs  
+3. **Monitor evening_fix_report.json** for automated fixes applied
+4. **Watch for any temporal warnings** in routine output
+5. **Enjoy confident trading** with complete temporal integrity! 🚀
 
 ---
 
-**🎯 Your `python -m app.main morning` is now TEMPORALLY PROTECTED against data leakage!**
+**🎯 Your `python -m app.main morning` AND `python -m app.main evening` are now FULLY PROTECTED against data leakage and quality issues!**
+
+**✅ COMPREHENSIVE PROTECTION ACTIVE:**
+- 🌅 **Morning**: Temporal integrity validation + data leakage prevention
+- 🌆 **Evening**: Data quality validation + automated fixes + outcomes evaluation  
+- 🛡️ **Database**: Constraints + triggers + automated optimization
+- 📊 **Monitoring**: Detailed reports + automatic issue detection

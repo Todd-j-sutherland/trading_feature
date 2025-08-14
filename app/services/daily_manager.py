@@ -594,7 +594,59 @@ class TradingSystemManager:
         print("=" * 50)
         
         try:
-            # Import and run enhanced outcomes evaluator for evening cleanup
+            # Import and run evening temporal guard first
+            from evening_temporal_guard import EveningTemporalGuard
+            
+            evening_guard = EveningTemporalGuard()
+            guard_result = evening_guard.run_comprehensive_evening_guard()
+            
+            if not guard_result:
+                print("\n🚨 EVENING TEMPORAL GUARD FAILED!")
+                print("=" * 50)
+                print("⚠️ Data quality issues detected - running automated fixes...")
+                
+                # Run evening temporal fixer
+                try:
+                    from evening_temporal_fixer import EveningTemporalFixer
+                    
+                    fixer = EveningTemporalFixer()
+                    fix_results = fixer.run_evening_fixes()
+                    
+                    total_fixes = sum([
+                        fix_results['duplicate_fixes'],
+                        fix_results['null_return_fixes'],
+                        fix_results['consistency_fixes'],
+                        fix_results['constraints_added']
+                    ])
+                    
+                    if total_fixes > 0:
+                        print(f"✅ Applied {total_fixes} automatic fixes")
+                        print("🔄 Re-running evening guard validation...")
+                        
+                        # Re-run guard after fixes
+                        guard_result = evening_guard.run_comprehensive_evening_guard()
+                        
+                        if guard_result:
+                            print("✅ Evening guard now passing after fixes")
+                        else:
+                            print("⚠️ Some issues remain - check evening_guard_report.json")
+                    else:
+                        print("⚠️ No automatic fixes could be applied")
+                        print("🔧 Manual intervention may be required")
+                
+                except ImportError:
+                    print("⚠️ Evening temporal fixer not found")
+                    print("💡 Install: Copy evening_temporal_fixer.py to root")
+                except Exception as fix_e:
+                    print(f"❌ Error running evening fixer: {fix_e}")
+            
+            else:
+                print("✅ EVENING TEMPORAL GUARD PASSED")
+                print("📊 Data quality validated for outcomes processing")
+            
+            print("=" * 50)
+            
+            # Also run enhanced outcomes evaluator for evening cleanup
             from enhanced_outcomes_evaluator import EnhancedOutcomesEvaluator
             
             evaluator = EnhancedOutcomesEvaluator()
@@ -605,10 +657,10 @@ class TradingSystemManager:
             print("=" * 50)
             
         except ImportError:
-            print("⚠️ Enhanced outcomes evaluator not found")
-            print("💡 Install: Copy enhanced_outcomes_evaluator.py to root")
+            print("⚠️ Evening temporal protection not found")
+            print("💡 Install: Copy evening_temporal_guard.py to root")
         except Exception as e:
-            print(f"⚠️ Outcomes evaluation warning: {e}")
+            print(f"⚠️ Evening temporal validation warning: {e}")
             print("🔄 Continuing with evening analysis...")
         
         # Check if enhanced ML components are available
