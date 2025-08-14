@@ -52,7 +52,59 @@ def get_database_connection():
 
 # Remove caching to ensure fresh data
 def load_latest_combined_data():
-    """Load the latest combined analysis data for each symbol from TruePredictionEngine system"""
+    """Load the latest combined analysis data from enhanced tables"""
+    query = """
+    SELECT 
+        ef.symbol,
+        ef.timestamp,
+        ef.sentiment_score,
+        ef.confidence as sentiment_confidence,
+        ef.news_count,
+        ef.reddit_sentiment,
+        ef.rsi,
+        ef.macd_line,
+        ef.current_price,
+        ef.price_change_1d,
+        ef.volatility_20d,
+        eo.optimal_action,
+        eo.confidence_score as ml_confidence,
+        eo.entry_price,
+        eo.return_pct,
+        eo.price_direction_1d,
+        ef.created_at
+    FROM enhanced_features ef
+    LEFT JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
+    ORDER BY ef.timestamp DESC
+    """
+    
+    conn = get_database_connection()
+    if conn is None:
+        return pd.DataFrame()
+        
+    try:
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        # Enhance data with real-time price information if needed
+        df = enhance_with_current_prices(df)
+        
+        # Ensure all numeric columns are properly typed
+        numeric_columns = ['sentiment_score', 'sentiment_confidence', 'news_count', 'reddit_sentiment',
+                          'rsi', 'macd_line', 'current_price', 'price_change_1d', 'volatility_20d',
+                          'ml_confidence', 'return_pct', 'price_direction_1d', 'entry_price']
+        
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+        
+        return df
+    except Exception as e:
+        st.error(f"Error loading enhanced data: {e}")
+        # Fallback to old method
+        return load_latest_combined_data_fallback()
+
+def load_latest_combined_data_fallback():
+    """Fallback to load data from old prediction/outcomes tables"""
     query = """
     WITH latest_predictions AS (
         SELECT 
@@ -95,21 +147,9 @@ def load_latest_combined_data():
         if not df.empty and 'feature_vector' in df.columns:
             df = process_feature_vectors(df)
         
-        # Enhance data with real-time price information
-        df = enhance_with_current_prices(df)
-        
-        # Ensure all numeric columns are properly typed
-        numeric_columns = ['sentiment_score', 'sentiment_confidence', 'news_count', 'reddit_sentiment',
-                          'rsi', 'macd_line', 'current_price', 'price_change_1d', 'volatility_20d',
-                          'ml_confidence', 'return_pct', 'price_direction_1d']
-        
-        for col in numeric_columns:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
-        
         return df
     except Exception as e:
-        st.error(f"Error loading data: {e}")
+        st.error(f"Error loading fallback data: {e}")
         return pd.DataFrame()
 
 def process_feature_vectors(df):
@@ -373,8 +413,8 @@ def main():
     if 'buy_positions_data' in st.session_state:
         del st.session_state.buy_positions_data
     
-    st.title("🤖 ML Trading Dashboard - Fresh Data")
-    st.markdown("**Real-time machine learning trading analysis combining news, social media, technical indicators, and ML predictions**")
+    st.title("🤖 ML Trading Dashboard - Enhanced Data")
+    st.markdown("**Real-time machine learning trading analysis with enhanced feature engineering**")
     
     # Enhanced cache clearing controls in sidebar
     st.sidebar.title("🔄 Data Control")
@@ -403,13 +443,26 @@ def main():
         try:
             conn = get_database_connection()
             if conn:
-                # Get prediction counts
+                # Get enhanced features counts
+                enhanced_query = """
+                SELECT 
+                    COUNT(*) as total_enhanced_features,
+                    COUNT(CASE WHEN ef.sentiment_score > 0 THEN 1 END) as positive_sentiment,
+                    COUNT(CASE WHEN eo.optimal_action = 'BUY' THEN 1 END) as buy_count,
+                    COUNT(CASE WHEN eo.optimal_action = 'HOLD' THEN 1 END) as hold_count,
+                    COUNT(CASE WHEN eo.optimal_action = 'SELL' THEN 1 END) as sell_count,
+                    MAX(ef.timestamp) as latest_enhanced
+                FROM enhanced_features ef
+                LEFT JOIN enhanced_outcomes eo ON ef.id = eo.feature_id
+                """
+                enhanced_result = pd.read_sql_query(enhanced_query, conn)
+                
+                # Get legacy prediction counts  
                 pred_query = """
                 SELECT 
                     COUNT(*) as total_predictions,
-                    COUNT(CASE WHEN predicted_action = 'BUY' THEN 1 END) as buy_count,
-                    COUNT(CASE WHEN predicted_action = 'HOLD' THEN 1 END) as hold_count,
-                    COUNT(CASE WHEN predicted_action = 'SELL' THEN 1 END) as sell_count,
+                    COUNT(CASE WHEN predicted_action = 'BUY' THEN 1 END) as legacy_buy_count,
+                    COUNT(CASE WHEN entry_price > 0 THEN 1 END) as valid_entry_prices,
                     MAX(prediction_timestamp) as latest_prediction
                 FROM predictions
                 """
@@ -424,13 +477,17 @@ def main():
                 
                 conn.close()
                 
-                st.sidebar.write(f"**Database Stats:**")
-                st.sidebar.write(f"Total Predictions: {pred_result['total_predictions'].iloc[0]}")
-                st.sidebar.write(f"BUY Signals: {pred_result['buy_count'].iloc[0]}")
-                st.sidebar.write(f"HOLD Signals: {pred_result['hold_count'].iloc[0]}")
-                st.sidebar.write(f"SELL Signals: {pred_result['sell_count'].iloc[0]}")
-                st.sidebar.write(f"Total Outcomes: {outcome_result['total_outcomes'].iloc[0]}")
-                st.sidebar.write(f"Latest: {pred_result['latest_prediction'].iloc[0]}")
+                st.sidebar.write(f"**Enhanced Tables:**")
+                st.sidebar.write(f"Enhanced Features: {enhanced_result['total_enhanced_features'].iloc[0]}")
+                st.sidebar.write(f"BUY Actions: {enhanced_result['buy_count'].iloc[0]}")
+                st.sidebar.write(f"HOLD Actions: {enhanced_result['hold_count'].iloc[0]}")
+                st.sidebar.write(f"SELL Actions: {enhanced_result['sell_count'].iloc[0]}")
+                st.sidebar.write(f"Latest Enhanced: {enhanced_result['latest_enhanced'].iloc[0]}")
+                
+                st.sidebar.write(f"**Legacy Tables:**")
+                st.sidebar.write(f"Legacy Predictions: {pred_result['total_predictions'].iloc[0]}")
+                st.sidebar.write(f"Valid Entry Prices: {pred_result['valid_entry_prices'].iloc[0]}")
+                st.sidebar.write(f"Legacy Outcomes: {outcome_result['total_outcomes'].iloc[0]}")
             else:
                 st.sidebar.error("Cannot connect to database")
                 
