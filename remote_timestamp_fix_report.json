@@ -1,0 +1,189 @@
+{
+  "timestamp": "2025-08-14T12:12:26.174630",
+  "database_path": "/root/test/data/trading_predictions.db",
+  "before_analysis": {
+    "database_path": "/root/test/data/trading_predictions.db",
+    "leakage_detected": [
+      {
+        "prediction_id": "5934b87b-917b-4115-86f4-28b56d040d99",
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:24:10.692491",
+        "feature_time": "2025-08-14T17:49:41.555288",
+        "hours_gap": 54.43,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "771122af-4317-4f5a-b8a0-6be3879aa00a",
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:27:52.678885",
+        "feature_time": "2025-08-14T17:49:41.555288",
+        "hours_gap": 54.36,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "3c81bdba-2d9e-4927-a6fd-b86d24ec7961",
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:28:03.505922",
+        "feature_time": "2025-08-14T17:49:41.555288",
+        "hours_gap": 54.36,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "8a216ac5-eade-4438-a885-74aecd915715",
+        "symbol": "NAB.AX",
+        "prediction_time": "2025-08-12T11:32:48.524513",
+        "feature_time": "2025-08-14T17:52:38.627629",
+        "hours_gap": 54.33,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "3e8e29dc-fa20-4774-b4f0-acf17f894f35",
+        "symbol": "WBC.AX",
+        "prediction_time": "2025-08-12T11:32:48.685829",
+        "feature_time": "2025-08-14T17:51:39.697819",
+        "hours_gap": 54.31,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "5934b87b-917b-4115-86f4-28b56d040d99",
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:24:10.692491",
+        "feature_time": "2025-08-14T17:42:26.234146",
+        "hours_gap": 54.3,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "497e0949-4315-4e1c-8886-4eb642e49e12",
+        "symbol": "CBA.AX",
+        "prediction_time": "2025-08-12T11:32:48.763273",
+        "feature_time": "2025-08-14T17:50:42.462105",
+        "hours_gap": 54.3,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "a8c1c36c-b7a4-4089-b335-f88d76b1f880",
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:32:48.603115",
+        "feature_time": "2025-08-14T17:49:41.555288",
+        "hours_gap": 54.28,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "771122af-4317-4f5a-b8a0-6be3879aa00a",
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:27:52.678885",
+        "feature_time": "2025-08-14T17:42:26.234146",
+        "hours_gap": 54.24,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "3c81bdba-2d9e-4927-a6fd-b86d24ec7961",
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:28:03.505922",
+        "feature_time": "2025-08-14T17:42:26.234146",
+        "hours_gap": 54.24,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "8a216ac5-eade-4438-a885-74aecd915715",
+        "symbol": "NAB.AX",
+        "prediction_time": "2025-08-12T11:32:48.524513",
+        "feature_time": "2025-08-14T17:45:17.429018",
+        "hours_gap": 54.21,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "3e8e29dc-fa20-4774-b4f0-acf17f894f35",
+        "symbol": "WBC.AX",
+        "prediction_time": "2025-08-12T11:32:48.685829",
+        "feature_time": "2025-08-14T17:44:20.333569",
+        "hours_gap": 54.19,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "497e0949-4315-4e1c-8886-4eb642e49e12",
+        "symbol": "CBA.AX",
+        "prediction_time": "2025-08-12T11:32:48.763273",
+        "feature_time": "2025-08-14T17:43:25.821921",
+        "hours_gap": 54.18,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "a8c1c36c-b7a4-4089-b335-f88d76b1f880",
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-12T11:32:48.603115",
+        "feature_time": "2025-08-14T17:42:26.234146",
+        "hours_gap": 54.16,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "dfd56395-0baf-42a8-b29a-15aab3cbdf3b",
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-13T22:10:32.016855",
+        "feature_time": "2025-08-14T17:49:41.555288",
+        "hours_gap": 19.65,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "dfd56395-0baf-42a8-b29a-15aab3cbdf3b",
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-13T22:10:32.016855",
+        "feature_time": "2025-08-14T17:42:26.234146",
+        "hours_gap": 19.53,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "eda58a82-ff72-45ba-8763-cf78f76e139b",
+        "symbol": "ANZ.AX",
+        "prediction_time": "2025-08-14T09:40:18.162125",
+        "feature_time": "2025-08-14T17:49:41.555288",
+        "hours_gap": 8.16,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "81371088-07c4-4764-a76d-4ee3704f2a81",
+        "symbol": "CBA.AX",
+        "prediction_time": "2025-08-14T09:41:35.228891",
+        "feature_time": "2025-08-14T17:50:42.462105",
+        "hours_gap": 8.15,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "5fd3753b-7876-4fc8-b9d6-20ba78a6a878",
+        "symbol": "WBC.AX",
+        "prediction_time": "2025-08-14T09:42:38.171486",
+        "feature_time": "2025-08-14T17:51:39.697819",
+        "hours_gap": 8.15,
+        "severity": "CRITICAL"
+      },
+      {
+        "prediction_id": "5a41ccc4-79c7-4cfb-8749-34a31e580962",
+        "symbol": "NAB.AX",
+        "prediction_time": "2025-08-14T09:43:42.107400",
+        "feature_time": "2025-08-14T17:52:38.627629",
+        "hours_gap": 8.15,
+        "severity": "CRITICAL"
+      }
+    ],
+    "total_predictions": 29,
+    "total_features": 8,
+    "issues": [
+      "18 predictions with future timestamps"
+    ]
+  },
+  "after_analysis": {
+    "database_path": "/root/test/data/trading_predictions.db",
+    "leakage_detected": [],
+    "total_predictions": 3,
+    "total_features": 8,
+    "issues": []
+  },
+  "fixes_applied": [
+    "Removed 26 predictions with data leakage"
+  ],
+  "constraints_created": [
+    "Created temporal_safe_predictions view",
+    "Created data leakage prevention trigger"
+  ],
+  "success": true
+}
