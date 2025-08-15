@@ -622,7 +622,7 @@ class TradingDataDashboard:
                 st.info("This would trigger data cleanup routines")
         
         # Last update timestamp
-        if self.analysis_results:
+        if self.analysis_results is not None and self.analysis_results:
             timestamp = self.analysis_results.get('timestamp', 'Unknown')
             st.info(f"Last analysis: {timestamp}")
     
@@ -631,7 +631,7 @@ class TradingDataDashboard:
         st.sidebar.title("🎛️ Dashboard Navigation")
         
         # Database selector
-        databases = list(self.analysis_results.get('databases', {}).keys()) if self.analysis_results else []
+        databases = list(self.analysis_results.get('databases', {}).keys()) if self.analysis_results is not None else []
         selected_db = st.sidebar.selectbox("📁 Select Database", ["data/trading_predictions.db"] + databases)
         
         # Table selector for detailed view
@@ -647,7 +647,7 @@ class TradingDataDashboard:
         
         # Quick stats
         st.sidebar.subheader("📈 Quick Stats")
-        if self.analysis_results:
+        if self.analysis_results is not None:
             summary = self.analysis_results.get('dashboard_data', {}).get('summary', {})
             st.sidebar.metric("Total Records", f"{summary.get('total_records', 0):,}")
             st.sidebar.metric("Health Status", summary.get('data_flow_health', 'Unknown'))
