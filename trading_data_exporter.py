@@ -19,6 +19,58 @@ class TradingDataExporter:
         self.db_path = Path(db_path)
         self.output_file = f"trading_data_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
         
+    def get_table_schema(self, table_name):
+        """Get table schema information for future-proof queries"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Check if table exists
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+                if not cursor.fetchone():
+                    return None
+                
+                # Get column info
+                cursor.execute(f"PRAGMA table_info({table_name})")
+                columns = [row[1] for row in cursor.fetchall()]
+                return columns
+        except Exception:
+            return None
+    
+    def build_safe_query(self, table_name, required_columns, optional_columns, order_by_candidates):
+        """Build a schema-safe SQL query"""
+        schema = self.get_table_schema(table_name)
+        if not schema:
+            return None
+            
+        # Start with required columns that exist
+        select_columns = []
+        for col in required_columns:
+            if col['name'] in schema:
+                select_columns.append(col.get('alias', col['name']))
+        
+        # Add optional columns that exist
+        for col in optional_columns:
+            if col in schema:
+                select_columns.append(col)
+        
+        if not select_columns:
+            return None
+            
+        # Find a suitable ORDER BY column
+        order_by = None
+        for candidate in order_by_candidates:
+            if candidate in schema:
+                order_by = candidate
+                break
+        
+        query = f"SELECT {', '.join(select_columns)} FROM {table_name}"
+        if order_by:
+            query += f" ORDER BY {order_by} DESC"
+        query += " LIMIT 50"
+        
+        return query
+        
     def get_database_summary(self):
         """Get overview of all tables and their record counts"""
         
@@ -44,56 +96,93 @@ class TradingDataExporter:
         return content
     
     def get_predictions_data(self):
-        """Get predictions table data"""
+        """Get predictions table data with schema-safe query"""
         
         try:
             with sqlite3.connect(self.db_path) as conn:
-                df = pd.read_sql_query("""
-                    SELECT 
-                        symbol,
-                        datetime(prediction_timestamp) as prediction_time,
-                        predicted_action,
-                        action_confidence as confidence,
-                        entry_price,
-                        predicted_direction,
-                        predicted_magnitude,
-                        model_version
-                    FROM predictions 
-                    ORDER BY prediction_timestamp DESC 
-                    LIMIT 50
-                """, conn)
+                # Check what columns exist
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA table_info(predictions)")
+                columns = [row[1] for row in cursor.fetchall()]
                 
+                # Build query with available columns
+                base_columns = ['symbol']
+                
+                # Add timestamp column
+                if 'prediction_timestamp' in columns:
+                    base_columns.append('datetime(prediction_timestamp) as prediction_time')
+                elif 'timestamp' in columns:
+                    base_columns.append('datetime(timestamp) as prediction_time')
+                
+                # Add other important columns if they exist
+                optional_columns = {
+                    'predicted_action': 'predicted_action',
+                    'action_confidence': 'action_confidence as confidence',
+                    'confidence': 'confidence',
+                    'entry_price': 'entry_price',
+                    'predicted_direction': 'predicted_direction',
+                    'predicted_magnitude': 'predicted_magnitude',
+                    'model_version': 'model_version'
+                }
+                
+                for col, alias in optional_columns.items():
+                    if col in columns:
+                        base_columns.append(alias)
+                
+                query = f"""
+                    SELECT {', '.join(base_columns)}
+                    FROM predictions 
+                    ORDER BY {('prediction_timestamp' if 'prediction_timestamp' in columns else 'timestamp')} DESC 
+                    LIMIT 50
+                """
+                
+                df = pd.read_sql_query(query, conn)
                 return self.format_dataframe_as_text(df, "📊 PREDICTIONS TABLE (Latest 50)")
                 
         except Exception as e:
             return f"📊 PREDICTIONS TABLE (Latest 50)\n{'=' * 40}\nError: {str(e)}\n"
     
     def get_enhanced_features_data(self):
-        """Get enhanced features table data"""
+        """Get enhanced features table data with schema-safe query"""
         
         try:
             with sqlite3.connect(self.db_path) as conn:
-                df = pd.read_sql_query("""
-                    SELECT 
-                        symbol,
-                        datetime(timestamp) as feature_time,
-                        current_price,
-                        price_change_1d,
-                        price_change_5d,
-                        volume_ratio,
-                        volatility_20d,
-                        rsi,
-                        bollinger_upper,
-                        bollinger_lower,
-                        macd_signal,
-                        sentiment_score,
-                        confidence,
-                        news_count
-                    FROM enhanced_features 
-                    ORDER BY timestamp DESC 
-                    LIMIT 50
-                """, conn)
+                # Check what columns exist
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA table_info(enhanced_features)")
+                columns = [row[1] for row in cursor.fetchall()]
                 
+                # Build query with available columns
+                base_columns = ['symbol']
+                
+                # Add timestamp column (check for variations)
+                if 'timestamp' in columns:
+                    base_columns.append('datetime(timestamp) as feature_time')
+                elif 'feature_time' in columns:
+                    base_columns.append('datetime(feature_time) as feature_time')
+                elif 'created_at' in columns:
+                    base_columns.append('datetime(created_at) as feature_time')
+                
+                # Add other important columns if they exist
+                optional_columns = [
+                    'current_price', 'price_change_1d', 'price_change_5d',
+                    'volume_ratio', 'volatility_20d', 'rsi', 'bollinger_upper',
+                    'bollinger_lower', 'macd_signal', 'sentiment_score',
+                    'confidence', 'news_count'
+                ]
+                
+                for col in optional_columns:
+                    if col in columns:
+                        base_columns.append(col)
+                
+                query = f"""
+                    SELECT {', '.join(base_columns)}
+                    FROM enhanced_features 
+                    ORDER BY {('timestamp' if 'timestamp' in columns else 'feature_time' if 'feature_time' in columns else 'created_at')} DESC 
+                    LIMIT 50
+                """
+                
+                df = pd.read_sql_query(query, conn)
                 return self.format_dataframe_as_text(df, "🔍 ENHANCED FEATURES TABLE (Latest 50)")
                 
         except Exception as e:
@@ -132,44 +221,25 @@ class TradingDataExporter:
         
         try:
             with sqlite3.connect(self.db_path) as conn:
-                # Check what columns exist in enhanced_outcomes
-                cursor = conn.cursor()
-                cursor.execute("PRAGMA table_info(enhanced_outcomes)")
-                columns = [row[1] for row in cursor.fetchall()]
-                
-                # Build query with available columns
-                base_query = """
+                df = pd.read_sql_query("""
                     SELECT 
                         symbol,
                         datetime(prediction_timestamp) as prediction_time,
-                        entry_price"""
-                
-                optional_columns = []
-                if 'exit_price_1d' in columns:
-                    optional_columns.append('exit_price_1d')
-                if 'return_1d' in columns:
-                    optional_columns.append('return_1d')
-                if 'actual_return_1d' in columns:
-                    optional_columns.append('actual_return_1d')
-                if 'exit_price_5d' in columns:
-                    optional_columns.append('exit_price_5d')
-                if 'return_5d' in columns:
-                    optional_columns.append('return_5d')
-                if 'actual_return_5d' in columns:
-                    optional_columns.append('actual_return_5d')
-                
-                if optional_columns:
-                    query = base_query + ",\n                        " + ",\n                        ".join(optional_columns)
-                else:
-                    query = base_query
-                    
-                query += """
+                        entry_price,
+                        exit_price_1h,
+                        exit_price_4h,
+                        exit_price_1d,
+                        return_pct,
+                        optimal_action,
+                        confidence_score,
+                        price_direction_1h,
+                        price_direction_4h,
+                        price_direction_1d
                     FROM enhanced_outcomes 
                     ORDER BY prediction_timestamp DESC 
                     LIMIT 50
-                """
+                """, conn)
                 
-                df = pd.read_sql_query(query, conn)
                 return self.format_dataframe_as_text(df, "🎯 ENHANCED OUTCOMES TABLE (Latest 50)")
                 
         except Exception as e:
@@ -258,29 +328,55 @@ class TradingDataExporter:
         return content
     
     def get_technical_analysis_data(self):
-        """Get technical analysis data from enhanced_morning_analysis"""
+        """Get technical analysis data with schema-safe query"""
         
         try:
             with sqlite3.connect(self.db_path) as conn:
-                df = pd.read_sql_query("""
-                    SELECT 
-                        symbol,
-                        datetime(analysis_timestamp) as analysis_time,
-                        sma_20,
-                        sma_50,
-                        rsi,
-                        macd,
-                        bollinger_upper,
-                        bollinger_lower,
-                        support_level,
-                        resistance_level,
-                        trend_direction,
-                        strength_score
-                    FROM enhanced_morning_analysis 
-                    ORDER BY analysis_timestamp DESC 
-                    LIMIT 50
-                """, conn)
+                # Check if table exists and what columns it has
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='enhanced_morning_analysis'")
+                if not cursor.fetchone():
+                    return f"🔧 TECHNICAL ANALYSIS DATA (Latest 50)\n{'=' * 40}\nTable 'enhanced_morning_analysis' does not exist\n"
                 
+                cursor.execute("PRAGMA table_info(enhanced_morning_analysis)")
+                columns = [row[1] for row in cursor.fetchall()]
+                
+                # Build query with available columns
+                base_columns = []
+                
+                # Add timestamp column
+                if 'timestamp' in columns:
+                    base_columns.append('datetime(timestamp) as analysis_time')
+                elif 'analysis_timestamp' in columns:
+                    base_columns.append('datetime(analysis_timestamp) as analysis_time')
+                elif 'created_at' in columns:
+                    base_columns.append('datetime(created_at) as analysis_time')
+                
+                # Add other columns if they exist
+                optional_columns = [
+                    'analysis_type', 'market_hours', 'banks_analyzed',
+                    'overall_sentiment', 'ml_predictions', 'technical_signals',
+                    'recommendations', 'data_quality_scores', 'symbol',
+                    'sma_20', 'sma_50', 'rsi', 'macd'
+                ]
+                
+                for col in optional_columns:
+                    if col in columns:
+                        base_columns.append(col)
+                
+                if not base_columns:
+                    return f"🔧 TECHNICAL ANALYSIS DATA (Latest 50)\n{'=' * 40}\nNo recognizable columns found\n"
+                
+                timestamp_col = 'timestamp' if 'timestamp' in columns else 'analysis_timestamp' if 'analysis_timestamp' in columns else 'created_at'
+                
+                query = f"""
+                    SELECT {', '.join(base_columns)}
+                    FROM enhanced_morning_analysis 
+                    ORDER BY {timestamp_col} DESC 
+                    LIMIT 50
+                """
+                
+                df = pd.read_sql_query(query, conn)
                 return self.format_dataframe_as_text(df, "🔧 TECHNICAL ANALYSIS DATA (Latest 50)")
                 
         except Exception as e:
@@ -293,17 +389,18 @@ class TradingDataExporter:
             with sqlite3.connect(self.db_path) as conn:
                 df = pd.read_sql_query("""
                     SELECT 
-                        model_name,
-                        datetime(evaluation_date) as eval_date,
-                        accuracy,
+                        model_version,
+                        model_type,
+                        datetime(training_date) as train_date,
+                        direction_accuracy_1h,
+                        direction_accuracy_4h,
+                        direction_accuracy_1d,
                         precision_score,
-                        recall,
+                        recall_score,
                         f1_score,
-                        auc_score,
-                        training_samples,
-                        test_samples
+                        training_samples
                     FROM model_performance_enhanced 
-                    ORDER BY evaluation_date DESC 
+                    ORDER BY training_date DESC 
                     LIMIT 20
                 """, conn)
                 
@@ -359,14 +456,14 @@ class TradingDataExporter:
                 cursor.execute("""
                     SELECT COUNT(*) 
                     FROM enhanced_features 
-                    WHERE feature_time > datetime('now', '-1 day')
+                    WHERE timestamp > datetime('now', '-1 day')
                 """)
                 feature_count = cursor.fetchone()[0]
                 
                 cursor.execute("""
                     SELECT COUNT(*) 
                     FROM outcomes 
-                    WHERE outcome_timestamp > datetime('now', '-1 day')
+                    WHERE evaluation_timestamp > datetime('now', '-1 day')
                 """)
                 outcome_count = cursor.fetchone()[0]
                 

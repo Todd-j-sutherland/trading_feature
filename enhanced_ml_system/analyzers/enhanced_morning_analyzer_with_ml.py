@@ -525,6 +525,7 @@ class EnhancedMorningAnalyzer:
             conn.close()
             
             self.logger.info("✅ Analysis results saved to database")
+            self._save_predictions_if_available(analysis_results)
             
         except Exception as e:
             self.logger.error(f"❌ Failed to save analysis results: {e}")
@@ -624,6 +625,65 @@ class EnhancedMorningAnalyzer:
         print("\n" + "=" * 80)
         print("🚀 Enhanced analysis complete! All phases successfully implemented.")
         print("=" * 80)
+
+    def _save_predictions_if_available(self, analysis_results):
+        """Save predictions to the predictions table if ML predictions are available"""
+        try:
+            ml_preds = analysis_results.get("ml_predictions", {})
+            if not ml_preds or not isinstance(ml_preds, dict):
+                self.logger.info("🔍 No ML predictions to save to predictions table")
+                return
+                
+            import sqlite3
+            from datetime import datetime
+            
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            saved_count = 0
+            for symbol, pred in ml_preds.items():
+                if not isinstance(pred, dict):
+                    continue
+                    
+                prediction_id = f"enhanced_{symbol}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                predicted_action = pred.get("optimal_action", "HOLD")
+                confidence = pred.get("action_confidence", 0.5)
+                predicted_direction = 1 if predicted_action == "BUY" else (-1 if predicted_action == "SELL" else 0)
+                
+                try:
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO predictions 
+                        (prediction_id, symbol, prediction_timestamp, predicted_action, 
+                         action_confidence, predicted_direction, predicted_magnitude, 
+                         model_version, entry_price, optimal_action)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        prediction_id,
+                        symbol,
+                        analysis_results.get("timestamp", datetime.now().isoformat()),
+                        predicted_action,
+                        float(confidence),
+                        predicted_direction,
+                        float(pred.get("predicted_return", 0.0)),
+                        "enhanced_ml_v1",
+                        float(pred.get("current_price", 0.0)),
+                        predicted_action
+                    ))
+                    saved_count += 1
+                    self.logger.info(f"✅ Saved prediction: {symbol} -> {predicted_action} (conf: {confidence:.3f})")
+                except Exception as pred_error:
+                    self.logger.warning(f"⚠️ Failed to save prediction for {symbol}: {pred_error}")
+            
+            conn.commit()
+            conn.close()
+            
+            if saved_count > 0:
+                self.logger.info(f"✅ Saved {saved_count} predictions to predictions table")
+            else:
+                self.logger.info("🔍 No valid predictions found to save")
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error saving predictions: {e}")
 
 def main():
     """Main function to run enhanced morning analysis"""
