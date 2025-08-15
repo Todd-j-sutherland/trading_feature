@@ -1,0 +1,163 @@
+📊 COMPREHENSIVE TRADING SYSTEM DATA EXPORT
+============================================================
+Export Date: 2025-08-15 08:16:20
+Database: data/trading_predictions.db
+
+📋 DATABASE SUMMARY
+------------------------------
+predictions                           0 records
+outcomes                              0 records
+model_performance                     0 records
+sentiment_features                    0 records
+sqlite_sequence                       3 records
+enhanced_features                    15 records
+enhanced_outcomes                     0 records
+model_performance_enhanced            0 records
+enhanced_morning_analysis             5 records
+sqlite_stat1                          2 records
+sqlite_stat4                          0 records
+
+📈 PERFORMANCE METRICS
+------------------------------
+Total Trades:              0
+Win Rate:               0.0%
+Average Return:        0.00%
+
+Action Distribution:
+
+🌅 MORNING ANALYSIS SECTIONS
+============================================================
+
+
+📊 PREDICTIONS TABLE (Latest 50)
+===============================
+No data available
+
+
+
+🔍 ENHANCED FEATURES TABLE (Latest 50)
+=====================================
+Records: 15
+
+symbol        feature_time  current_price  price_change_1d  price_change_5d  volume_ratio  volatility_20d       rsi  bollinger_upper  bollinger_lower  macd_signal  sentiment_score  confidence  news_count
+QBE.AX 2025-08-14 23:56:45      21.309999         0.471478         2.181731      2.123269        9.208718 45.454533        21.476686        20.818314    -0.242295        -0.060826     0.63088          32
+SUN.AX 2025-08-14 23:38:27      20.770000        -0.048124         0.898719      2.238195        8.118724 82.843188        20.878699        19.625301     0.036187        -0.047231     0.73453          36
+MQG.AX 2025-08-14 23:07:15     216.619995         0.000000         0.790991      2.378288        5.336039 64.384591       217.165144       211.452356     0.334646         0.033735     0.73737          47
+NAB.AX 2025-08-14 23:06:22      38.880001         0.000000        -1.131595      2.736238       11.980154 44.594598        39.590695        37.956805     0.035424         0.047236     0.73735          35
+ANZ.AX 2025-08-14 23:05:26      32.500000         0.154081        -0.550797      3.261867       11.513628 54.729698        32.766643        31.512857     0.292634        -0.077588     0.73465          43
+WBC.AX 2025-08-14 23:04:34      36.040001         0.417948         0.138925      2.149485       22.069306 68.617069        36.624391        33.065110     0.365689         0.086934     0.73790          41
+CBA.AX 2025-08-14 23:03:38     167.210007        -0.155248        -0.416888      1.618684       17.500581 13.713227       181.560852       162.080646    -2.319834         0.052597     0.73979          42
+NAB.AX 2025-08-14 17:52:38      38.880001         0.000000        -1.131595      2.736238       11.980154 44.594598        39.590695        37.956805     0.035424         0.032128     0.73342          38
+WBC.AX 2025-08-14 17:51:39      36.040001         0.417948         0.138925      2.149485       22.069306 68.617069        36.624391        33.065110     0.365689         0.071877     0.73425          44
+CBA.AX 2025-08-14 17:50:42     167.210007        -0.155248        -0.416888      1.618684       17.500581 13.713227       181.560852       162.080646    -2.319834         0.045207     0.73220          45
+ANZ.AX 2025-08-14 17:49:41      32.500000         0.154081        -0.550797      3.261867       11.513628 54.729698        32.766643        31.512857     0.292634        -0.094136     0.73202          46
+NAB.AX 2025-08-14 17:45:17      38.880001         0.000000        -1.131595      2.736238       11.980154 44.594598        39.590695        37.956805     0.035424         0.032133     0.73391          38
+WBC.AX 2025-08-14 17:44:20      36.040001         0.417948         0.138925      2.149485       22.069306 68.617069        36.624391        33.065110     0.365689         0.079999     0.73059          43
+CBA.AX 2025-08-14 17:43:25     167.210007        -0.155248        -0.416888      1.618684       17.500581 13.713227       181.560852       162.080646    -2.319834         0.053195     0.73687          44
+ANZ.AX 2025-08-14 17:42:26      32.500000         0.154081        -0.550797      3.261867       11.513628 54.729698        32.766643        31.512857     0.292634        -0.084480     0.73555          45
+
+
+
+📰 SENTIMENT FEATURES TABLE (Latest 50)
+======================================
+Records: 15
+
+symbol      sentiment_time  sentiment_score  confidence  news_count  reddit_sentiment  event_score
+QBE.AX 2025-08-14 23:56:45        -0.060826     0.63088          32          0.049383    -0.092762
+SUN.AX 2025-08-14 23:38:27        -0.047231     0.73453          36          0.160107    -0.101197
+MQG.AX 2025-08-14 23:07:15         0.033735     0.73737          47          0.080253    -0.187443
+NAB.AX 2025-08-14 23:06:22         0.047236     0.73735          35          0.089150    -0.096494
+ANZ.AX 2025-08-14 23:05:26        -0.077588     0.73465          43          0.098544    -0.126222
+WBC.AX 2025-08-14 23:04:34         0.086934     0.73790          41          0.073885    -0.096962
+CBA.AX 2025-08-14 23:03:38         0.052597     0.73979          42          0.100702    -0.072625
+NAB.AX 2025-08-14 17:52:38         0.032128     0.73342          38          0.084124    -0.115815
+WBC.AX 2025-08-14 17:51:39         0.071877     0.73425          44          0.073885    -0.116276
+CBA.AX 2025-08-14 17:50:42         0.045207     0.73220          45          0.051648    -0.091345
+ANZ.AX 2025-08-14 17:49:41        -0.094136     0.73202          46          0.103731    -0.148549
+NAB.AX 2025-08-14 17:45:17         0.032133     0.73391          38          0.084124    -0.115815
+WBC.AX 2025-08-14 17:44:20         0.079999     0.73059          43          0.073885    -0.105756
+CBA.AX 2025-08-14 17:43:25         0.053195     0.73687          44          0.051648    -0.081234
+ANZ.AX 2025-08-14 17:42:26        -0.084480     0.73555          45          0.103731    -0.136242
+
+
+🔧 TECHNICAL ANALYSIS DATA (Latest 50)
+========================================
+Error: Execution failed on sql '
+                    SELECT 
+                        symbol,
+                        datetime(analysis_timestamp) as analysis_time,
+                        sma_20,
+                        sma_50,
+                        rsi,
+                        macd,
+                        bollinger_upper,
+                        bollinger_lower,
+                        support_level,
+                        resistance_level,
+                        trend_direction,
+                        strength_score
+                    FROM enhanced_morning_analysis 
+                    ORDER BY analysis_timestamp DESC 
+                    LIMIT 50
+                ': no such column: symbol
+
+
+🌆 EVENING ANALYSIS SECTIONS
+============================================================
+
+
+💰 OUTCOMES TABLE (Latest 50)
+============================
+No data available
+
+
+
+🎯 ENHANCED OUTCOMES TABLE (Latest 50)
+=====================================
+No data available
+
+
+📈 MODEL PERFORMANCE METRICS (Latest 20)
+========================================
+Error: Execution failed on sql '
+                    SELECT 
+                        model_name,
+                        datetime(evaluation_date) as eval_date,
+                        accuracy,
+                        precision_score,
+                        recall,
+                        f1_score,
+                        auc_score,
+                        training_samples,
+                        test_samples
+                    FROM model_performance_enhanced 
+                    ORDER BY evaluation_date DESC 
+                    LIMIT 20
+                ': no such column: model_name
+
+
+🧠 MODEL TRAINING LOG (Latest 20)
+========================================
+Error: Execution failed on sql '
+                    SELECT 
+                        model_name,
+                        datetime(training_date) as train_date,
+                        training_duration,
+                        feature_count,
+                        sample_count,
+                        validation_score,
+                        hyperparameters
+                    FROM model_training_log 
+                    ORDER BY training_date DESC 
+                    LIMIT 20
+                ': no such table: model_training_log
+
+
+📅 RECENT ACTIVITY SUMMARY
+----------------------------------------
+Error: no such column: feature_time
+
+============================================================
+📊 END OF TRADING SYSTEM DATA EXPORT
+Generated: 2025-08-15 08:16:20
+============================================================
