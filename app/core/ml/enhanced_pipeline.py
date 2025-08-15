@@ -476,7 +476,7 @@ class EnhancedMLPipeline:
         """Load training data from SQLite database."""
         try:
             import sqlite3
-            db_path = "data/trading_unified.db"
+            db_path = "data/trading_predictions.db"
             if not os.path.exists(db_path):
                 logger.warning(f"Training database not found: {db_path}")
                 return

@@ -1703,3 +1703,81 @@ class TradingSystemManager:
         except Exception as e:
             self.logger.error(f"Error converting two-stage to individual analysis: {e}")
             return {}
+
+    def news_analysis(self):
+        """Comprehensive news analysis with enhanced sentiment scoring"""
+        print("📰 NEWS ANALYSIS - Enhanced Sentiment Integration")
+        print("=" * 50)
+        
+        try:
+            # Initialize components
+            from app.core.data.collectors.market_data import ASXDataFeed
+            from app.core.data.processors.news_processor import NewsTradingAnalyzer
+            
+            data_feed = ASXDataFeed()
+            news_analyzer = NewsTradingAnalyzer()
+            
+            print("✅ News analysis components initialized")
+            
+            # Run comprehensive news analysis
+            print("\n📊 Running comprehensive news sentiment analysis...")
+            all_banks_analysis = news_analyzer.analyze_all_banks(detailed=True)
+            
+            # Display market overview
+            market_overview = all_banks_analysis.get('market_overview', {})
+            if market_overview:
+                print(f"\n📋 NEWS SENTIMENT SUMMARY")
+                print(f"   " + "-" * 40)
+                
+                avg_sentiment = market_overview.get('average_sentiment', 0)
+                confidence_count = market_overview.get('high_confidence_count', 0)
+                
+                sentiment_emoji = "📈" if avg_sentiment > 0.1 else "📉" if avg_sentiment < -0.1 else "➡️"
+                print(f"   Market Sentiment: {avg_sentiment:+.3f} {sentiment_emoji}")
+                print(f"   High Confidence Analyses: {confidence_count}")
+                
+                # Show most bullish and bearish
+                most_bullish = market_overview.get('most_bullish', ['N/A', {}])
+                most_bearish = market_overview.get('most_bearish', ['N/A', {}])
+                if most_bullish[0] != 'N/A':
+                    bullish_score = most_bullish[1].get('sentiment_score', 0)
+                    print(f"   📈 Most Bullish: {most_bullish[0]} (Score: {bullish_score:.3f})")
+                if most_bearish[0] != 'N/A':
+                    bearish_score = most_bearish[1].get('sentiment_score', 0) 
+                    print(f"   📉 Most Bearish: {most_bearish[0]} (Score: {bearish_score:.3f})")
+            
+            # Show individual bank analysis
+            individual_analysis = all_banks_analysis.get('individual_analysis', {})
+            if individual_analysis:
+                print(f"\n🏦 Individual Bank News Sentiment:")
+                for symbol, analysis in individual_analysis.items():
+                    signal = analysis.get('signal', 'N/A')
+                    score = analysis.get('sentiment_score', 0)
+                    confidence = analysis.get('confidence', 0)
+                    
+                    signal_emoji = "🟢" if signal == 'BUY' else "🔴" if signal == 'SELL' else "🟡"
+                    
+                    if isinstance(score, (int, float)) and isinstance(confidence, (int, float)):
+                        print(f"   {signal_emoji} {symbol}: {signal} | Score: {score:+.3f} | Confidence: {confidence:.3f}")
+                    else:
+                        print(f"   ⚠️ {symbol}: Analysis temporarily unavailable")
+            
+            print("\n✅ News analysis completed successfully")
+            return True
+            
+        except Exception as e:
+            print(f"❌ News analysis error: {e}")
+            # Show basic market status as fallback
+            print("\n📊 Basic Market Status (Fallback):")
+            try:
+                data_feed = ASXDataFeed()
+                market_data = data_feed.get_market_data()
+                for index_name, index_info in market_data.items():
+                    if 'value' in index_info:
+                        value = index_info['value']
+                        change_pct = index_info.get('change_percent', 0)
+                        print(f"   📊 {index_name}: {value:.1f} ({change_pct:+.2f}%)")
+            except Exception as e2:
+                print(f"   ❌ Market data also unavailable: {e2}")
+            
+            return False

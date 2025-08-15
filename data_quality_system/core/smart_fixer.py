@@ -23,17 +23,17 @@ class SmartDataQualityFixer:
         if db_path is None:
             # Try to find the database automatically
             possible_paths = [
-                "../data/trading_unified.db",
-                "../../data/trading_unified.db", 
-                "/root/test/data/trading_unified.db",
-                "data/trading_unified.db"
+                "../data/trading_predictions.db",
+                "../../data/trading_predictions.db", 
+                "/root/test/data/trading_predictions.db",
+                "data/trading_predictions.db"
             ]
             for path in possible_paths:
                 if os.path.exists(path):
                     db_path = path
                     break
             else:
-                db_path = "../data/trading_unified.db"  # Default fallback
+                db_path = "../data/trading_predictions.db"  # Default fallback
         self.db_path = db_path
         self.analyzer = IntelligentDataQualityAnalyzer(db_path)
         self.fixes_applied = []
@@ -219,7 +219,7 @@ def fix_{anomaly['type']}():
     \"\"\"
     {anomaly['description']}
     \"\"\"
-    db_path = "../data/trading_unified.db"
+    db_path = "../data/trading_predictions.db"
     conn = sqlite3.connect(db_path)
     
     affected_records = {anomaly.get('affected_records', [])}

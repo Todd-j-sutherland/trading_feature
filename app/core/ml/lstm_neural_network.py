@@ -58,7 +58,7 @@ class LSTMNeuralNetwork:
     LSTM Neural Network for stock price prediction and trading signal generation
     """
     
-    def __init__(self, db_path: str = "data/trading_unified.db", sequence_length: int = 10):
+    def __init__(self, db_path: str = "data/trading_predictions.db", sequence_length: int = 10):
         self.db_path = db_path
         self.sequence_length = sequence_length  # How many time steps to look back
         self.models_dir = "data/ml_models/models"
@@ -583,7 +583,7 @@ class LSTMNeuralNetwork:
             return {"error": str(e)}
 
 # Main training function for external use
-def train_lstm_model(db_path: str = "data/trading_unified.db", sequence_length: int = 10) -> Dict:
+def train_lstm_model(db_path: str = "data/trading_predictions.db", sequence_length: int = 10) -> Dict:
     """
     Main function to train LSTM models
     

@@ -65,10 +65,9 @@ st.markdown("""
 class TradingDataDashboard:
     """Comprehensive trading system data dashboard"""
     
-    def __init__(self):
-        self.root_dir = Path(".")
+    def __init__(self, root_dir: Path):
+        self.root_dir = root_dir
         self.main_db_path = self.root_dir / "data" / "trading_predictions.db"
-        self.load_analysis_results()
     
     def load_analysis_results(self):
         """Load the analysis results from data flow analysis"""

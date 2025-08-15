@@ -10,8 +10,21 @@ import logging
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from scipy.signal import find_peaks, find_peaks_cwt
-# import talib
-import pandas_ta as ta
+
+# Try to import talib and pandas_ta, make them optional
+try:
+    import pandas_ta as ta
+    PANDAS_TA_AVAILABLE = True
+except ImportError:
+    ta = None
+    PANDAS_TA_AVAILABLE = False
+
+try:
+    import talib
+    TALIB_AVAILABLE = True
+except ImportError:
+    talib = None
+    TALIB_AVAILABLE = False
 
 from ..analysis.technical import TechnicalAnalyzer
 from ...config.settings import Settings
@@ -119,8 +132,19 @@ class AIPatternDetector:
                 avg_volume = window_data['Volume'].mean()
                 volume_trend = np.polyfit(range(len(window_data)), window_data['Volume'], 1)[0]
                 
-                # Technical indicators using your existing setup
-                rsi = ta.rsi(window_data["Close"], length=14).iloc[-1] if len(window_data) >= 14 else 50
+                # Technical indicators - use available libraries
+                if PANDAS_TA_AVAILABLE and ta is not None:
+                    rsi = ta.rsi(window_data["Close"], length=14).iloc[-1] if len(window_data) >= 14 else 50
+                else:
+                    # Simple RSI calculation fallback
+                    if len(window_data) >= 14:
+                        delta = window_data['Close'].diff()
+                        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                        rs = gain / loss
+                        rsi = 100 - (100 / (1 + rs)).iloc[-1]
+                    else:
+                        rsi = 50
                 
                 # Peak/trough analysis
                 peaks, _ = find_peaks(window_data['Close'].values, distance=5)

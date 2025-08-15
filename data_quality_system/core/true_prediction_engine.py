@@ -301,7 +301,7 @@ class OutcomeEvaluator:
     def evaluate_pending_predictions(self) -> int:
         """Evaluate all pending predictions"""
         
-        pending = self.prediction_store.get_pending_evaluations(hours_ago=24)
+        pending = self.prediction_store.get_pending_evaluations(hours_ago=4)  # Changed from 24 to 4 hours
         evaluated_count = 0
         
         for prediction in pending:

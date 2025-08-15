@@ -1,0 +1,97 @@
+COMPREHENSIVE ERROR & WARNING ANALYSIS
+==================================================
+
+SUMMARY STATISTICS
+Total Commands Tested: 8
+Total Errors Found: 15
+Total Warnings Found: 16
+
+ERROR BREAKDOWN BY TYPE
+-------------------------
+NoneType stability components: 7
+Missing pkg_resources module: 4
+Missing news_analysis method: 2
+Other: 2
+
+WARNING BREAKDOWN BY TYPE
+----------------------------
+Other: 11
+Missing pkg_resources: 2
+Missing ML metadata: 2
+Missing transformers/torch: 1
+
+
+DETAILED ANALYSIS BY COMMAND
+===================================
+
+🔍 DIVERGENCE COMMAND
+--------------------
+ERRORS:
+  ❌ 2025-08-15 16:31:22 - __main__ - ERROR - Failed to initialize stability components: 'NoneType' object is not subscriptable
+WARNINGS:
+  ⚠️  2025-08-15 16:24:20 - root - WARNING - Transformers not available. Install with: pip install transformers torch
+  ⚠️  2025-08-15 16:24:20 - app.core.ml.training.pipeline - WARNING - No valid metadata files found, using default version
+  ⚠️  2025-08-15 16:24:20 - app.core.sentiment.news_analyzer - WARNING - ML model found but metadata missing - model may be incomplete
+  ⚠️  ⚠️ Running in basic mode due to initialization issues
+
+🔍 ECONOMIC COMMAND
+------------------
+ERRORS:
+  ❌ 2025-08-15 16:24:13 - __main__ - ERROR - Failed to initialize stability components: 'NoneType' object is not subscriptable
+WARNINGS:
+  ⚠️  ⚠️ Running in basic mode due to initialization issues
+
+🔍 NEWS COMMAND
+--------------
+ERRORS:
+  ❌ 2025-08-15 16:24:01 - __main__ - ERROR - Error executing command 'news': 'TradingSystemManager' object has no attribute 'news_analysis'
+  ❌ 2025-08-15 16:24:01 - __main__ - ERROR - Full traceback:
+  ❌ Traceback (most recent call last):
+  ❌ AttributeError: 'TradingSystemManager' object has no attribute 'news_analysis'
+WARNINGS: None
+
+🔍 RESTART COMMAND
+-----------------
+ERRORS:
+  ❌ 2025-08-15 16:31:44 - __main__ - ERROR - Failed to initialize stability components: 'NoneType' object is not subscriptable
+WARNINGS:
+  ⚠️  ⚠️ Running in basic mode due to initialization issues
+
+🔍 SIMPLE-BACKTEST COMMAND
+-------------------------
+ERRORS:
+  ❌ 2025-08-15 16:32:00 - __main__ - ERROR - Failed to initialize stability components: 'NoneType' object is not subscriptable
+WARNINGS:
+  ⚠️  ⚠️ Running in basic mode due to initialization issues
+
+🔍 STATUS COMMAND
+----------------
+ERRORS:
+  ❌ ❌ AI Pattern Recognition: Error - No module named 'pkg_resources'
+  ❌ ❌ Smart Position Sizing: Error - No module named 'pkg_resources'
+  ❌ 2025-08-15 16:23:56 - __main__ - ERROR - Failed to initialize stability components: 'NoneType' object is not subscriptable
+WARNINGS:
+  ⚠️  ⚠️ Anomaly Detection: Active
+  ⚠️  ⚠️ Running in basic mode due to initialization issues
+
+🔍 TEST COMMAND
+--------------
+ERRORS:
+  ❌ ❌ Pattern Recognition Error: No module named 'pkg_resources'
+  ❌ ❌ Smart Position Sizing Error: No module named 'pkg_resources'
+  ❌ 2025-08-15 16:31:53 - __main__ - ERROR - Failed to initialize stability components: 'NoneType' object is not subscriptable
+WARNINGS:
+  ⚠️  ⚠️ Testing AI Anomaly Detection...
+  ⚠️  ⚠️ Running in basic mode due to initialization issues
+
+🔍 WEEKLY COMMAND
+----------------
+ERRORS:
+  ❌ 2025-08-15 16:31:34 - __main__ - ERROR - Failed to initialize stability components: 'NoneType' object is not subscriptable
+WARNINGS:
+  ⚠️  ⚠️ Pattern Recognition optimization warning: No module named 'pkg_resources'
+  ⚠️  ⚠️ Calibrating Anomaly Detection...
+  ⚠️  ⚠️ Position sizing review warning: No module named 'pkg_resources'
+  ⚠️  ⚠️ Anomaly detection calibrated
+  ⚠️  ⚠️ Running in basic mode due to initialization issues
+

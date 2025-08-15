@@ -16,9 +16,9 @@ def main():
     
     # Try to find database
     db_paths = [
-        "data/trading_unified.db",
-        "../data/trading_unified.db", 
-        "/root/test/data/trading_unified.db"
+        "data/trading_predictions.db",
+        "../data/trading_predictions.db", 
+        "/root/test/data/trading_predictions.db"
     ]
     
     db_found = None

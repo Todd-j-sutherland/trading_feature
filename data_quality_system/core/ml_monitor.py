@@ -29,17 +29,17 @@ class MLDataQualityMonitor:
         if db_path is None:
             # Try to find the database automatically
             possible_paths = [
-                "../data/trading_unified.db",
-                "../../data/trading_unified.db",
-                "/root/test/data/trading_unified.db", 
-                "data/trading_unified.db"
+                "../data/trading_predictions.db",
+                "../../data/trading_predictions.db",
+                "/root/test/data/trading_predictions.db", 
+                "data/trading_predictions.db"
             ]
             for path in possible_paths:
                 if os.path.exists(path):
                     db_path = path
                     break
             else:
-                db_path = "../data/trading_unified.db"  # Default fallback
+                db_path = "../data/trading_predictions.db"  # Default fallback
         self.db_path = db_path
         self.models = {}
         self.scalers = {}

@@ -12,7 +12,7 @@ def quick_hold_analysis():
     """Quick analysis without file saving"""
     
     # Load data
-    conn = sqlite3.connect("data/trading_unified.db")
+    conn = sqlite3.connect("data/trading_predictions.db")
     all_data = pd.read_sql_query("SELECT * FROM enhanced_outcomes ORDER BY created_at DESC LIMIT 1000", conn)
     hold_data = all_data[all_data['optimal_action'] == 'HOLD'].copy()
     conn.close()

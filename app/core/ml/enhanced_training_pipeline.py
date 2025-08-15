@@ -542,28 +542,70 @@ class EnhancedMLTrainingPipeline:
             return False
     
     def _store_features_to_db(self, features: Dict, symbol: str) -> int:
-        """Store features to database"""
+        """Store features to database, handling unique constraint gracefully"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Create column list and values list
-        columns = list(features.keys()) + ['symbol', 'timestamp', 'feature_version']
-        values = list(features.values()) + [symbol, datetime.now().isoformat(), '2.0']
+        timestamp = datetime.now().isoformat()
+        today_date = datetime.now().date()
         
-        # Create placeholders
-        placeholders = ', '.join(['?' for _ in values])
-        column_names = ', '.join(columns)
+        try:
+            # First, check if we already have a record for this symbol today
+            cursor.execute('''
+                SELECT id FROM enhanced_features 
+                WHERE symbol = ? AND DATE(timestamp) = DATE(?)
+            ''', (symbol, timestamp))
+            
+            existing_record = cursor.fetchone()
+            
+            if existing_record:
+                feature_id = existing_record[0]
+                logger.info(f"Using existing enhanced_features record for {symbol} today (ID: {feature_id})")
+                conn.close()
+                return feature_id
+            
+            # No existing record, create new one
+            columns = list(features.keys()) + ['symbol', 'timestamp', 'feature_version']
+            values = list(features.values()) + [symbol, timestamp, '2.0']
+            
+            # Create placeholders
+            placeholders = ', '.join(['?' for _ in values])
+            column_names = ', '.join(columns)
+            
+            cursor.execute(f'''
+                INSERT INTO enhanced_features ({column_names})
+                VALUES ({placeholders})
+            ''', values)
+            
+            feature_id = cursor.lastrowid
+            logger.info(f"Created new enhanced_features record for {symbol} (ID: {feature_id})")
+            
+            conn.commit()
+            conn.close()
+            return feature_id
+            
+        except sqlite3.IntegrityError as e:
+            if "UNIQUE constraint failed" in str(e):
+                # Race condition - another process created the record
+                logger.warning(f"UNIQUE constraint race condition for {symbol}, fetching existing record")
+                cursor.execute('''
+                    SELECT id FROM enhanced_features 
+                    WHERE symbol = ? AND DATE(timestamp) = DATE(?)
+                ''', (symbol, timestamp))
+                
+                existing_record = cursor.fetchone()
+                if existing_record:
+                    feature_id = existing_record[0]
+                    conn.close()
+                    return feature_id
+            
+            # Re-raise if it's a different integrity error
+            conn.close()
+            raise e
         
-        cursor.execute(f'''
-            INSERT INTO enhanced_features ({column_names})
-            VALUES ({placeholders})
-        ''', values)
-        
-        feature_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-        
-        return feature_id
+        except Exception as e:
+            conn.close()
+            raise e
     
     def record_enhanced_outcomes(self, feature_id: int, symbol: str, outcome_data: Dict):
         """Record multi-output outcomes"""

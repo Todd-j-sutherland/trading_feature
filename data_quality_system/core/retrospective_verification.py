@@ -14,7 +14,7 @@ def verify_retrospective_labeling():
     print("🔍 RETROSPECTIVE LABELING VERIFICATION")
     print("="*60)
     
-    conn = sqlite3.connect("data/trading_unified.db")
+    conn = sqlite3.connect("data/trading_predictions.db")
     
     # Get all positions with timing data
     query = """

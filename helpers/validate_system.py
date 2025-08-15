@@ -37,7 +37,7 @@ def run_validation_summary():
     print("🗄️  DATABASE STATUS:")
     db_files = [
         'data/ml_models/training_data.db',
-        'data/trading_data.db', 
+        "data/trading_predictions.db", 
         'morning_analysis.db'
     ]
     

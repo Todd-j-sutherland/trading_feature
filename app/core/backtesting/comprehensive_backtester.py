@@ -34,7 +34,7 @@ class ComprehensiveBacktester:
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
             project_root = Path(__file__).parent.parent.parent.parent
-            self.unified_db = project_root / "data" / "trading_unified.db"
+            self.unified_db = project_root / "data" / "trading_predictions.db"
             self.trading_db = project_root / "data" / "trading_data.db"
             self.ml_db = project_root / "data" / "ml_models" / "enhanced_training_data.db"
         
