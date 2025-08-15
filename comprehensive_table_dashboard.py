@@ -664,7 +664,12 @@ class TradingDataDashboard:
 
 def main():
     """Main function to run the dashboard"""
-    dashboard = TradingDataDashboard()
+    # Get the root directory (current working directory where script is run)
+    import os
+    from pathlib import Path
+    root_dir = Path(os.getcwd())
+    
+    dashboard = TradingDataDashboard(root_dir)
     dashboard.run_dashboard()
 
 if __name__ == "__main__":
