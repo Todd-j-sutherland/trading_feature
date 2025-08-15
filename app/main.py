@@ -1,7 +1,13 @@
+
 #!/usr/bin/env python3
 """
 Main application entry point for Trading Analysis System
 """
+
+# Stability imports
+from app.utils.error_handler import ErrorHandler, robust_execution, TradingError
+from app.config.config_manager import ConfigurationManager
+from app.utils.health_checker import SystemHealthChecker
 
 import sys
 import argparse
@@ -1192,13 +1198,29 @@ def main():
         
     except KeyboardInterrupt:
         logger.info("Operation cancelled by user")
-        print("\n🛑 Operation cancelled by user")
+        print("\n👋 Operation cancelled by user")
         sys.exit(130)
     except Exception as e:
         logger.error(f"Error executing command '{args.command}': {e}")
         if args.verbose:
             logger.exception("Full traceback:")
         sys.exit(1)
+        
+    # Initialize stability components
+    try:
+        config_manager = ConfigurationManager()
+        error_handler = ErrorHandler(logger)
+        health_checker = SystemHealthChecker(config_manager)
+        
+        # Run quick health check
+        health_status = health_checker.run_comprehensive_health_check()
+        if health_status['overall_status'] in ['error', 'warning']:
+            logger.warning(f"System health: {health_status['overall_status']}")
+            print(f"⚠️ System health: {health_status['overall_status']}")
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize stability components: {e}")
+        print("⚠️ Running in basic mode due to initialization issues")
 
 if __name__ == "__main__":
     main()
