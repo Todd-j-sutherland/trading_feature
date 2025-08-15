@@ -12,7 +12,7 @@ import os
 from datetime import datetime
 
 class SimpleHOLDAnalyzer:
-    def __init__(self, db_path="data/trading_unified.db"):
+    def __init__(self, db_path="data/trading_predictions.db"):
         self.db_path = db_path
         self.hold_data = None
         self.all_data = None

@@ -300,23 +300,22 @@ def main():
         if args.verbose:
             logger.exception("Full traceback:")
         sys.exit(1)
-    
-    finally:
-        # Initialize stability components for final health check
-        try:
-            config_manager = ConfigurationManager()
-            error_handler = ErrorHandler(logger)
-            health_checker = SystemHealthChecker(config_manager)
-            
-            # Run quick health check
-            health_status = health_checker.run_comprehensive_health_check()
-            if health_status and health_status.get('overall_status') in ['error', 'warning']:
-                logger.warning(f"System health: {health_status['overall_status']}")
-                print(f"⚠️ System health: {health_status['overall_status']}")
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize stability components: {e}")
-            print("⚠️ Running in basic mode due to initialization issues")
+        
+    # Initialize stability components
+    try:
+        config_manager = ConfigurationManager()
+        error_handler = ErrorHandler(logger)
+        health_checker = SystemHealthChecker(config_manager)
+        
+        # Run quick health check
+        health_status = health_checker.run_comprehensive_health_check()
+        if health_status['overall_status'] in ['error', 'warning']:
+            logger.warning(f"System health: {health_status['overall_status']}")
+            print(f"⚠️ System health: {health_status['overall_status']}")
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize stability components: {e}")
+        print("⚠️ Running in basic mode due to initialization issues")
 
 if __name__ == "__main__":
     main()

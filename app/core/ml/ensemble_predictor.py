@@ -41,7 +41,7 @@ class EnsemblePredictor:
     Ensemble predictor combining RandomForest and LSTM models
     """
     
-    def __init__(self, db_path: str = "data/trading_unified.db"):
+    def __init__(self, db_path: str = "data/trading_predictions.db"):
         self.db_path = db_path
         self.models_dir = "data/ml_models/models"
         
@@ -333,7 +333,7 @@ class EnsemblePredictor:
         except Exception as e:
             logger.warning(f"Could not load ensemble config: {e}")
 
-def create_ensemble_predictor(db_path: str = "data/trading_unified.db") -> EnsemblePredictor:
+def create_ensemble_predictor(db_path: str = "data/trading_predictions.db") -> EnsemblePredictor:
     """
     Factory function to create and configure ensemble predictor
     """

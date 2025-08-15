@@ -1415,7 +1415,7 @@ def display_ml_predictions(ml_pipeline, bank_analyses):
         # Show training data status
         try:
             import sqlite3
-            db_path = "data/trading_unified.db"
+            db_path = "data/trading_predictions.db"
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             cursor.execute('SELECT COUNT(*) FROM enhanced_features')

@@ -14,7 +14,7 @@ import logging
 class SystemMigration:
     """Handles migration from old retrospective system to new prediction system"""
     
-    def __init__(self, old_db="data/trading_unified.db", backup_dir="data/migration_backup"):
+    def __init__(self, old_db="data/trading_predictions.db", backup_dir="data/migration_backup"):
         self.old_db = old_db
         self.backup_dir = backup_dir
         self.logger = logging.getLogger(__name__)

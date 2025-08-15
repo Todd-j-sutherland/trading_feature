@@ -83,7 +83,7 @@ class DatabaseCleanupManager:
     
     def consolidate_trading_data_db(self):
         """Consolidate data from trading_data.db into trading_unified.db"""
-        source_db = "data/trading_data.db"
+        source_db = "data/trading_unified.db"
         
         if not os.path.exists(source_db):
             print(f"ℹ️  {source_db} not found, skipping consolidation")

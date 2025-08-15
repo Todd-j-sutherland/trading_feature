@@ -24,7 +24,7 @@ class TradingDataManager:
         if db_path is None:
             # Default to unified database
             project_root = Path(__file__).parent.parent.parent.parent
-            self.db_path = project_root / "data" / "trading_unified.db"
+            self.db_path = project_root / "data" / "trading_predictions.db"
         else:
             self.db_path = Path(db_path)
         

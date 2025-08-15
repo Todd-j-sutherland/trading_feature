@@ -21,7 +21,7 @@ warnings.filterwarnings('ignore')
 class ModelTrainer:
     """Trains prediction models using proper temporal methodology"""
     
-    def __init__(self, old_db_path: str = "data/trading_unified.db", 
+    def __init__(self, old_db_path: str = "data/trading_predictions.db", 
                  new_db_path: str = "data/trading_predictions.db",
                  model_path: str = "models/"):
         self.old_db_path = old_db_path

@@ -15,7 +15,7 @@ def analyze_position_details(symbol=None, action=None, limit=10):
     print("🔍 Position Detail Analyzer")
     print("="*50)
     
-    conn = sqlite3.connect("data/trading_unified.db")
+    conn = sqlite3.connect("data/trading_predictions.db")
     
     # Build query
     where_clause = "WHERE 1=1"

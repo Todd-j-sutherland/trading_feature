@@ -39,7 +39,7 @@ class SystemHealthChecker:
         }
         
         try:
-            db_path = self.config.get('database.path', 'data/trading_unified.db') if self.config else 'data/trading_unified.db'
+            db_path = self.config.get('database.path', 'data/trading_predictions.db') if self.config else 'data/trading_predictions.db'
             
             if not Path(db_path).exists():
                 result['status'] = 'error'
@@ -258,6 +258,53 @@ class SystemHealthChecker:
             'file_system': self.check_file_system(),
             'external_apis': self.check_external_apis()
         }
+        
+        # Calculate overall health status
+        healthy_count = 0
+        warning_count = 0
+        error_count = 0
+        
+        for check_name, check_result in checks.items():
+            status = check_result.get('status', 'unknown')
+            if status == 'healthy':
+                healthy_count += 1
+            elif status == 'warning':
+                warning_count += 1
+            elif status == 'error':
+                error_count += 1
+        
+        total_checks = len(checks)
+        health_percentage = (healthy_count / total_checks) * 100 if total_checks > 0 else 0
+        
+        # Determine overall status
+        if error_count > 0:
+            overall_status = 'error'
+        elif warning_count > 0:
+            overall_status = 'warning'
+        else:
+            overall_status = 'healthy'
+        
+        result = {
+            'timestamp': datetime.now().isoformat(),
+            'overall_status': overall_status,
+            'checks': checks,
+            'summary': {
+                'total_checks': total_checks,
+                'healthy': healthy_count,
+                'warnings': warning_count,
+                'errors': error_count,
+                'health_percentage': health_percentage
+            }
+        }
+        
+        self.last_check = result
+        self.health_history.append(result)
+        
+        # Keep only last 100 checks
+        if len(self.health_history) > 100:
+            self.health_history = self.health_history[-100:]
+        
+        return result
     
     def get_health_trends(self, hours: int = 24) -> Dict[str, Any]:
         """Get health trends over specified time period"""

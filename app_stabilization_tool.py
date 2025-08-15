@@ -285,7 +285,7 @@ class ConfigurationManager:
         """Get default configuration values"""
         return {
             'database': {
-                'path': 'data/trading_unified.db',
+                'path': 'data/trading_predictions.db',
                 'timeout': 30,
                 'backup_enabled': True
             },
@@ -517,7 +517,7 @@ class SystemHealthChecker:
         }
         
         try:
-            db_path = self.config.get('database.path', 'data/trading_unified.db') if self.config else 'data/trading_unified.db'
+            db_path = self.config.get('database.path', 'data/trading_predictions.db') if self.config else 'data/trading_predictions.db'
             
             if not Path(db_path).exists():
                 result['status'] = 'error'

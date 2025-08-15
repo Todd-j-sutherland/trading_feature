@@ -37,7 +37,7 @@ class ConfigurationManager:
         """Get default configuration values"""
         return {
             'database': {
-                'path': 'data/trading_unified.db',
+                'path': 'data/trading_predictions.db',
                 'timeout': 30,
                 'backup_enabled': True
             },

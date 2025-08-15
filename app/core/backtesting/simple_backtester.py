@@ -20,7 +20,7 @@ class SimpleBacktester:
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
             project_root = Path(__file__).parent.parent.parent.parent
-            self.unified_db = project_root / "data" / "trading_unified.db"
+            self.unified_db = project_root / "data" / "trading_predictions.db"
             self.trading_db = project_root / "data" / "trading_data.db"
         
         self.bank_symbols = ['CBA.AX', 'WBC.AX', 'ANZ.AX', 'NAB.AX', 'MQG.AX', 'SUN.AX', 'QBE.AX']

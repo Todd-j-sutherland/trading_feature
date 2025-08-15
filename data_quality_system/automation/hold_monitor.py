@@ -15,7 +15,7 @@ def monitor_hold_patterns():
     print("🔒 HOLD Position Monitor")
     print("="*50)
     
-    db_path = "data/trading_unified.db"
+    db_path = "data/trading_predictions.db"
     if not os.path.exists(db_path):
         print(f"❌ Database not found: {db_path}")
         return
