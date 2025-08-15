@@ -65,18 +65,26 @@ st.markdown("""
 class TradingDataDashboard:
     """Comprehensive trading system data dashboard"""
     
-    def __init__(self, root_dir: Path):
-        self.root_dir = root_dir
+    def __init__(self, root_dir):
+        self.root_dir = Path(root_dir)
         self.main_db_path = self.root_dir / "data" / "trading_predictions.db"
+        # Initialize analysis_results
+        self.analysis_results = {}
+        # Load analysis results if available
+        self.load_analysis_results()
     
     def load_analysis_results(self):
         """Load the analysis results from data flow analysis"""
         results_file = self.root_dir / "data_flow_analysis_results.json"
         if results_file.exists():
-            with open(results_file, 'r') as f:
-                self.analysis_results = json.load(f)
+            try:
+                with open(results_file, 'r') as f:
+                    self.analysis_results = json.load(f)
+            except Exception as e:
+                # Silently handle file loading errors, use empty dict
+                self.analysis_results = {}
         else:
-            st.error("❌ Analysis results not found. Please run data_flow_analysis.py first.")
+            # File doesn't exist, use empty dict (will show info message in dashboard)
             self.analysis_results = {}
     
     def get_database_connection(self, db_path=None):
@@ -119,7 +127,51 @@ class TradingDataDashboard:
         st.markdown('<div class="section-header"><h2>📊 System Overview</h2></div>', unsafe_allow_html=True)
         
         if not self.analysis_results:
-            st.warning("No analysis results available")
+            st.info("💡 **Analysis Results Not Available** - Advanced system metrics will appear after running `data_flow_analysis.py`. Basic dashboard functionality is still available.")
+            
+            # Show basic database metrics instead
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric(
+                    label="📁 Main Database", 
+                    value="✅ Connected" if self.main_db_path.exists() else "❌ Missing",
+                    help="Status of main trading database"
+                )
+            
+            with col2:
+                # Count tables in main database
+                tables_query = "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table'"
+                df = self.query_to_dataframe(tables_query)
+                table_count = df.iloc[0]['count'] if not df.empty else 0
+                st.metric(
+                    label="📊 Database Tables",
+                    value=table_count,
+                    help="Number of tables in main database"
+                )
+            
+            with col3:
+                # Count total predictions
+                pred_query = "SELECT COUNT(*) as count FROM predictions"
+                df = self.query_to_dataframe(pred_query)
+                pred_count = df.iloc[0]['count'] if not df.empty else 0
+                st.metric(
+                    label="🔮 Total Predictions",
+                    value=f"{pred_count:,}",
+                    help="Total number of predictions made"
+                )
+            
+            with col4:
+                # Count outcomes
+                outcome_query = "SELECT COUNT(*) as count FROM outcomes"
+                df = self.query_to_dataframe(outcome_query)
+                outcome_count = df.iloc[0]['count'] if not df.empty else 0
+                st.metric(
+                    label="📈 Evaluated Outcomes",
+                    value=f"{outcome_count:,}",
+                    help="Number of predictions with calculated outcomes"
+                )
+            
             return
         
         summary = self.analysis_results.get('dashboard_data', {}).get('summary', {})
