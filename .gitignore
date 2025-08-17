@@ -166,3 +166,5 @@ credentials.json
 
 dashboard_env/
 dashboard_venv/
+
+data_local/
