@@ -1,0 +1,65 @@
+# Trading System Requirements
+# Generated from working local environment - August 17, 2025
+
+# Core Data Processing
+pandas==2.3.1
+numpy==2.3.2
+scipy==1.16.0
+
+# Web scraping and API calls
+requests==2.32.4
+beautifulsoup4==4.13.4
+lxml==6.0.0
+feedparser==6.0.11
+
+# Financial data
+yfinance==0.2.65
+
+# Machine Learning
+scikit-learn==1.7.1
+transformers==4.55.2
+
+# Natural Language Processing
+nltk==3.9.1
+textblob==0.19.0
+vaderSentiment==3.3.2
+
+# Data visualization  
+matplotlib==3.10.5
+plotly==6.2.0
+seaborn==0.13.2
+
+# Dashboard/UI
+streamlit==1.47.1
+altair==5.5.0
+
+# Technical Analysis
+pandas_ta==0.3.14b0
+
+# Database
+peewee==3.18.2
+
+# Web Framework
+fastapi==0.116.1
+uvicorn==0.35.0
+starlette==0.47.2
+
+# Utilities
+python-dateutil==2.9.0.post0
+python-dotenv==1.1.1
+schedule==1.2.2
+tqdm==4.67.1
+toml==0.10.2
+
+# Development/Testing
+pytest==8.4.1
+
+# Additional dependencies for enhanced features
+joblib==1.5.1
+GitPython==3.1.45
+praw==7.8.1
+curl_cffi==0.12.0
+
+huggingface-hub>=0.34.0
+safetensors>=0.4.3
+tokenizers>=0.21.0

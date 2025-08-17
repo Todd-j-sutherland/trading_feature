@@ -1,0 +1,55 @@
+{
+  "analysis_timestamp": "2025-08-17T13:18:31.478282",
+  "project_root": "/Users/toddsutherland/Repos/trading_feature",
+  "total_errors": 1,
+  "total_warnings": 6,
+  "errors": [
+    {
+      "timestamp": "2025-08-17T13:18:28.271986",
+      "component": "command_morning",
+      "error": "Command timeout",
+      "details": "Exceeded 180 seconds",
+      "exception": null,
+      "traceback": null
+    }
+  ],
+  "warnings": [
+    {
+      "command": "status",
+      "warning": "2025-08-17 13:15:28 - __main__ - WARNING - System health: warning",
+      "log_file": "/Users/toddsutherland/Repos/trading_feature/analysis_logs/command_status_20250817_131520.log"
+    },
+    {
+      "command": "status",
+      "warning": "\u26a0\ufe0f System health: warning",
+      "log_file": "/Users/toddsutherland/Repos/trading_feature/analysis_logs/command_status_20250817_131520.log"
+    },
+    {
+      "command": "status",
+      "warning": "2025-08-17 13:15:28 - __main__ - WARNING - System health: warning",
+      "log_file": "/Users/toddsutherland/Repos/trading_feature/analysis_logs/command_status_20250817_131520.log"
+    },
+    {
+      "command": "status",
+      "warning": "\u26a0\ufe0f System health: warning",
+      "log_file": "/Users/toddsutherland/Repos/trading_feature/analysis_logs/command_status_20250817_131520.log"
+    },
+    {
+      "command": "status",
+      "warning": "2025-08-17 13:15:28 - __main__ - WARNING - System health: warning",
+      "log_file": "/Users/toddsutherland/Repos/trading_feature/analysis_logs/command_status_20250817_131520.log"
+    },
+    {
+      "command": "status",
+      "warning": "\u26a0\ufe0f System health: warning",
+      "log_file": "/Users/toddsutherland/Repos/trading_feature/analysis_logs/command_status_20250817_131520.log"
+    }
+  ],
+  "log_files": {
+    "main": "/Users/toddsutherland/Repos/trading_feature/analysis_logs/analysis_main_20250817_131520.log",
+    "errors": "/Users/toddsutherland/Repos/trading_feature/analysis_logs/errors_20250817_131520.log",
+    "database": "/Users/toddsutherland/Repos/trading_feature/analysis_logs/database_20250817_131520.log",
+    "commands": "/Users/toddsutherland/Repos/trading_feature/analysis_logs/commands_20250817_131520.log"
+  },
+  "analysis_duration": "completed"
+}
