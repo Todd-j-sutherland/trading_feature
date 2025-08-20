@@ -647,7 +647,8 @@ class EnhancedMorningAnalyzer:
                     
                 prediction_id = f"enhanced_{symbol}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 predicted_action = pred.get("optimal_action", "HOLD")
-                confidence = pred.get("action_confidence", 0.5)
+                # Fix: Use the real ML confidence from confidence_scores.average, fallback -0.01 indicates missing data
+                confidence = pred.get("confidence_scores", {}).get("average", -0.01)
                 predicted_direction = 1 if predicted_action == "BUY" else (-1 if predicted_action == "SELL" else 0)
                 
                 try:

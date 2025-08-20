@@ -899,6 +899,75 @@ class NewsSentimentAnalyzer:
             logger.error(f"Error getting ML prediction: {e}")
             return {'prediction': 'HOLD', 'confidence': 0.0, 'error': str(e)}
     
+    
+    def _filter_crypto_news(self, all_news, symbol):
+        """Filter out crypto/irrelevant headlines and prioritize bank-specific content"""
+        
+        # Crypto keywords to exclude
+        crypto_keywords = [
+            'bitcoin', 'crypto', 'cryptocurrency', 'digital asset',
+            'blockchain', 'ethereum', 'token', 'heritage distilling',
+            'crypto.com', 'aditxt', 'custody agreement', 'ip token',
+            'treasury strategy', 'digital currency'
+        ]
+        
+        # Bank name mapping for targeted filtering
+        bank_names = {
+            'CBA.AX': ['commonwealth bank', 'cba', 'commbank'],
+            'ANZ.AX': ['anz', 'australia and new zealand banking'],
+            'WBC.AX': ['westpac', 'wbc'],
+            'NAB.AX': ['national australia bank', 'nab'],
+            'MQG.AX': ['macquarie', 'macquarie group'],
+            'SUN.AX': ['suncorp', 'suncorp group'],
+            'QBE.AX': ['qbe insurance', 'qbe']
+        }
+        
+        # Bank-specific keywords (high priority)
+        bank_specific = bank_names.get(symbol, [])
+        
+        # General banking keywords (medium priority)
+        bank_keywords = [
+            'bank', 'banking', 'financial services', 'lending',
+            'mortgage', 'deposit', 'interest rate', 'rba',
+            'apra', 'dividend', 'earnings', 'profit', 'asx',
+            'home loan', 'credit', 'capital', 'regulatory'
+        ]
+        
+        # Filter and score news articles
+        scored_news = []
+        
+        for news in all_news:
+            title = news.get('title', '').lower()
+            
+            # Skip crypto-related content
+            if any(keyword in title for keyword in crypto_keywords):
+                continue
+            
+            # Score articles based on relevance
+            score = 0
+            
+            # Highest priority: Bank-specific mentions
+            if any(bank_name in title for bank_name in bank_specific):
+                score += 100
+            
+            # Medium priority: General banking terms
+            if any(keyword in title for keyword in bank_keywords):
+                score += 50
+            
+            # Australian financial context
+            if any(term in title for term in ['asx', 'australia', 'rba', 'apra']):
+                score += 25
+            
+            # Only include articles with some relevance
+            if score > 0:
+                scored_news.append((score, news))
+        
+        # Sort by relevance score (highest first)
+        scored_news.sort(key=lambda x: x[0], reverse=True)
+        
+        # Return top 5 most relevant articles
+        return [news for score, news in scored_news[:5]]
+
     def analyze_bank_sentiment(self, symbol: str, keywords: list = None) -> Dict:
         """
         Analyzes news sentiment for a specific bank.
@@ -1015,7 +1084,7 @@ class NewsSentimentAnalyzer:
                 'dynamic_weights': overall_sentiment.get('weights', {}),  # Add dynamic weights
                 'confidence': overall_sentiment['confidence'],
                 'ml_confidence': overall_sentiment.get('ml_confidence'),  # Add ML confidence
-                'recent_headlines': [news['title'] for news in all_news[:5]]
+                'recent_headlines': [news['title'] for news in self._filter_crypto_news(all_news, symbol)]
             }
             logger.info(f"Sentiment analysis result for {symbol}: {result}")
             
