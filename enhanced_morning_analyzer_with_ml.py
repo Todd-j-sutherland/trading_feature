@@ -526,6 +526,7 @@ class EnhancedMorningAnalyzer:
             
             self.logger.info("✅ Analysis results saved to database")
             self._save_predictions_if_available(analysis_results)
+            self._save_volume_data(analysis_results)
             
         except Exception as e:
             self.logger.error(f"❌ Failed to save analysis results: {e}")
@@ -749,6 +750,76 @@ class EnhancedMorningAnalyzer:
                 
         except Exception as e:
             self.logger.error(f"❌ Error saving predictions: {e}")
+
+    def _save_volume_data(self, analysis_results: Dict):
+        """Save volume data for evening analyzer to use"""
+        try:
+            import sqlite3
+            from datetime import datetime
+            
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Create volume table if not exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS daily_volume_data (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    symbol TEXT NOT NULL,
+                    analysis_date DATE NOT NULL,
+                    latest_volume REAL,
+                    average_volume_20 REAL,
+                    volume_ratio REAL,
+                    market_hours BOOLEAN,
+                    data_timestamp DATETIME,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(symbol, analysis_date)
+                )
+            ''')
+            
+            analysis_date = self.get_australian_time().date()
+            saved_count = 0
+            
+            for symbol in analysis_results['banks_analyzed']:
+                try:
+                    # Get volume data from market_data
+                    market_data = get_market_data(symbol, period='3mo', interval='1h')
+                    
+                    if not market_data.empty and 'Volume' in market_data.columns:
+                        latest_volume = float(market_data['Volume'].iloc[-1])
+                        avg_volume_20 = float(market_data['Volume'].tail(20).mean())
+                        volume_ratio = latest_volume / avg_volume_20 if avg_volume_20 > 0 else 0
+                        
+                        cursor.execute('''
+                            INSERT OR REPLACE INTO daily_volume_data
+                            (symbol, analysis_date, latest_volume, average_volume_20, 
+                             volume_ratio, market_hours, data_timestamp)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ''', (
+                            symbol,
+                            analysis_date,
+                            latest_volume,
+                            avg_volume_20,
+                            volume_ratio,
+                            analysis_results['market_hours'],
+                            analysis_results['timestamp']
+                        ))
+                        
+                        saved_count += 1
+                        self.logger.info(f"✅ Saved volume data: {symbol} = {latest_volume:,.0f} ({volume_ratio:.2f}x)")
+                        
+                except Exception as e:
+                    self.logger.warning(f"⚠️ Failed to save volume for {symbol}: {e}")
+            
+            conn.commit()
+            conn.close()
+            
+            if saved_count > 0:
+                self.logger.info(f"✅ Saved volume data for {saved_count} symbols")
+            else:
+                self.logger.warning("⚠️ No volume data was saved")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error saving volume data: {e}")
 
 def main():
     """Main function to run enhanced morning analysis"""

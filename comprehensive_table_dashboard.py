@@ -276,21 +276,57 @@ class TradingDataDashboard:
         
         with tabs[0]:
             st.subheader("Recent Predictions")
-            query = """
+            
+            # Add data quality filter options
+            col1, col2 = st.columns(2)
+            with col1:
+                show_test_data = st.checkbox("Show Test Data", value=False, help="Include test predictions with 'test_' prefix")
+            with col2:
+                show_invalid_data = st.checkbox("Show Invalid Data", value=False, help="Include predictions with -9999 error values")
+            
+            # Build query with filters
+            where_conditions = []
+            if not show_test_data:
+                where_conditions.append("prediction_id NOT LIKE 'test_%'")
+            if not show_invalid_data:
+                where_conditions.append("action_confidence != -9999 AND predicted_magnitude != -9999")
+            
+            where_clause = ""
+            if where_conditions:
+                where_clause = "WHERE " + " AND ".join(where_conditions)
+            
+            query = f"""
             SELECT 
                 symbol,
                 prediction_timestamp,
                 predicted_action,
                 action_confidence,
                 entry_price,
-                optimal_action
+                optimal_action,
+                model_version,
+                CASE 
+                    WHEN action_confidence = -9999 THEN '🚨 CONF_ERROR'
+                    WHEN predicted_magnitude = -9999 THEN '🚨 MAG_ERROR'
+                    WHEN entry_price = 0 THEN '⚠️ PRICE_ERROR'
+                    ELSE '✅ VALID'
+                END as data_quality
             FROM predictions 
+            {where_clause}
             ORDER BY prediction_timestamp DESC 
             LIMIT 20
             """
             df = self.query_to_dataframe(query)
             
             if not df.empty:
+                # Show data quality summary
+                if 'data_quality' in df.columns:
+                    quality_counts = df['data_quality'].value_counts()
+                    valid_count = quality_counts.get('✅ VALID', 0)
+                    total_count = len(df)
+                    quality_pct = (valid_count / total_count) * 100 if total_count > 0 else 0
+                    
+                    st.info(f"📊 Data Quality: {valid_count}/{total_count} valid predictions ({quality_pct:.1f}%)")
+                
                 st.dataframe(df, use_container_width=True)
                 
                 # Predictions by action chart
