@@ -72,6 +72,9 @@ class EnhancedMLTrainingPipeline:
         self.settings = Settings()
         self.technical_analyzer = TechnicalAnalyzer(self.settings)
         
+        # Initialize logger
+        self.logger = logging.getLogger(__name__)
+        
         # Define required features as per instructions
         self.required_features = {
             'technical_indicators': [
@@ -120,6 +123,28 @@ class EnhancedMLTrainingPipeline:
             'quarter_end': '1 if month in [3,6,9,12] and day >= 25 else 0'
         }
         
+
+    def has_sufficient_training_data(self, min_samples=100):
+        """Check if we have enough training samples for ML predictions"""
+        import sqlite3
+        import logging
+        
+        try:
+            conn = sqlite3.connect("data/trading_predictions.db")
+            cursor = conn.cursor()
+            
+            # Count samples with entry prices (complete training data)
+            cursor.execute("SELECT COUNT(*) FROM predictions WHERE entry_price > 0")
+            sample_count = cursor.fetchone()[0]
+            conn.close()
+            
+            self.logger.info(f"Training data check: {sample_count}/{min_samples} samples available")
+            return sample_count >= min_samples
+            
+        except Exception as e:
+            logging.error(f"Error checking training data: {e}")
+            return False  # Conservative default
+
     def ensure_directories(self):
         """Create necessary directories"""
         for dir_path in [self.data_dir, self.models_dir, self.training_data_dir]:

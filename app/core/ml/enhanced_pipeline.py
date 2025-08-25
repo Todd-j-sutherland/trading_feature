@@ -100,6 +100,27 @@ class EnhancedMLPipeline:
         
         logger.info(f"Enhanced ML Pipeline initialized with {len(self.models)} models")
     
+    
+    
+    def has_sufficient_training_data(self, min_samples=100):
+        """
+        Check if we have sufficient training data for ML predictions
+        Fresh Start System: Returns False if less than min_samples available
+        """
+        try:
+            import sqlite3
+            conn = sqlite3.connect('data/trading_predictions.db')
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM predictions WHERE entry_price > 0')
+            sample_count = cursor.fetchone()[0]
+            conn.close()
+            
+            sufficient = sample_count >= min_samples
+            logger.info(f'Fresh Start: {sample_count}/{min_samples} samples - ML enabled: {sufficient}')
+            return sufficient
+        except Exception as e:
+            logger.warning(f'Error checking training data: {e}')
+            return False
     def extract_features(self, sentiment_data: Dict, market_data: Dict = None, 
                         news_data: List = None) -> Dict[str, float]:
         """

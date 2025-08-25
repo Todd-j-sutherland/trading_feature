@@ -416,6 +416,39 @@ class EnhancedMorningAnalyzer:
         
         return recommendations
     
+    def _get_current_price_robust(self, symbol):
+        """
+        Enhanced price fetching with multiple methods and retries
+        """
+        import time
+        import random
+        
+        methods = [
+            ('history', lambda t: t.history(period='1d').iloc[-1]['Close'] if len(t.history(period='1d')) > 0 else None),
+            ('info', lambda t: t.info.get('currentPrice') or t.info.get('regularMarketPrice')),
+            ('fast_info', lambda t: getattr(t.fast_info, 'last_price', None))
+        ]
+        
+        for method_name, method_func in methods:
+            for attempt in range(3):  # 3 attempts per method
+                try:
+                    import yfinance as yf; ticker = yf.Ticker(symbol)
+                    price = method_func(ticker)
+                    
+                    if price and price > 0:
+                        self.logger.info(f"💰 {symbol}: Got price using {method_name} method (attempt {attempt+1}) = ${price:.2f}")
+                        return float(price)
+                        
+                except Exception as e:
+                    self.logger.warning(f"⚠️ {symbol}: {method_name} method attempt {attempt+1} failed: {e}")
+                    if attempt < 2:  # Wait before retry (except last attempt)
+                        time.sleep(random.uniform(1, 3))
+                    continue
+                    
+        self.logger.error(f"🚨 {symbol}: ALL ENHANCED PRICE METHODS FAILED")
+        return None
+
+
     def _get_model_performance_summary(self) -> Dict:
         """Get ML model performance summary from database"""
         try:
@@ -649,7 +682,7 @@ class EnhancedMorningAnalyzer:
                 prediction_id = f"enhanced_{symbol}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 predicted_action = pred.get("optimal_action", "HOLD")
                 # Fix: Use the real ML confidence from confidence_scores.average, fallback -9999 indicates missing data
-                confidence = pred.get("confidence_scores", {}).get("average", -9999)
+                confidence = pred.get("action_confidence", pred.get("confidence_scores", {}).get("average", -9999))
                 predicted_direction = 1 if predicted_action == "BUY" else (-1 if predicted_action == "SELL" else 0)
                 
                 # Debug logging to identify the issue
@@ -660,47 +693,26 @@ class EnhancedMorningAnalyzer:
                     self.logger.warning(f"⚠️ {symbol} missing confidence_scores in prediction!")
                     self.logger.info(f"🔍 {symbol} full prediction = {pred}")
                 
-                # Get current price with improved fallback logic
-                entry_price = 0.0
-                
-                # First attempt: Get from technical analysis
-                for tech_symbol, tech_data in analysis_results.get('technical_signals', {}).items():
-                    if tech_symbol == symbol:
-                        entry_price = float(tech_data.get("current_price", 0.0))
-                        if entry_price > 0:
-                            self.logger.info(f"💰 {symbol}: Got price from technical analysis = ${entry_price:.2f}")
-                        break
-                
-                # Second attempt: Try yfinance if technical analysis failed
-                if entry_price == 0.0:
-                    try:
-                        import yfinance as yf
-                        ticker = yf.Ticker(symbol)
-                        info = ticker.info
-                        entry_price = float(info.get('currentPrice', info.get('regularMarketPrice', 0.0)))
-                        if entry_price > 0:
-                            self.logger.info(f"💰 {symbol}: Used yfinance fallback = ${entry_price:.2f}")
-                        else:
-                            self.logger.warning(f"⚠️ {symbol}: yfinance returned 0 price - info keys: {list(info.keys())[:10]}")
-                    except Exception as price_error:
-                        self.logger.error(f"❌ {symbol}: yfinance price lookup failed: {price_error}")
-                
-                # Third attempt: Try alternative yfinance method
-                if entry_price == 0.0:
-                    try:
-                        import yfinance as yf
-                        ticker = yf.Ticker(symbol)
-                        hist = ticker.history(period="1d")
-                        if not hist.empty:
-                            entry_price = float(hist['Close'].iloc[-1])
-                            self.logger.info(f"💰 {symbol}: Used yfinance history fallback = ${entry_price:.2f}")
-                    except Exception as hist_error:
-                        self.logger.error(f"❌ {symbol}: yfinance history lookup failed: {hist_error}")
+                # Get current price using enhanced robust method
+                # FIXED: Use direct yfinance call instead of broken method
+                try:
+                    import yfinance as yf
+                    ticker = yf.Ticker(symbol)
+                    hist_data = ticker.history(period="1d")
+                    if not hist_data.empty:
+                        entry_price = float(hist_data["Close"].iloc[-1])
+                        self.logger.info(f"✅ {symbol}: Got price ${entry_price:.2f}")
+                    else:
+                        entry_price = 0.0
+                        self.logger.warning(f"⚠️ {symbol}: No price data")
+                except Exception as e:
+                    entry_price = 0.0
+                    self.logger.error(f"❌ {symbol}: Price error: {e}")
                 
                 # Final fallback: Use -9999 to indicate missing price data
-                if entry_price == 0.0:
-                    entry_price = -9999.0
-                    self.logger.error(f"🚨 {symbol}: ALL PRICE LOOKUPS FAILED - Using -9999 fallback")
+                # Removed -9999 fallback - use 0.0 to indicate missing price data
+                if entry_price is None:
+                    entry_price = 0.0
                 
                 # Get magnitude prediction (1-day horizon for entry)
                 magnitude = pred.get("magnitude_predictions", {}).get("1d", -9999)

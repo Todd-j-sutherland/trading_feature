@@ -171,19 +171,7 @@ class EnhancedMorningAnalyzer:
                     
                     if feature_id:
                         # Make enhanced predictions
-                        # Emergency fix: Check if we have enough training data for ML
-                        if not self.enhanced_pipeline.has_sufficient_training_data():
-                            # Use traditional signals until we have 100+ samples
-                            traditional_signal = self._generate_traditional_signal(sentiment_data, technical_result, symbol)
-                            ml_prediction = {
-                                "optimal_action": traditional_signal.get("final_signal", "HOLD"),
-                                "confidence_scores": {"average": traditional_signal.get("overall_confidence", 0.5)},
-                                "model_version": "traditional_emergency_v1"
-                            }
-                            self.logger.info(f"Using traditional signals for {symbol} (insufficient training data)")
-                        else:
-                            # Original ML prediction logic
-                            ml_prediction = self.enhanced_pipeline.predict_enhanced(
+                        ml_prediction = self.enhanced_pipeline.predict_enhanced(
                             sentiment_data, symbol
                         )
                         
@@ -694,7 +682,7 @@ class EnhancedMorningAnalyzer:
                 prediction_id = f"enhanced_{symbol}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 predicted_action = pred.get("optimal_action", "HOLD")
                 # Fix: Use the real ML confidence from confidence_scores.average, fallback -9999 indicates missing data
-                confidence = pred.get("confidence", pred.get("confidence_scores", {}).get("average", -9999))
+                confidence = pred.get("confidence_scores", {}).get("average", -9999)
                 predicted_direction = 1 if predicted_action == "BUY" else (-1 if predicted_action == "SELL" else 0)
                 
                 # Debug logging to identify the issue
@@ -714,7 +702,7 @@ class EnhancedMorningAnalyzer:
                     self.logger.error(f"🚨 {symbol}: ALL ENHANCED PRICE LOOKUPS FAILED - Using -9999 fallback")
                 
                 # Get magnitude prediction (1-day horizon for entry)
-                magnitude = pred.get("magnitude_predictions", {}).get("1d", 0.02 if "traditional" in pred.get("model_version", "") else -9999)
+                magnitude = pred.get("magnitude_predictions", {}).get("1d", -9999)
                 self.logger.info(f"🔍 {symbol} magnitude_predictions = {pred.get('magnitude_predictions', 'MISSING')}")
                 
                 try:
