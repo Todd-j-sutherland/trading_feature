@@ -1,0 +1,88 @@
+[2025-08-25 08:18:12] ⏰ Outside market hours (current: 08:xx AEST)
+[2025-08-25 08:18:12] 🕐 Skipping prediction cycle - outside market hours
+[2025-08-25 08:32:31] ⏰ Outside market hours (current: 08:xx AEST)
+[2025-08-25 08:32:31] 🕐 Skipping prediction cycle - outside market hours
+[2025-08-25 08:44:48] ⏰ Outside market hours (current: 08:xx AEST)
+[2025-08-25 08:44:48] 🕐 Skipping prediction cycle - outside market hours
+[2025-08-25 09:48:08] ⏰ Outside market hours (current: 09:xx AEST)
+[2025-08-25 09:48:08] 🕐 Skipping prediction cycle - outside market hours
+[2025-08-25 09:48:16] ⏰ Outside market hours (current: 09:xx AEST)
+[2025-08-25 09:48:16] 🕐 Skipping prediction cycle - outside market hours
+[2025-08-25 09:48:30] ⏰ Outside market hours (current: 09:xx AEST)
+[2025-08-25 09:48:30] 🕐 Skipping prediction cycle - outside market hours
+[2025-08-25 09:48:53] ⏰ Outside market hours (current: 09:xx AEST)
+[2025-08-25 09:48:53] 🕐 Skipping prediction cycle - outside market hours
+[2025-08-25 09:49:05] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-08-25 09:49:05] Error processing CBA.AX: name 'symbol' is not defined
+[2025-08-25 09:49:06] Error processing WBC.AX: name 'symbol' is not defined
+[2025-08-25 09:49:06] Error processing ANZ.AX: name 'symbol' is not defined
+[2025-08-25 09:49:06] Error processing NAB.AX: name 'symbol' is not defined
+[2025-08-25 09:49:06] Error processing MQG.AX: name 'symbol' is not defined
+[2025-08-25 09:49:06] ✅ Enhanced predictions completed: 0/5 symbols
+[2025-08-25 09:49:06] 💾 Technical analysis included - memory optimized
+[2025-08-25 09:50:09] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-08-25 09:50:10] ✅ CBA.AX: HOLD (conf: 0.400, RSI: 50.9, Tech: 50.0)
+[2025-08-25 09:50:10] ✅ WBC.AX: HOLD (conf: 0.400, RSI: 86.6, Tech: 65.0)
+[2025-08-25 09:50:10] ✅ ANZ.AX: HOLD (conf: 0.400, RSI: 85.7, Tech: 65.0)
+[2025-08-25 09:50:11] ✅ NAB.AX: BUY (conf: 0.700, RSI: 79.2, Tech: 75.0)
+[2025-08-25 09:50:11] ✅ MQG.AX: BUY (conf: 0.700, RSI: 78.5, Tech: 75.0)
+[2025-08-25 09:50:11] ✅ Enhanced predictions completed: 5/5 symbols
+[2025-08-25 09:50:11] 💾 Technical analysis included - memory optimized
+[2025-08-25 21:46:24] ⏰ Outside market hours (current: 21:xx AEST)
+[2025-08-25 21:46:24] 🕐 Skipping prediction cycle - outside market hours
+[2025-08-26 00:31:49] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-08-26 00:31:49] ✅ CBA.AX: HOLD (conf: 0.400, RSI: 42.8, Tech: 50.0)
+[2025-08-26 00:31:50] ✅ WBC.AX: BUY (conf: 0.700, RSI: 78.5, Tech: 75.0)
+[2025-08-26 00:31:50] ✅ ANZ.AX: BUY (conf: 0.700, RSI: 76.2, Tech: 75.0)
+[2025-08-26 00:31:50] ✅ NAB.AX: BUY (conf: 0.700, RSI: 69.4, Tech: 75.0)
+[2025-08-26 00:31:51] ✅ MQG.AX: BUY (conf: 0.700, RSI: 77.8, Tech: 75.0)
+[2025-08-26 00:31:51] ✅ Enhanced predictions completed: 5/5 symbols
+[2025-08-26 00:31:51] 💾 Technical analysis included - memory optimized
+[2025-08-26 00:32:27] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-08-26 00:32:28] ✅ CBA.AX: HOLD (conf: 0.400, RSI: 42.8, Tech: 50.0)
+[2025-08-26 00:32:28] ✅ WBC.AX: BUY (conf: 0.700, RSI: 78.5, Tech: 75.0)
+[2025-08-26 00:32:28] ✅ ANZ.AX: BUY (conf: 0.700, RSI: 76.2, Tech: 75.0)
+[2025-08-26 00:32:28] ✅ NAB.AX: BUY (conf: 0.700, RSI: 69.4, Tech: 75.0)
+[2025-08-26 00:32:29] ✅ MQG.AX: BUY (conf: 0.700, RSI: 77.8, Tech: 75.0)
+[2025-08-26 00:32:29] ✅ Enhanced predictions completed: 5/5 symbols
+[2025-08-26 00:32:29] 💾 Technical analysis included - memory optimized
+[2025-08-26 00:45:48] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-08-26 00:45:49] ✅ CBA.AX: HOLD (conf: 0.400, RSI: 42.8, Tech: 50.0)
+[2025-08-26 00:45:49] ✅ WBC.AX: BUY (conf: 0.700, RSI: 78.5, Tech: 75.0)
+[2025-08-26 00:45:49] ✅ ANZ.AX: BUY (conf: 0.700, RSI: 76.2, Tech: 75.0)
+[2025-08-26 00:45:50] ✅ NAB.AX: BUY (conf: 0.700, RSI: 69.4, Tech: 75.0)
+[2025-08-26 00:45:50] ✅ MQG.AX: BUY (conf: 0.700, RSI: 77.8, Tech: 75.0)
+[2025-08-26 00:45:50] ✅ Enhanced predictions completed: 5/5 symbols
+[2025-08-26 00:45:50] 💾 Technical analysis included - memory optimized
+[2025-08-26 00:46:29] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-08-26 00:46:30] ✅ CBA.AX: HOLD (conf: 0.400, RSI: 42.8, Tech: 50.0)
+[2025-08-26 00:46:30] ✅ WBC.AX: BUY (conf: 0.700, RSI: 78.5, Tech: 75.0)
+[2025-08-26 00:46:31] ✅ ANZ.AX: BUY (conf: 0.700, RSI: 76.2, Tech: 75.0)
+[2025-08-26 00:46:31] ✅ NAB.AX: BUY (conf: 0.700, RSI: 69.4, Tech: 75.0)
+[2025-08-26 00:46:31] ✅ MQG.AX: BUY (conf: 0.700, RSI: 77.8, Tech: 75.0)
+[2025-08-26 00:46:31] ✅ Enhanced predictions completed: 5/5 symbols
+[2025-08-26 00:46:31] 💾 Technical analysis included - memory optimized
+[2025-08-26 00:50:30] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-08-26 00:50:31] ✅ CBA.AX: HOLD (conf: 0.710, RSI: 42.8, Tech: 50.0)
+[2025-08-26 00:50:31] ✅ WBC.AX: BUY (conf: 0.884, RSI: 78.5, Tech: 75.0)
+[2025-08-26 00:50:32] ✅ ANZ.AX: BUY (conf: 0.896, RSI: 76.2, Tech: 75.0)
+[2025-08-26 00:50:32] ✅ NAB.AX: BUY (conf: 0.848, RSI: 69.4, Tech: 75.0)
+[2025-08-26 00:50:32] ✅ MQG.AX: BUY (conf: 0.950, RSI: 77.8, Tech: 75.0)
+[2025-08-26 00:50:32] ✅ Enhanced predictions completed: 5/5 symbols
+[2025-08-26 00:50:32] 💾 Technical analysis included - memory optimized
+[2025-08-26 01:00:04] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-08-26 01:00:04] ✅ CBA.AX: HOLD (conf: 0.710, RSI: 42.8, Tech: 50.0)
+[2025-08-26 01:00:05] ✅ WBC.AX: BUY (conf: 0.884, RSI: 78.5, Tech: 75.0)
+[2025-08-26 01:00:05] ✅ ANZ.AX: BUY (conf: 0.896, RSI: 76.2, Tech: 75.0)
+[2025-08-26 01:00:10] Error saving NAB.AX: database is locked
+[2025-08-26 01:00:15] Error saving MQG.AX: database is locked
+[2025-08-26 01:00:15] ✅ Enhanced predictions completed: 5/5 symbols
+[2025-08-26 01:00:15] 💾 Technical analysis included - memory optimized
+[2025-08-26 01:30:04] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-08-26 01:30:04] ✅ CBA.AX: HOLD (conf: 0.710, RSI: 42.8, Tech: 50.0)
+[2025-08-26 01:30:05] ✅ WBC.AX: BUY (conf: 0.884, RSI: 78.5, Tech: 75.0)
+[2025-08-26 01:30:05] ✅ ANZ.AX: BUY (conf: 0.896, RSI: 76.2, Tech: 75.0)
+[2025-08-26 01:30:05] ✅ NAB.AX: BUY (conf: 0.848, RSI: 69.4, Tech: 75.0)
+[2025-08-26 01:30:05] ✅ MQG.AX: BUY (conf: 0.950, RSI: 77.8, Tech: 75.0)
+[2025-08-26 01:30:05] ✅ Enhanced predictions completed: 5/5 symbols
+[2025-08-26 01:30:05] 💾 Technical analysis included - memory optimized

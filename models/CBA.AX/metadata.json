@@ -1,0 +1,20 @@
+{
+  "symbol": "CBA.AX",
+  "model_version": "2.1",
+  "performance": {
+    "direction_accuracy": 0.9047619047619048,
+    "magnitude_mse": 0.09053090281604893,
+    "samples": 21
+  },
+  "feature_names": [
+    "rsi",
+    "tech_score",
+    "price_1",
+    "price_2",
+    "price_3",
+    "vol",
+    "volume_ratio",
+    "momentum_1",
+    "momentum_2"
+  ]
+}
