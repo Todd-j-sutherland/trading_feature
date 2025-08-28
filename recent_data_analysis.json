@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-08-27T09:46:38.283549",
+  "recent_data_quality": {},
+  "symbol_specific_issues": {},
+  "model_performance_issues": {},
+  "summary": {
+    "total_recent_predictions": 176,
+    "symbols_analyzed": 7,
+    "model_versions": 3,
+    "return_calculation_errors": 10
+  }
+}

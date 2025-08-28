@@ -1,0 +1,2071 @@
+{
+  "timestamp": "2025-08-27T09:47:21.380557",
+  "fixes_applied": [
+    {
+      "type": "confidence_cleanup",
+      "prediction_id": "CBA.AX_20250826_004549",
+      "symbol": "CBA.AX",
+      "old_value": "42.8,50.0,171.56,172.02,170.30,-2.01,1.14,65.0,45.0",
+      "new_value": 0.428
+    },
+    {
+      "type": "confidence_cleanup",
+      "prediction_id": "WBC.AX_20250826_004549",
+      "symbol": "WBC.AX",
+      "old_value": "78.5,75.0,38.31,35.35,38.29,-1.14,1.37,65.0,45.0",
+      "new_value": 0.785
+    },
+    {
+      "type": "confidence_cleanup",
+      "prediction_id": "ANZ.AX_20250826_004549",
+      "symbol": "ANZ.AX",
+      "old_value": "76.2,75.0,33.47,31.86,33.40,-1.53,1.13,65.0,45.0",
+      "new_value": 0.762
+    },
+    {
+      "type": "confidence_cleanup",
+      "prediction_id": "NAB.AX_20250826_004550",
+      "symbol": "NAB.AX",
+      "old_value": "69.4,75.0,41.83,39.55,41.71,-1.60,1.46,65.0,45.0",
+      "new_value": 0.6940000000000001
+    },
+    {
+      "type": "confidence_cleanup",
+      "prediction_id": "MQG.AX_20250826_004550",
+      "symbol": "MQG.AX",
+      "old_value": "77.8,75.0,222.14,216.98,225.14,0.73,0.72,65.0,45.0",
+      "new_value": 0.778
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "915011a5-2cf2-4e1c-a7c0-a68326946664",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "09f31eb2-6bef-4966-8a31-0076dc621781",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "deb0ab73-2639-4549-9775-e5a0e48c0a0c",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d53b9a5f-2562-4452-acea-2c8af746354e",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "67aae248-34c4-445e-83d2-a7414014876b",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "40bc6487-78be-4474-9194-d5681e00ae43",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "05c85780-0cc4-4b42-b795-cee5a98efbe0",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "c077d6cf-619c-4355-af3e-5127572820be",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d1cb8103-c322-42b1-abb0-fcc84ebc9894",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d2e73368-76c5-4a7e-b011-0c8f16b2b07a",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "759f77ce-a609-4ca3-8a45-4739b4ee3446",
+      "symbol": "MQG.AX",
+      "old_return": 0.03352493132845832,
+      "new_return": 0.00033524931328458315
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "1ea7954f-5759-484b-a421-289c0d64ab16",
+      "symbol": "SUN.AX",
+      "old_return": 0.8550934318707154,
+      "new_return": 0.008550934318707154
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "966a1978-7580-4815-9d1d-a3bf4db635dd",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "51e4956d-9737-4d4e-b931-7e516d0ffeef",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "5214cbe8-c4d2-4aad-a3fb-8697fcfb8e68",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "a2d5dc2b-1b01-4bb1-a6e7-901693b0d3ba",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "60e5c833-7100-4bfa-95ad-29f15f7df0fb",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "f6ab6b73-b386-4f47-a47f-b5a2450a582c",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "a844b6e7-9a20-4e11-aef5-4719f91ccb9f",
+      "symbol": "MQG.AX",
+      "old_return": 0.03352493132845832,
+      "new_return": 0.00033524931328458315
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "b8b9f3ae-e17d-4585-98cc-27abc376a031",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "5bb81b0f-6c08-4dd2-98b0-12edf722900f",
+      "symbol": "SUN.AX",
+      "old_return": 0.8550934318707154,
+      "new_return": 0.008550934318707154
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "88a782a1-2b4b-489f-8f9b-30e43cfd40bb",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "81f1036f-adab-4aa9-8401-f0fb488b33b1",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "4dfee34c-6cd9-42a9-9591-ee91bc1cbd46",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "deb33b30-5ec9-461c-a4ab-63f819cca48c",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "bb7d7d33-60e5-4aa3-8a6e-7f96535f5429",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "0a8d286d-56f1-4a1d-b5af-7e7f111fccaa",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "533b23f1-e1d7-4c86-b524-7d1652e14622",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "4e7f9148-b931-452c-82cd-dcd85db35115",
+      "symbol": "MQG.AX",
+      "old_return": 0.03352493132845832,
+      "new_return": 0.00033524931328458315
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "01a1d425-494e-42e3-a177-01b17688f29a",
+      "symbol": "SUN.AX",
+      "old_return": 0.8550934318707154,
+      "new_return": 0.008550934318707154
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "632447b0-6823-4f64-a68f-d8b2a58095e4",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "082b61c0-da47-4863-affd-32d41e998fac",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "7b1328c6-f6d3-4a5e-8565-ed23bc044375",
+      "symbol": "MQG.AX",
+      "old_return": 0.03352493132845832,
+      "new_return": 0.00033524931328458315
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "dc1323f8-2dfb-40e8-b0d5-2c8df80515fb",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "c70f2855-5045-49ba-b1a0-a71e609dc257",
+      "symbol": "SUN.AX",
+      "old_return": 0.8550934318707154,
+      "new_return": 0.008550934318707154
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "422d0b9c-e8d7-48be-a6f4-52e30c9d49a9",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "0787cf82-afb1-4682-aa97-5f348ed4fcb8",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "6c6d0657-82d5-43cb-be5d-45ee80b9241d",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "98d8b3ef-777f-45d1-aa19-ce198ed14710",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "f6d13e4e-ec4f-44f0-887d-4db3dea2dcd6",
+      "symbol": "MQG.AX",
+      "old_return": 0.03352493132845832,
+      "new_return": 0.00033524931328458315
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "71a1d50e-26e7-4b1e-a6db-c9c8102b1916",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "e51cc32e-a9b8-4f5d-8d4b-3c7787a06214",
+      "symbol": "SUN.AX",
+      "old_return": 0.8550934318707154,
+      "new_return": 0.008550934318707154
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "a401f282-9cf5-44e0-82df-499f3b8490a4",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "af6c8007-cfaf-45e9-a39a-118c6a592570",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "69aed892-5ea3-4dd9-a4f1-e9f4b44238ef",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "fdccd8aa-d307-4c53-bd8b-a82cd3250ff2",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "a0505e0d-ccf8-4ae4-ad5d-7575cd25f9ff",
+      "symbol": "MQG.AX",
+      "old_return": 0.03352493132845832,
+      "new_return": 0.00033524931328458315
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "599836d0-4685-44b2-b688-11ab62b475d9",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "c1994757-c0b9-4b4b-8824-b98fc47cd6a6",
+      "symbol": "SUN.AX",
+      "old_return": 0.8550934318707154,
+      "new_return": 0.008550934318707154
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "eb540bcd-d066-4ad6-8b6f-9ac394e6da29",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "408f03da-5cab-4864-938a-dd4a7d18f3c3",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "f11ccf42-253e-4d4e-8591-740dc9dc5bac",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "47c7f299-d4e0-4ccd-a643-948670769adb",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "9a07bbc7-d50f-4b21-8fb2-5000c84b0bda",
+      "symbol": "MQG.AX",
+      "old_return": 0.03352493132845832,
+      "new_return": 0.00033524931328458315
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d654e8a4-5aa0-4524-8005-1d910fae0aaa",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "1fd43c46-8d0a-4571-bc95-80a5bf36f2a9",
+      "symbol": "SUN.AX",
+      "old_return": 0.8550934318707154,
+      "new_return": 0.008550934318707154
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "422cbfca-3158-4b9e-ab82-ad65fe95e072",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "f8e85562-d39e-4342-966c-74afb4dd3400",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "ec1b915e-8334-42cb-8138-30fbe15ff30e",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "339f47a0-583c-4050-98c0-571b04d39f7e",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "06fdf082-a6a2-4e19-af5a-de3622a91a2f",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "bbc3f47c-d053-49f9-8d81-c0a5fe611258",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "afae02d5-59b0-4d21-a603-a60756b63114",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "816bf487-b894-4f51-9b5c-5ca3eb7272cb",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "2287b6b1-3c9a-4e9c-913a-3f426037d004",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "cf1c66f9-3a6a-4a05-855f-a5672f1f1e83",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "81f028cd-4eb7-4edf-b506-f9354fa92bf7",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "e673b84f-984f-496f-a095-d670ae9e1bdf",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "e2875654-7d2b-46eb-b7fc-d938ff98856f",
+      "symbol": "MQG.AX",
+      "old_return": 0.03352493132845832,
+      "new_return": 0.00033524931328458315
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "6e1b6957-0ac6-4c19-b4ad-fe192cc8a293",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "27c1034b-b616-4f6b-bd63-4472dd104a23",
+      "symbol": "SUN.AX",
+      "old_return": 0.8550934318707154,
+      "new_return": 0.008550934318707154
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "debe407a-d1f0-4888-b396-3ae3637f8539",
+      "symbol": "MQG.AX",
+      "old_return": 0.03352493132845832,
+      "new_return": 0.00033524931328458315
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "6572e522-03e6-4d5e-8692-fa6226365611",
+      "symbol": "SUN.AX",
+      "old_return": 0.8550934318707154,
+      "new_return": 0.008550934318707154
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "a495a46a-5108-4fd0-a2ad-0ec9d9ddbaa7",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "8cc4dd00-bfeb-4d6f-b22c-bd7109336615",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "a437c9b7-8c5c-47dd-98d8-3f9ff5ef0a0e",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "aeae828b-3f1d-4922-a3df-fe1881346ffc",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "2e52ecbb-ef38-4c97-8ab6-4441435f13f9",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "04591489-f12f-4288-91d0-d9672c8e0244",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "95d01f59-2fd7-4834-99fe-061d9fc98e85",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "4bb5d156-62d5-4b6b-a5fd-a61f11ca2b3d",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "786485ef-486d-43da-8f9d-86b878c6fb42",
+      "symbol": "MQG.AX",
+      "old_return": 0.03352493132845832,
+      "new_return": 0.00033524931328458315
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "254498f5-0617-440f-b686-407cdf357795",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "b9fbce01-604f-4a4a-ac6d-1b2a29485661",
+      "symbol": "SUN.AX",
+      "old_return": 0.8550934318707154,
+      "new_return": 0.008550934318707154
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "ab44f7eb-15ac-4d1e-91fa-3a4ed471c59d",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "9be41b58-90aa-4c1e-a3c3-dbe084e3495b",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "c577e1ce-cec9-41c7-8999-b2f8387970a5",
+      "symbol": "MQG.AX",
+      "old_return": 0.03352493132845832,
+      "new_return": 0.00033524931328458315
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "b379aad4-3221-47f1-9956-7c3a9b61fdd2",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "e83692bd-4467-494f-a1bd-e544e468e9d9",
+      "symbol": "SUN.AX",
+      "old_return": 0.8550934318707154,
+      "new_return": 0.008550934318707154
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "17bd1f1c-e7cf-43d7-bee1-342da614d6fc",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d6dcd181-bd0f-48b8-9f19-48ba5b220176",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "ced4ccf5-96e8-4c94-8e92-a3e95c86bf00",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "ffbc21be-570c-47b1-abd8-230638d49360",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "845bcbd0-065a-433b-91ae-49e0e29f2af8",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "9a015a77-b5b5-44d3-b050-b0634f72a9c1",
+      "symbol": "WBC.AX",
+      "old_return": 0.4898134112518914,
+      "new_return": 0.004898134112518914
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "20535db7-ae3f-41a6-9c38-4ce708f40061",
+      "symbol": "MQG.AX",
+      "old_return": 0.03352493132845832,
+      "new_return": 0.00033524931328458315
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "95f97f9a-4188-43d8-b78c-53957e7da614",
+      "symbol": "ANZ.AX",
+      "old_return": 0.6537812660622554,
+      "new_return": 0.006537812660622554
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "303cad49-2697-4270-96b2-efbe23cb0ff3",
+      "symbol": "SUN.AX",
+      "old_return": 0.8550934318707154,
+      "new_return": 0.008550934318707154
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "e077c611-0894-42a2-a7f2-38ad2e55698c",
+      "symbol": "NAB.AX",
+      "old_return": 0.4493908393850001,
+      "new_return": 0.004493908393850001
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "efe82186-2f80-4a6e-85d5-7d0dbf56e47b",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "ba20ba3e-5fa3-407e-80a8-820b2c5d412e",
+      "symbol": "MQG.AX",
+      "old_return": 0.03352493132845832,
+      "new_return": 0.00033524931328458315
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "e26974aa-e735-4571-a366-fdd2bcdfab26",
+      "symbol": "SUN.AX",
+      "old_return": 0.8550934318707154,
+      "new_return": 0.008550934318707154
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "0faca59d-594c-47b4-9a15-8d434fd12ddb",
+      "symbol": "QBE.AX",
+      "old_return": -0.5529992396974611,
+      "new_return": -0.005529992396974611
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "561977ab-422f-4278-a62f-99c69b246603",
+      "symbol": "CBA.AX",
+      "old_return": 0.01735940033602713,
+      "new_return": 0.0001735940033602713
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "6d360d84-6db4-4faf-899f-d24d9086131c",
+      "symbol": "CBA.AX",
+      "old_return": -1.0334325244146343,
+      "new_return": -0.010334325244146342
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "89c53af5-765e-4e92-b237-1398078e409c",
+      "symbol": "ANZ.AX",
+      "old_return": -0.7092248149663288,
+      "new_return": -0.0070922481496632885
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "5987169f-f071-448c-91e7-fa161b0ca770",
+      "symbol": "CBA.AX",
+      "old_return": -1.0507518351553995,
+      "new_return": -0.010507518351553995
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "df88b1aa-d6ff-4d6f-8437-e9d3a4268a2c",
+      "symbol": "WBC.AX",
+      "old_return": -0.7327415967550701,
+      "new_return": -0.007327415967550701
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "86e2a3f8-3065-4065-8a25-6c9446a61ec2",
+      "symbol": "NAB.AX",
+      "old_return": -1.0074983648105442,
+      "new_return": -0.010074983648105442
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "7aca642a-9c3e-4b3e-8d79-dfc7ed3e7f91",
+      "symbol": "ANZ.AX",
+      "old_return": -0.7092248149663288,
+      "new_return": -0.0070922481496632885
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "50c01ce9-220a-43a0-a777-285851814f7d",
+      "symbol": "MQG.AX",
+      "old_return": -0.20061347917354994,
+      "new_return": -0.0020061347917354993
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "a86d7f79-d1ef-464d-951f-55438ce9020e",
+      "symbol": "NAB.AX",
+      "old_return": -1.0074983648105442,
+      "new_return": -0.010074983648105442
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d406117e-82f3-4bc9-bf2c-00111bc5cddc",
+      "symbol": "SUN.AX",
+      "old_return": -1.5762640584064291,
+      "new_return": -0.01576264058406429
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "c3cdc270-e43f-42f9-b02e-a078b5f6ca05",
+      "symbol": "MQG.AX",
+      "old_return": -0.20061347917354994,
+      "new_return": -0.0020061347917354993
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "8a4664d9-d7e2-4360-8c00-8b0bbd16c199",
+      "symbol": "QBE.AX",
+      "old_return": -0.9653869452027332,
+      "new_return": -0.009653869452027331
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "71c3b78f-f2f0-4812-b333-3ede988b63b9",
+      "symbol": "SUN.AX",
+      "old_return": -1.5762640584064291,
+      "new_return": -0.01576264058406429
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "eac9ba30-20ba-443b-a580-8490b7a5f7fe",
+      "symbol": "QBE.AX",
+      "old_return": -0.9653869452027332,
+      "new_return": -0.009653869452027331
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "947ff7dd-1b69-4515-ae08-2fad2a376d97",
+      "symbol": "WBC.AX",
+      "old_return": -1.5554686595088254,
+      "new_return": -0.015554686595088255
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "69131011-5790-4cfe-a231-49b14f51effb",
+      "symbol": "ANZ.AX",
+      "old_return": -1.3002323425679294,
+      "new_return": -0.013002323425679294
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "93ec8e1a-1ff0-4c49-a554-e04865efd6fc",
+      "symbol": "NAB.AX",
+      "old_return": -2.2727301166056773,
+      "new_return": -0.022727301166056774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d145f5ce-09d8-4ca8-a0b7-4d06adb9ead1",
+      "symbol": "MQG.AX",
+      "old_return": -1.8142187556667304,
+      "new_return": -0.018142187556667303
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "eaf299c8-0a54-466b-97cb-51e015678d1c",
+      "symbol": "SUN.AX",
+      "old_return": -1.5762640584064291,
+      "new_return": -0.01576264058406429
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "cac86924-94ca-4d2f-a254-95d3cfd9251a",
+      "symbol": "QBE.AX",
+      "old_return": -0.4002872115758409,
+      "new_return": -0.004002872115758409
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "53ad114d-1f32-413a-a1c3-675758255bac",
+      "symbol": "CBA.AX",
+      "old_return": -1.6800436171776907,
+      "new_return": -0.016800436171776907
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d7928a8a-e0d5-4aca-aeaf-1f684b921eef",
+      "symbol": "WBC.AX",
+      "old_return": -1.5554686595088254,
+      "new_return": -0.015554686595088255
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "c53abbc0-6252-4825-b357-088819d86f29",
+      "symbol": "ANZ.AX",
+      "old_return": -1.3002323425679294,
+      "new_return": -0.013002323425679294
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "ddc56474-7645-472c-9925-38ada0e255f4",
+      "symbol": "NAB.AX",
+      "old_return": -2.2727301166056773,
+      "new_return": -0.022727301166056774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "e26e43f7-1bdc-4b94-b653-ad858db92f81",
+      "symbol": "MQG.AX",
+      "old_return": -1.8142187556667304,
+      "new_return": -0.018142187556667303
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "c63aefc9-2356-4406-a542-8707685c8523",
+      "symbol": "SUN.AX",
+      "old_return": -1.5762640584064291,
+      "new_return": -0.01576264058406429
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "e8641153-ba17-48c3-a007-5ce1c7fa2e4a",
+      "symbol": "QBE.AX",
+      "old_return": -0.4002872115758409,
+      "new_return": -0.004002872115758409
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "14e20cca-451e-4129-84e7-c7c5d6a3fb84",
+      "symbol": "CBA.AX",
+      "old_return": -1.6800436171776907,
+      "new_return": -0.016800436171776907
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "4431caf5-61b7-41fb-9e6b-dd8e92c2d57c",
+      "symbol": "WBC.AX",
+      "old_return": -1.5554686595088254,
+      "new_return": -0.015554686595088255
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "77c96dba-0995-4114-9cb7-994c165528fe",
+      "symbol": "ANZ.AX",
+      "old_return": -1.3002323425679294,
+      "new_return": -0.013002323425679294
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "3a7e58b5-3451-4785-aa7d-d6eeec0e2de5",
+      "symbol": "NAB.AX",
+      "old_return": -2.2727301166056773,
+      "new_return": -0.022727301166056774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "baf90bfb-f7dd-4fc8-af5f-34de18c7280e",
+      "symbol": "MQG.AX",
+      "old_return": -1.8142187556667304,
+      "new_return": -0.018142187556667303
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "6ce5067f-7507-4caf-9976-7087203a3a7f",
+      "symbol": "SUN.AX",
+      "old_return": -1.5762640584064291,
+      "new_return": -0.01576264058406429
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "dcebf1a4-7975-437b-9546-fbc2095eed74",
+      "symbol": "QBE.AX",
+      "old_return": -0.4002872115758409,
+      "new_return": -0.004002872115758409
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "c57dc614-7f9e-497c-86c7-e4fcc743bedf",
+      "symbol": "CBA.AX",
+      "old_return": -1.6800436171776907,
+      "new_return": -0.016800436171776907
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "384c3160-53d5-4267-ac92-2834b7bd5638",
+      "symbol": "WBC.AX",
+      "old_return": -1.5554686595088254,
+      "new_return": -0.015554686595088255
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "e2ea440f-1a69-4666-acf5-dedb82dd6fb8",
+      "symbol": "ANZ.AX",
+      "old_return": -1.3002323425679294,
+      "new_return": -0.013002323425679294
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "f1a7d04d-c922-4223-8584-232791d76bbe",
+      "symbol": "NAB.AX",
+      "old_return": -2.2727301166056773,
+      "new_return": -0.022727301166056774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "7e57bf13-71ef-4ecb-a261-ca02e62ec89c",
+      "symbol": "MQG.AX",
+      "old_return": -1.8142187556667304,
+      "new_return": -0.018142187556667303
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "549c892a-33e3-4aab-9b8f-2eaee2f6ed3b",
+      "symbol": "SUN.AX",
+      "old_return": -1.5762640584064291,
+      "new_return": -0.01576264058406429
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "ebc375eb-bdeb-4ff9-8dae-f327a197bdc7",
+      "symbol": "QBE.AX",
+      "old_return": -0.4002872115758409,
+      "new_return": -0.004002872115758409
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "85b5acc0-11a8-4409-8e29-35f4e778d553",
+      "symbol": "CBA.AX",
+      "old_return": -1.6800436171776907,
+      "new_return": -0.016800436171776907
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "2913415d-b74c-4f5c-a80a-926bfe091279",
+      "symbol": "WBC.AX",
+      "old_return": -1.5554686595088254,
+      "new_return": -0.015554686595088255
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "dc019354-35a9-478e-b864-7c5a7cc01dfe",
+      "symbol": "ANZ.AX",
+      "old_return": -1.3002323425679294,
+      "new_return": -0.013002323425679294
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "3df7a032-d55a-488d-92d5-a6136d7ae9c8",
+      "symbol": "NAB.AX",
+      "old_return": -2.2727301166056773,
+      "new_return": -0.022727301166056774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d09171e5-baed-4a7f-9e85-9c8cd8e8c70e",
+      "symbol": "MQG.AX",
+      "old_return": -1.8142187556667304,
+      "new_return": -0.018142187556667303
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "12382b10-4341-4a46-87cf-85b5e6dda0a1",
+      "symbol": "SUN.AX",
+      "old_return": -1.5762640584064291,
+      "new_return": -0.01576264058406429
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "6aeb5cad-ff47-49c5-8881-2ae2fbf7c65e",
+      "symbol": "QBE.AX",
+      "old_return": -0.4002872115758409,
+      "new_return": -0.004002872115758409
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "e969f29b-7253-4eab-8c4a-1998d49a4c45",
+      "symbol": "CBA.AX",
+      "old_return": -1.6800436171776907,
+      "new_return": -0.016800436171776907
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "4e573e7f-cd64-450c-8f87-ae6e525bffa3",
+      "symbol": "WBC.AX",
+      "old_return": -1.5554686595088254,
+      "new_return": -0.015554686595088255
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "bf9c7d65-38f3-44fc-af39-4bfa1ffdde3b",
+      "symbol": "ANZ.AX",
+      "old_return": -1.3002323425679294,
+      "new_return": -0.013002323425679294
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "b694ba64-bd4b-46c5-afe9-2afe22411e34",
+      "symbol": "NAB.AX",
+      "old_return": -2.2727301166056773,
+      "new_return": -0.022727301166056774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "7ff9227e-e407-4203-9e62-97cd41d90fa8",
+      "symbol": "MQG.AX",
+      "old_return": -1.8142187556667304,
+      "new_return": -0.018142187556667303
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "b9c157cc-db94-4983-ae65-74ecfbf0ce1f",
+      "symbol": "CBA.AX",
+      "old_return": -1.6800436171776907,
+      "new_return": -0.016800436171776907
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "6222eb0f-6807-46f5-ae6c-50794559f92c",
+      "symbol": "WBC.AX",
+      "old_return": -1.5554686595088254,
+      "new_return": -0.015554686595088255
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "b62b1b5c-4278-469c-974d-9af94e8bb39d",
+      "symbol": "ANZ.AX",
+      "old_return": -1.3002323425679294,
+      "new_return": -0.013002323425679294
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "20dda4eb-25dc-422c-96ad-790c4a11de3d",
+      "symbol": "NAB.AX",
+      "old_return": -2.2727301166056773,
+      "new_return": -0.022727301166056774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "0050c284-dc46-47b2-869b-76d69e24f53a",
+      "symbol": "MQG.AX",
+      "old_return": -1.8142187556667304,
+      "new_return": -0.018142187556667303
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "a653d0db-558f-40f9-b453-6ebd232845a7",
+      "symbol": "CBA.AX",
+      "old_return": -1.5155013557249881,
+      "new_return": -0.01515501355724988
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "8ba25932-01e2-4572-b8d0-464cb02aeeab",
+      "symbol": "CBA.AX",
+      "old_return": -0.5932420010783774,
+      "new_return": -0.005932420010783774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "af00d41a-5074-4c92-847b-118ebffba64f",
+      "symbol": "WBC.AX",
+      "old_return": 0.23591126864526954,
+      "new_return": 0.0023591126864526955
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "0dd0c627-e9a0-4263-b004-9b247cb1242d",
+      "symbol": "ANZ.AX",
+      "old_return": -0.1356298469821238,
+      "new_return": -0.001356298469821238
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "1aff78c0-4c87-4870-88b5-bcde0172d35c",
+      "symbol": "NAB.AX",
+      "old_return": 0.4922512044761069,
+      "new_return": 0.0049225120447610685
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "194f27fb-ebc8-4757-9efa-d6b6a93ac70c",
+      "symbol": "MQG.AX",
+      "old_return": 0.2360480925392248,
+      "new_return": 0.002360480925392248
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "19425fdf-f805-479a-9f9f-f796f7f8ecc7",
+      "symbol": "CBA.AX",
+      "old_return": -0.5932420010783774,
+      "new_return": -0.005932420010783774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "c7198a08-42b6-4d59-9ee3-0c2f96064ee8",
+      "symbol": "WBC.AX",
+      "old_return": 0.23591126864526954,
+      "new_return": 0.0023591126864526955
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "b18c9144-414d-47df-a424-197b29124ccb",
+      "symbol": "ANZ.AX",
+      "old_return": -0.1356298469821238,
+      "new_return": -0.001356298469821238
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "cd56cd6e-e2bf-42b7-85cb-908e7cf9d4ea",
+      "symbol": "NAB.AX",
+      "old_return": 0.4922512044761069,
+      "new_return": 0.0049225120447610685
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "542e9f4b-3066-4004-9fe9-15d405b0235d",
+      "symbol": "MQG.AX",
+      "old_return": 0.2360480925392248,
+      "new_return": 0.002360480925392248
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "b28ffdef-f1d1-4e0a-9cad-153f16ff4a4b",
+      "symbol": "CBA.AX",
+      "old_return": -0.5932420010783774,
+      "new_return": -0.005932420010783774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "dfd1450c-2cac-4bd5-b6df-1b03ed5c3462",
+      "symbol": "WBC.AX",
+      "old_return": 0.23591126864526954,
+      "new_return": 0.0023591126864526955
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "5e9bc861-2bc9-45c2-a077-7ee90134eb3e",
+      "symbol": "ANZ.AX",
+      "old_return": -0.1356298469821238,
+      "new_return": -0.001356298469821238
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "297d5902-f77c-41ab-a8cc-81caa2b868b9",
+      "symbol": "NAB.AX",
+      "old_return": 0.4922512044761069,
+      "new_return": 0.0049225120447610685
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "cba60ff1-b3a3-4af9-b32b-dbec2a7e92f2",
+      "symbol": "MQG.AX",
+      "old_return": 0.2360480925392248,
+      "new_return": 0.002360480925392248
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "c3533aaa-398c-4dc8-b0d7-aba785d927d2",
+      "symbol": "CBA.AX",
+      "old_return": -0.5932420010783774,
+      "new_return": -0.005932420010783774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "24518e98-98d7-44e0-b7d3-70e3a740218a",
+      "symbol": "WBC.AX",
+      "old_return": 0.23591126864526954,
+      "new_return": 0.0023591126864526955
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "144b465c-c369-4477-992b-1782c4cfd30e",
+      "symbol": "ANZ.AX",
+      "old_return": -0.1356298469821238,
+      "new_return": -0.001356298469821238
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "cce50ad7-3d0c-4406-b849-c7008b48e1ae",
+      "symbol": "NAB.AX",
+      "old_return": 0.4922512044761069,
+      "new_return": 0.0049225120447610685
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "98eb780e-3719-4db0-8525-e00d281a2487",
+      "symbol": "MQG.AX",
+      "old_return": 0.2360480925392248,
+      "new_return": 0.002360480925392248
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "7a4e62c8-1aff-401a-bb0a-7a1b999c94f6",
+      "symbol": "CBA.AX",
+      "old_return": -0.5932420010783774,
+      "new_return": -0.005932420010783774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "4b6951c4-bc9c-4733-8165-2b88d0f268c3",
+      "symbol": "WBC.AX",
+      "old_return": 0.23591126864526954,
+      "new_return": 0.0023591126864526955
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "e162db25-9299-41a3-8d7c-ca3528859916",
+      "symbol": "ANZ.AX",
+      "old_return": -0.1356298469821238,
+      "new_return": -0.001356298469821238
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "236e974c-6330-4ddd-80ae-d8c1ec4b9de0",
+      "symbol": "NAB.AX",
+      "old_return": 0.4922512044761069,
+      "new_return": 0.0049225120447610685
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "78d1f55b-e1bf-4db2-b7f0-ae9f7750b0dd",
+      "symbol": "MQG.AX",
+      "old_return": 0.2360480925392248,
+      "new_return": 0.002360480925392248
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "38457649-68b4-4959-bdd3-49cda9117620",
+      "symbol": "CBA.AX",
+      "old_return": -0.5932420010783774,
+      "new_return": -0.005932420010783774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "9acbd006-a0b6-426a-8d25-d78be4c3b20e",
+      "symbol": "WBC.AX",
+      "old_return": 0.23591126864526954,
+      "new_return": 0.0023591126864526955
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "8a477ca0-9d4d-48e4-bedc-68c1a5cf8d33",
+      "symbol": "ANZ.AX",
+      "old_return": -0.1356298469821238,
+      "new_return": -0.001356298469821238
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "050a9121-2925-4a26-9358-2e6845872858",
+      "symbol": "CBA.AX",
+      "old_return": -0.32892661297723935,
+      "new_return": -0.0032892661297723937
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "7925fee9-27e2-4573-97f8-2f2f647e0128",
+      "symbol": "ANZ.AX",
+      "old_return": 0.12055730910015684,
+      "new_return": 0.0012055730910015684
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "3758a9ca-6be7-4919-bed5-628d63ebd653",
+      "symbol": "WBC.AX",
+      "old_return": 0.380069822456097,
+      "new_return": 0.00380069822456097
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "0234bc3c-d999-4bf0-b181-926455245a52",
+      "symbol": "NAB.AX",
+      "old_return": 0.7563900186012862,
+      "new_return": 0.007563900186012862
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "e0e00106-55b2-455c-a99d-8e8eb4ddf7bb",
+      "symbol": "MQG.AX",
+      "old_return": 0.08017099521175894,
+      "new_return": 0.0008017099521175894
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "ecda3636-48af-4fd9-a85d-378fc6aea6d8",
+      "symbol": "CBA.AX",
+      "old_return": -0.32892661297723935,
+      "new_return": -0.0032892661297723937
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "ed1338a2-6cfd-47ab-8cd5-b3a2a805d094",
+      "symbol": "ANZ.AX",
+      "old_return": 0.12055730910015684,
+      "new_return": 0.0012055730910015684
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "34055e5a-a2c0-4131-8b0b-71993beb7ee7",
+      "symbol": "WBC.AX",
+      "old_return": 0.380069822456097,
+      "new_return": 0.00380069822456097
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "2a77f339-871e-4a65-8c82-b0abc5acbc20",
+      "symbol": "NAB.AX",
+      "old_return": 0.7563900186012862,
+      "new_return": 0.007563900186012862
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "efb94399-c82a-48b8-a4b1-4f6d47dc3205",
+      "symbol": "MQG.AX",
+      "old_return": 0.08017099521175894,
+      "new_return": 0.0008017099521175894
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "c5ce07e2-7209-4435-8736-a9620f45e67e",
+      "symbol": "ANZ.AX",
+      "old_return": -0.0904122333362229,
+      "new_return": -0.000904122333362229
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "bfe83f7e-8a1a-4fa0-9583-4aca07e39868",
+      "symbol": "WBC.AX",
+      "old_return": 0.39317878160474057,
+      "new_return": 0.003931787816047406
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d28b2a6d-aad0-4dd1-acd6-7fda0d51f252",
+      "symbol": "NAB.AX",
+      "old_return": 0.5162688203256082,
+      "new_return": 0.005162688203256082
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "cfd1a84d-2608-4c54-93b5-07a86a380840",
+      "symbol": "MQG.AX",
+      "old_return": 0.031179496993434773,
+      "new_return": 0.00031179496993434774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "92a96321-101c-4603-90ee-48549a0f1899",
+      "symbol": "CBA.AX",
+      "old_return": -0.687223594094163,
+      "new_return": -0.00687223594094163
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "c6ab0d46-8485-45dd-b9c0-7022636e58aa",
+      "symbol": "ANZ.AX",
+      "old_return": -0.0904122333362229,
+      "new_return": -0.000904122333362229
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "888a56ff-d6ac-4075-ac23-73730426cfd1",
+      "symbol": "WBC.AX",
+      "old_return": 0.39317878160474057,
+      "new_return": 0.003931787816047406
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "255c2de3-1761-49bc-9ed6-5551a66d47d5",
+      "symbol": "NAB.AX",
+      "old_return": 0.5162688203256082,
+      "new_return": 0.005162688203256082
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "a0c54a6d-2244-43b1-92c9-44e44ae97358",
+      "symbol": "MQG.AX",
+      "old_return": 0.031179496993434773,
+      "new_return": 0.00031179496993434774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "ec4a05fd-ce70-4c2a-9039-f00893f4b221",
+      "symbol": "CBA.AX",
+      "old_return": -0.687223594094163,
+      "new_return": -0.00687223594094163
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "3cbac76d-8848-4e87-9188-49449183ba54",
+      "symbol": "ANZ.AX",
+      "old_return": -0.0904122333362229,
+      "new_return": -0.000904122333362229
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "7944ade4-6790-4537-bd21-a077fcb9e51a",
+      "symbol": "WBC.AX",
+      "old_return": 0.39317878160474057,
+      "new_return": 0.003931787816047406
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "40a89b04-fc35-4477-9e53-f8e2a6ed780e",
+      "symbol": "NAB.AX",
+      "old_return": 0.5162688203256082,
+      "new_return": 0.005162688203256082
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "41afc7bf-3fd5-47fa-9f04-a042fd4ac8fa",
+      "symbol": "MQG.AX",
+      "old_return": 0.031179496993434773,
+      "new_return": 0.00031179496993434774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "7703e8a4-92b3-4126-a869-70bd89e60c37",
+      "symbol": "CBA.AX",
+      "old_return": -0.687223594094163,
+      "new_return": -0.00687223594094163
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "48352837-d09a-425c-a84e-53c9a03a9dac",
+      "symbol": "ANZ.AX",
+      "old_return": -0.0904122333362229,
+      "new_return": -0.000904122333362229
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "0d679135-d9ea-4ca5-a7ed-335bbf806e2e",
+      "symbol": "WBC.AX",
+      "old_return": 0.39317878160474057,
+      "new_return": 0.003931787816047406
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "6c7d6215-ea4a-45d1-85f9-5a8ee8b48178",
+      "symbol": "NAB.AX",
+      "old_return": 0.5162688203256082,
+      "new_return": 0.005162688203256082
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "48ab5619-3647-4a75-9867-ccbed0bfb3c7",
+      "symbol": "MQG.AX",
+      "old_return": 0.031179496993434773,
+      "new_return": 0.00031179496993434774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "0f1b0ae6-9619-42e2-b78d-e53ef6fa1741",
+      "symbol": "CBA.AX",
+      "old_return": -0.687223594094163,
+      "new_return": -0.00687223594094163
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "326bbba3-7424-4e41-8ef7-ca332638208c",
+      "symbol": "ANZ.AX",
+      "old_return": -0.0904122333362229,
+      "new_return": -0.000904122333362229
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "602644fd-62a1-4134-98d2-947f5c7251fb",
+      "symbol": "WBC.AX",
+      "old_return": 0.39317878160474057,
+      "new_return": 0.003931787816047406
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "f8c5c314-eb7f-418f-ab52-34373100cd46",
+      "symbol": "NAB.AX",
+      "old_return": 0.5162688203256082,
+      "new_return": 0.005162688203256082
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d55ca750-8dd5-40ac-975e-667dfd2b0c44",
+      "symbol": "MQG.AX",
+      "old_return": 0.031179496993434773,
+      "new_return": 0.00031179496993434774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "23261132-a815-45f5-b716-e3c5105af05a",
+      "symbol": "CBA.AX",
+      "old_return": -0.687223594094163,
+      "new_return": -0.00687223594094163
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "f1a41515-5852-402a-bf18-a2dcdb115692",
+      "symbol": "ANZ.AX",
+      "old_return": -0.0904122333362229,
+      "new_return": -0.000904122333362229
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "8b370fb7-7d4d-49e0-af9b-a4c388f3f302",
+      "symbol": "WBC.AX",
+      "old_return": 0.39317878160474057,
+      "new_return": 0.003931787816047406
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "cd26feed-ca1c-403c-8c28-d55688a0e243",
+      "symbol": "NAB.AX",
+      "old_return": 0.5162688203256082,
+      "new_return": 0.005162688203256082
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "22506c7d-4e36-425f-8e84-1c86b4551cbe",
+      "symbol": "MQG.AX",
+      "old_return": 0.031179496993434773,
+      "new_return": 0.00031179496993434774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "1eb73a74-dd65-44ac-9290-0c62dfb20e1f",
+      "symbol": "CBA.AX",
+      "old_return": -0.687223594094163,
+      "new_return": -0.00687223594094163
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "0379ee07-8d70-4334-b35b-d61fb3a75ae5",
+      "symbol": "ANZ.AX",
+      "old_return": -0.0904122333362229,
+      "new_return": -0.000904122333362229
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "6e0af65d-1d4e-4a52-a8b5-58da3963c296",
+      "symbol": "WBC.AX",
+      "old_return": 0.39317878160474057,
+      "new_return": 0.003931787816047406
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "6027f194-e9aa-41af-9bf5-b95916ea29c7",
+      "symbol": "NAB.AX",
+      "old_return": 0.5162688203256082,
+      "new_return": 0.005162688203256082
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "582fd736-36f6-410c-b1cc-39035ecb4c53",
+      "symbol": "MQG.AX",
+      "old_return": 0.031179496993434773,
+      "new_return": 0.00031179496993434774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "5f1f5adc-fde3-4615-9759-40a5a48f51f8",
+      "symbol": "CBA.AX",
+      "old_return": -0.687223594094163,
+      "new_return": -0.00687223594094163
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "57c58c29-63a1-4600-810c-85fb44edc9ee",
+      "symbol": "ANZ.AX",
+      "old_return": -0.0904122333362229,
+      "new_return": -0.000904122333362229
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "6a69f747-242c-47ce-9bb7-952c2f09b234",
+      "symbol": "WBC.AX",
+      "old_return": 0.39317878160474057,
+      "new_return": 0.003931787816047406
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "2435e6f9-5e25-4b79-b370-aa10d1b561fd",
+      "symbol": "NAB.AX",
+      "old_return": 0.5162688203256082,
+      "new_return": 0.005162688203256082
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "fa45728f-5d49-45ff-a256-ea2e04795977",
+      "symbol": "MQG.AX",
+      "old_return": 0.031179496993434773,
+      "new_return": 0.00031179496993434774
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "12dc2ad4-4910-4370-b1c7-1949af726dc4",
+      "symbol": "CBA.AX",
+      "old_return": -0.687223594094163,
+      "new_return": -0.00687223594094163
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "34f93b95-9d21-4177-ab24-3cf86a289b69",
+      "symbol": "CBA.AX",
+      "old_return": -0.3817542647134867,
+      "new_return": -0.003817542647134867
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "a1b8be1d-458b-4e32-ba55-ffa7957d408f",
+      "symbol": "ANZ.AX",
+      "old_return": -0.12001474146357095,
+      "new_return": -0.0012001474146357096
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "3e0e435a-3448-4468-bbf9-8dbadb868a0a",
+      "symbol": "WBC.AX",
+      "old_return": -0.05212524972746836,
+      "new_return": -0.0005212524972746836
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "0f3c23c6-4937-4976-ae8a-3532981fbc68",
+      "symbol": "NAB.AX",
+      "old_return": -0.059475878914262516,
+      "new_return": -0.0005947587891426252
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "126449fa-bd7c-42f5-a789-d2a9a302143e",
+      "symbol": "MQG.AX",
+      "old_return": 0.34148708823253954,
+      "new_return": 0.0034148708823253954
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "caa3200d-9657-415a-bde1-f6116ed5aff6",
+      "symbol": "CBA.AX",
+      "old_return": -0.3817542647134867,
+      "new_return": -0.003817542647134867
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "92f63ff0-a7ec-46e2-bb23-0ceeaa93373d",
+      "symbol": "ANZ.AX",
+      "old_return": -0.12001474146357095,
+      "new_return": -0.0012001474146357096
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "2385e36d-321b-498e-a8fa-dc93832a7473",
+      "symbol": "WBC.AX",
+      "old_return": -0.05212524972746836,
+      "new_return": -0.0005212524972746836
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "f2ee3499-1786-433a-919b-ce7806ed4d13",
+      "symbol": "NAB.AX",
+      "old_return": -0.059475878914262516,
+      "new_return": -0.0005947587891426252
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "bf659803-9261-44af-b70d-f1d71221f852",
+      "symbol": "MQG.AX",
+      "old_return": 0.34148708823253954,
+      "new_return": 0.0034148708823253954
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "214bf66d-d4a5-44f1-b349-9bf0c7518203",
+      "symbol": "CBA.AX",
+      "old_return": -0.30246932222979694,
+      "new_return": -0.0030246932222979693
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "0d449755-7f34-42a0-a8da-ad84187397f4",
+      "symbol": "ANZ.AX",
+      "old_return": -0.15002414944730957,
+      "new_return": -0.0015002414944730957
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "7f796509-5405-4386-99d7-c84b56ce2c50",
+      "symbol": "WBC.AX",
+      "old_return": 0.06515904762804266,
+      "new_return": 0.0006515904762804265
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "f9659506-ba7d-4a59-a001-3e9327c95db4",
+      "symbol": "NAB.AX",
+      "old_return": -0.11896083395837614,
+      "new_return": -0.0011896083395837615
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "db0bf163-ff60-4d76-8378-36da06cd30c0",
+      "symbol": "MQG.AX",
+      "old_return": 0.3928174302475075,
+      "new_return": 0.003928174302475075
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "a90f5941-5e0e-4300-9e1e-5a049633aecd",
+      "symbol": "CBA.AX",
+      "old_return": -0.30246932222979694,
+      "new_return": -0.0030246932222979693
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d71ab56d-0b86-48fd-831b-4351140f6d1c",
+      "symbol": "ANZ.AX",
+      "old_return": -0.15002414944730957,
+      "new_return": -0.0015002414944730957
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d0f610e4-1844-47e2-a7b8-d1ee2b94890b",
+      "symbol": "WBC.AX",
+      "old_return": 0.06515904762804266,
+      "new_return": 0.0006515904762804265
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "dc795818-2f75-4ef3-9f58-e8ec019cfa92",
+      "symbol": "NAB.AX",
+      "old_return": -0.11896083395837614,
+      "new_return": -0.0011896083395837615
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "175dd4e1-2acc-4a8e-918d-1de303705802",
+      "symbol": "MQG.AX",
+      "old_return": 0.3928174302475075,
+      "new_return": 0.003928174302475075
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "b9ce25ec-d907-486d-9540-00cdfac64285",
+      "symbol": "ANZ.AX",
+      "old_return": 0.15001270421161783,
+      "new_return": 0.0015001270421161784
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "ae90abc1-2a90-4354-a9ae-36b9d15d1c39",
+      "symbol": "WBC.AX",
+      "old_return": 0.3388091522911299,
+      "new_return": 0.003388091522911299
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "c5fb5ece-388e-4888-b37e-58d318979b29",
+      "symbol": "NAB.AX",
+      "old_return": -0.3330939655353936,
+      "new_return": -0.0033309396553539363
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "01c2b442-af1a-41d4-add5-aff3efa3afe9",
+      "symbol": "MQG.AX",
+      "old_return": 0.6383325812466476,
+      "new_return": 0.006383325812466476
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "79e6ad56-2b37-4bd0-af61-e4d597eb948a",
+      "symbol": "CBA.AX",
+      "old_return": -0.2554826653470134,
+      "new_return": -0.0025548266534701344
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "09293aab-d1b3-4bd9-9b13-c56c39883402",
+      "symbol": "ANZ.AX",
+      "old_return": 0.15001270421161783,
+      "new_return": 0.0015001270421161784
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "61ca66b7-fbf9-4936-81a6-00de1397651a",
+      "symbol": "WBC.AX",
+      "old_return": 0.3388091522911299,
+      "new_return": 0.003388091522911299
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "70d8100b-6b55-42cf-aadf-5c339546902e",
+      "symbol": "NAB.AX",
+      "old_return": -0.3330939655353936,
+      "new_return": -0.0033309396553539363
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "d908ca3b-f083-4f0c-9897-16cc014c5ada",
+      "symbol": "MQG.AX",
+      "old_return": 0.6383325812466476,
+      "new_return": 0.006383325812466476
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "13ea402e-9f48-4bc0-8959-55eb76fb27ae",
+      "symbol": "CBA.AX",
+      "old_return": -0.2554826653470134,
+      "new_return": -0.0025548266534701344
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "70d59b9a-3301-4a69-9158-f54286335ee8",
+      "symbol": "ANZ.AX",
+      "old_return": 0.15001270421161783,
+      "new_return": 0.0015001270421161784
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "9d88f6d9-1629-414b-b729-810e2928c85a",
+      "symbol": "WBC.AX",
+      "old_return": 0.3388091522911299,
+      "new_return": 0.003388091522911299
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "b6a2ae3b-2b3c-4941-a784-2e258c25d0c3",
+      "symbol": "NAB.AX",
+      "old_return": -0.1903355191074316,
+      "new_return": -0.0019033551910743161
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "ef9e8ecc-ee9f-4315-b04c-1fe4c7f7b3a5",
+      "symbol": "MQG.AX",
+      "old_return": 0.6383325812466476,
+      "new_return": 0.006383325812466476
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "aa89b737-bec8-4b5d-a1ec-ce104772da6b",
+      "symbol": "CBA.AX",
+      "old_return": -0.2554826653470134,
+      "new_return": -0.0025548266534701344
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "60ac8209-9fe8-4410-ab69-920ab0b355a7",
+      "symbol": "ANZ.AX",
+      "old_return": 0.15001270421161783,
+      "new_return": 0.0015001270421161784
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "24ceec5e-6711-46d1-a69c-13fc0758b343",
+      "symbol": "WBC.AX",
+      "old_return": 0.3388091522911299,
+      "new_return": 0.003388091522911299
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "2907ad97-5388-4e39-92b4-6cdc615f0fb3",
+      "symbol": "NAB.AX",
+      "old_return": -0.1903355191074316,
+      "new_return": -0.0019033551910743161
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "9c80a009-7d4b-4be9-9acf-060be177f23e",
+      "symbol": "MQG.AX",
+      "old_return": 0.6383325812466476,
+      "new_return": 0.006383325812466476
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "960a9e7f-1b5a-4447-852f-0256a2addae8",
+      "symbol": "CBA.AX",
+      "old_return": -0.2554826653470134,
+      "new_return": -0.0025548266534701344
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "81fc7a11-a68e-43c0-a975-5adc2a4d1d68",
+      "symbol": "ANZ.AX",
+      "old_return": 0.15001270421161783,
+      "new_return": 0.0015001270421161784
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "8618ea8d-f429-49aa-8b0a-cddb25763d69",
+      "symbol": "WBC.AX",
+      "old_return": 0.3388091522911299,
+      "new_return": 0.003388091522911299
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "0738fc77-fc83-4dea-9ac5-6fb206777e32",
+      "symbol": "NAB.AX",
+      "old_return": -0.1903355191074316,
+      "new_return": -0.0019033551910743161
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "248b772e-8e65-4b9d-a4de-7fca7281fcfb",
+      "symbol": "MQG.AX",
+      "old_return": 0.6383325812466476,
+      "new_return": 0.006383325812466476
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "4d72b77f-49a1-46dd-8166-deedf85c43ba",
+      "symbol": "CBA.AX",
+      "old_return": -0.2554826653470134,
+      "new_return": -0.0025548266534701344
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "7fb90931-f53a-4be9-b629-d9d6aaa9506a",
+      "symbol": "ANZ.AX",
+      "old_return": 0.15001270421161783,
+      "new_return": 0.0015001270421161784
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "09bce299-5cf1-4124-936e-ff8fc9cf72ff",
+      "symbol": "WBC.AX",
+      "old_return": 0.3388091522911299,
+      "new_return": 0.003388091522911299
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "0efd0693-a04f-4382-8abb-08041b7f249b",
+      "symbol": "NAB.AX",
+      "old_return": -0.1903355191074316,
+      "new_return": -0.0019033551910743161
+    },
+    {
+      "type": "return_calculation",
+      "outcome_id": "4d780ab2-8020-4300-99fd-67f402e85be7",
+      "symbol": "MQG.AX",
+      "old_return": 0.6383325812466476,
+      "new_return": 0.006383325812466476
+    }
+  ],
+  "errors_encountered": [],
+  "summary": {
+    "corrupted_confidence_fixed": 5,
+    "placeholder_values_fixed": 15,
+    "return_calculations_fixed": 289,
+    "invalid_prices_cleaned": 15,
+    "validation_triggers_added": 2
+  }
+}
