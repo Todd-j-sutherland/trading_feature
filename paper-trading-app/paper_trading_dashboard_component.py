@@ -12,11 +12,42 @@ import sqlite3
 from datetime import datetime, timedelta
 import time
 
+def get_current_config():
+    """Load current configuration from database"""
+    try:
+        conn = sqlite3.connect('/root/test/paper-trading-app/paper_trading.db')
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT key, value FROM trading_config")
+        config_rows = cursor.fetchall()
+        conn.close()
+        
+        config = {}
+        for key, value in config_rows:
+            config[key] = float(value)
+        
+        return config
+    except Exception as e:
+        # Return defaults if database doesn't exist or error occurs
+        return {
+            'profit_target': 5.0,
+            'stop_loss': 40.0,
+            'position_size': 10000.0,
+            'max_hold_time_minutes': 1440.0,
+            'check_interval_seconds': 60.0,
+            'commission_rate': 0.0,
+            'min_commission': 0.0,
+            'max_commission': 100.0
+        }
+
 def paper_trading_dashboard_section():
     """Enhanced paper trading dashboard section"""
     
     st.markdown("## 🤖 Live Paper Trading System")
     st.markdown("Real-time automated trading based on ML predictions")
+    
+    # Load current configuration from database
+    current_config = get_current_config()
     
     # Configuration section
     st.markdown("### ⚙️ Trading Configuration")
@@ -28,7 +59,7 @@ def paper_trading_dashboard_section():
             "Profit Target ($)",
             min_value=1.0,
             max_value=100.0,
-            value=5.0,
+            value=current_config.get('profit_target', 5.0),
             step=0.5,
             help="Target profit per trade before exit"
         )
@@ -36,7 +67,7 @@ def paper_trading_dashboard_section():
         max_hold_time = st.selectbox(
             "Max Hold Time (minutes)",
             [60, 240, 480, 720, 1440, 2880],
-            index=4,  # Default to 1440 (24 hours)
+            index=[60, 240, 480, 720, 1440, 2880].index(int(current_config.get('max_hold_time_minutes', 1440.0))),
             help="Maximum time to hold a position"
         )
     
@@ -45,15 +76,24 @@ def paper_trading_dashboard_section():
             "Position Size ($)",
             min_value=1000,
             max_value=50000,
-            value=10000,
+            value=int(current_config.get('position_size', 10000.0)),
             step=1000,
             help="Dollar amount per position"
+        )
+        
+        stop_loss = st.number_input(
+            "Stop Loss ($)",
+            min_value=10.0,
+            max_value=200.0,
+            value=current_config.get('stop_loss', 40.0),
+            step=5.0,
+            help="Maximum loss per trade before exit"
         )
         
         check_interval = st.selectbox(
             "Check Interval (seconds)",
             [30, 60, 120, 300],
-            index=1,  # Default to 60 seconds
+            index=[30, 60, 120, 300].index(int(current_config.get('check_interval_seconds', 60.0))),
             help="How often to check positions"
         )
     
@@ -62,7 +102,7 @@ def paper_trading_dashboard_section():
             "Commission Rate (%)",
             min_value=0.0,
             max_value=1.0,
-            value=0.0,
+            value=current_config.get('commission_rate', 0.0) * 100.0,  # Convert to percentage
             step=0.05,
             format="%.3f",
             help="Commission as percentage of trade value (0% = no commission)"
@@ -72,7 +112,7 @@ def paper_trading_dashboard_section():
             "Min Commission ($)",
             min_value=0.0,
             max_value=50.0,
-            value=0.0,
+            value=current_config.get('min_commission', 0.0),
             step=1.0,
             help="Minimum commission per trade"
         )
@@ -81,14 +121,14 @@ def paper_trading_dashboard_section():
             "Max Commission ($)",
             min_value=0.0,
             max_value=200.0,
-            value=100.0,
+            value=current_config.get('max_commission', 100.0),
             step=5.0,
             help="Maximum commission per trade"
         )
     
     # Update configuration button
     if st.button("🔄 Update Configuration", type="primary"):
-        if update_trading_config(profit_target, max_hold_time, position_size, check_interval, 
+        if update_trading_config(profit_target, stop_loss, max_hold_time, position_size, check_interval, 
                                 commission_rate, min_commission, max_commission):
             st.success("✅ Configuration updated successfully!")
             time.sleep(1)
@@ -108,7 +148,7 @@ def paper_trading_dashboard_section():
     # Active positions
     display_active_positions()
 
-def update_trading_config(profit_target, max_hold_time, position_size, check_interval, 
+def update_trading_config(profit_target, stop_loss, max_hold_time, position_size, check_interval, 
                          commission_rate, min_commission, max_commission):
     """Update trading configuration in database"""
     try:
@@ -118,6 +158,7 @@ def update_trading_config(profit_target, max_hold_time, position_size, check_int
         # Update configuration
         config_updates = [
             ('profit_target', profit_target),
+            ('stop_loss', stop_loss),
             ('max_hold_time_minutes', max_hold_time),
             ('position_size', position_size),
             ('check_interval_seconds', check_interval),
@@ -227,7 +268,10 @@ def display_recent_trades():
         conn = sqlite3.connect('/root/test/paper-trading-app/paper_trading.db')
         
         trades_df = pd.read_sql_query("""
-            SELECT symbol, entry_time, exit_time, entry_price, exit_price,
+            SELECT symbol, 
+                   datetime(entry_time) as entry_time, 
+                   datetime(exit_time) as exit_time, 
+                   entry_price, exit_price,
                    shares, profit, hold_time_minutes, exit_reason
             FROM enhanced_trades
             ORDER BY exit_time DESC
@@ -237,11 +281,11 @@ def display_recent_trades():
         conn.close()
         
         if not trades_df.empty:
-            # Format dates
+            # Format dates with proper type conversion
             trades_df['entry_time'] = pd.to_datetime(trades_df['entry_time']).dt.strftime('%m-%d %H:%M')
             trades_df['exit_time'] = pd.to_datetime(trades_df['exit_time']).dt.strftime('%m-%d %H:%M')
-            trades_df['profit'] = trades_df['profit'].round(2)
-            trades_df['hold_time_minutes'] = trades_df['hold_time_minutes'].round(0)
+            trades_df['profit'] = pd.to_numeric(trades_df['profit'], errors='coerce').round(2)
+            trades_df['hold_time_minutes'] = pd.to_numeric(trades_df['hold_time_minutes'], errors='coerce').round(0)
             
             st.dataframe(trades_df, use_container_width=True)
             
@@ -276,7 +320,9 @@ def display_active_positions():
         conn = sqlite3.connect('/root/test/paper-trading-app/paper_trading.db')
         
         positions_df = pd.read_sql_query("""
-            SELECT symbol, entry_time, entry_price, shares, investment, commission_paid,
+            SELECT symbol, 
+                   datetime(entry_time) as entry_time, 
+                   entry_price, shares, investment, commission_paid,
                    target_profit, confidence,
                    (julianday('now') - julianday(entry_time)) * 24 * 60 as hold_time_minutes
             FROM enhanced_positions 
@@ -288,40 +334,50 @@ def display_active_positions():
         
         if not positions_df.empty:
             # Add current price and profit columns
-            import yfinance as yf
+            try:
+                import yfinance as yf
+                yfinance_available = True
+            except ImportError:
+                st.warning("⚠️ yfinance not available - showing positions without current prices")
+                yfinance_available = False
             
             current_prices = []
             current_profits = []
             
-            for idx, row in positions_df.iterrows():
-                try:
-                    # Get current price
-                    ticker = yf.Ticker(row['symbol'])
-                    current_price = ticker.history(period="1d")['Close'].iloc[-1]
-                    
-                    # Calculate current profit
-                    current_value = current_price * row['shares']
-                    current_profit = current_value - row['investment'] - row['commission_paid']
-                    
-                    current_prices.append(current_price)
-                    current_profits.append(current_profit)
-                    
-                except Exception as e:
-                    current_prices.append(None)
-                    current_profits.append(None)
+            if yfinance_available:
+                for idx, row in positions_df.iterrows():
+                    try:
+                        # Get current price
+                        ticker = yf.Ticker(row['symbol'])
+                        current_price = ticker.history(period="1d")['Close'].iloc[-1]
+                        
+                        # Calculate current profit
+                        current_value = current_price * row['shares']
+                        current_profit = current_value - row['investment'] - row['commission_paid']
+                        
+                        current_prices.append(current_price)
+                        current_profits.append(current_profit)
+                        
+                    except Exception as e:
+                        current_prices.append(row['entry_price'])  # fallback to entry price
+                        current_profits.append(0.0)  # fallback to zero profit
+                
+                positions_df['current_price'] = current_prices
+                positions_df['current_profit'] = current_profits
+            else:
+                # If yfinance not available, use entry price and zero profit
+                positions_df['current_price'] = positions_df['entry_price']
+                positions_df['current_profit'] = 0.0
             
-            positions_df['current_price'] = current_prices
-            positions_df['current_profit'] = current_profits
-            
-            # Format data
+            # Format data with proper type conversion
             positions_df['entry_time'] = pd.to_datetime(positions_df['entry_time']).dt.strftime('%m-%d %H:%M')
-            positions_df['entry_price'] = positions_df['entry_price'].round(2)
-            positions_df['current_price'] = positions_df['current_price'].round(2)
-            positions_df['investment'] = positions_df['investment'].round(2)
-            positions_df['current_profit'] = positions_df['current_profit'].round(2)
-            positions_df['target_profit'] = positions_df['target_profit'].round(2)
-            positions_df['confidence'] = positions_df['confidence'].round(3)
-            positions_df['hold_time_minutes'] = positions_df['hold_time_minutes'].round(0)
+            positions_df['entry_price'] = pd.to_numeric(positions_df['entry_price'], errors='coerce').round(2)
+            positions_df['current_price'] = pd.to_numeric(positions_df['current_price'], errors='coerce').round(2)
+            positions_df['investment'] = pd.to_numeric(positions_df['investment'], errors='coerce').round(2)
+            positions_df['current_profit'] = pd.to_numeric(positions_df['current_profit'], errors='coerce').round(2)
+            positions_df['target_profit'] = pd.to_numeric(positions_df['target_profit'], errors='coerce').round(2)
+            positions_df['confidence'] = pd.to_numeric(positions_df['confidence'], errors='coerce').round(3)
+            positions_df['hold_time_minutes'] = pd.to_numeric(positions_df['hold_time_minutes'], errors='coerce').round(0)
             
             # Reorder columns for better display
             display_columns = ['symbol', 'entry_time', 'entry_price', 'current_price', 'shares', 

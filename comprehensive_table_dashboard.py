@@ -16,6 +16,14 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# Import performance analytics module
+try:
+    from performance_analytics_module import render_performance_analytics
+    PERFORMANCE_ANALYTICS_AVAILABLE = True
+except ImportError:
+    PERFORMANCE_ANALYTICS_AVAILABLE = False
+    st.warning("Performance Analytics Module not available. Install required dependencies.")
+
 # Page configuration
 st.set_page_config(
     page_title="Trading System Data Dashboard", 
@@ -600,7 +608,182 @@ class TradingDataDashboard:
         
         with tabs[3]:
             st.subheader("Model Training Status")
-            st.info("Model training metrics will be displayed here when evening routine runs")
+            self.render_model_training_status()
+    
+    def render_model_training_status(self):
+        """Render model training status with real data from database"""
+        try:
+            # Load model performance data from all available tables
+            training_data = []
+            
+            # Check model_performance table
+            query_std = """
+            SELECT 
+                model_version as model_type,
+                created_at as training_date,
+                accuracy_direction as accuracy,
+                accuracy_action as test_score,
+                total_predictions
+            FROM model_performance 
+            ORDER BY created_at DESC
+            """
+            df_std = self.query_to_dataframe(query_std)
+            if not df_std.empty:
+                df_std['source'] = 'Standard'
+                training_data.append(df_std)
+            
+            # Check model_performance_v2 table
+            query_v2 = """
+            SELECT 
+                COALESCE(symbol || '_' || model_version, model_version) as model_type,
+                training_date,
+                accuracy_direction as accuracy,
+                precision_score,
+                recall_score,
+                training_samples,
+                f1_score
+            FROM model_performance_v2 
+            ORDER BY training_date DESC
+            """
+            df_v2 = self.query_to_dataframe(query_v2)
+            if not df_v2.empty:
+                df_v2['source'] = 'V2'
+                training_data.append(df_v2)
+            
+            # Check model_performance_enhanced table
+            query_enh = """
+            SELECT 
+                model_type,
+                training_date,
+                (direction_accuracy_1h + direction_accuracy_4h + direction_accuracy_1d) / 3 as accuracy,
+                direction_accuracy_1h as test_score,
+                training_samples,
+                feature_count
+            FROM model_performance_enhanced 
+            ORDER BY training_date DESC
+            """
+            df_enh = self.query_to_dataframe(query_enh)
+            if not df_enh.empty:
+                df_enh['source'] = 'Enhanced'
+                training_data.append(df_enh)
+            
+            if training_data:
+                # Combine all training data
+                all_training_df = pd.concat(training_data, ignore_index=True, sort=False)
+                all_training_df['training_date'] = pd.to_datetime(all_training_df['training_date'])
+                all_training_df = all_training_df.sort_values('training_date', ascending=False)
+                
+                # Training status overview
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    latest_training = all_training_df['training_date'].iloc[0] if len(all_training_df) > 0 else None
+                    if latest_training:
+                        days_since = (datetime.now() - latest_training).days
+                        st.metric("Last Training", f"{days_since} days ago", 
+                                delta=latest_training.strftime('%m-%d %H:%M'))
+                    else:
+                        st.metric("Last Training", "No data")
+                
+                with col2:
+                    total_models = len(all_training_df['model_type'].unique())
+                    st.metric("Model Types", total_models)
+                
+                with col3:
+                    avg_accuracy = all_training_df['accuracy'].mean() if 'accuracy' in all_training_df.columns else 0
+                    st.metric("Avg Accuracy", f"{avg_accuracy:.3f}")
+                
+                with col4:
+                    total_records = len(all_training_df)
+                    st.metric("Training Records", total_records)
+                
+                # Recent training activity
+                st.markdown("#### 📋 Recent Training Activity")
+                display_df = all_training_df.head(10).copy()
+                display_df['training_date'] = display_df['training_date'].dt.strftime('%m-%d %H:%M')
+                
+                # Round numerical columns
+                numeric_cols = ['accuracy', 'test_score', 'precision_score', 'recall_score', 'f1_score']
+                for col in numeric_cols:
+                    if col in display_df.columns:
+                        display_df[col] = display_df[col].round(3)
+                
+                st.dataframe(display_df, use_container_width=True)
+                
+                # Training trends
+                if len(all_training_df) > 5:
+                    st.markdown("#### 📈 Training Trends")
+                    
+                    # Create trend chart
+                    fig = go.Figure()
+                    
+                    # Add accuracy trend
+                    fig.add_trace(go.Scatter(
+                        x=all_training_df['training_date'],
+                        y=all_training_df['accuracy'],
+                        mode='lines+markers',
+                        name='Accuracy',
+                        line=dict(color='blue')
+                    ))
+                    
+                    # Add test score if available
+                    if 'test_score' in all_training_df.columns and all_training_df['test_score'].notna().any():
+                        fig.add_trace(go.Scatter(
+                            x=all_training_df['training_date'],
+                            y=all_training_df['test_score'],
+                            mode='lines+markers',
+                            name='Test Score',
+                            line=dict(color='green')
+                        ))
+                    
+                    fig.update_layout(
+                        title="Model Performance Over Time",
+                        xaxis_title="Training Date",
+                        yaxis_title="Score",
+                        height=400
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # Model type breakdown
+                st.markdown("#### 🏢 Models by Type")
+                model_counts = all_training_df['model_type'].value_counts()
+                
+                if len(model_counts) > 0:
+                    fig_pie = px.pie(
+                        values=model_counts.values,
+                        names=model_counts.index,
+                        title="Training Records by Model Type"
+                    )
+                    st.plotly_chart(fig_pie, use_container_width=True)
+            
+            else:
+                st.warning("⚠️ No model training data found")
+                st.info("""
+                **To populate model training data:**
+                - Run the evening routine to train models
+                - Training metrics are saved to model_performance tables
+                - Data is sourced from trading_predictions.db
+                
+                **Available tables:** model_performance, model_performance_v2, model_performance_enhanced
+                """)
+                
+                # Show table status
+                tables_to_check = ['model_performance', 'model_performance_v2', 'model_performance_enhanced']
+                st.markdown("**Current Table Status:**")
+                
+                for table in tables_to_check:
+                    try:
+                        count_query = f"SELECT COUNT(*) as count FROM {table}"
+                        result = self.query_to_dataframe(count_query)
+                        count = result['count'].iloc[0] if not result.empty else 0
+                        status_icon = "✅" if count > 0 else "❌"
+                        st.text(f"{status_icon} {table}: {count} records")
+                    except:
+                        st.text(f"❌ {table}: table not found or error")
+        
+        except Exception as e:
+            st.error(f"Error loading model training status: {e}")
     
     def render_data_quality_issues(self):
         """Render data quality and consistency issues"""
@@ -726,6 +909,33 @@ class TradingDataDashboard:
         else:
             st.info(f"No data found in table {table_name}")
     
+    def render_performance_analytics_section(self):
+        """Render the performance analytics module section"""
+        if PERFORMANCE_ANALYTICS_AVAILABLE:
+            # Add section divider
+            st.markdown("---")
+            
+            # Create expandable section for performance analytics
+            with st.expander("🚀 **Performance Analytics Module** - Detailed ML Performance Insights", expanded=False):
+                st.markdown("""
+                <div style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); padding: 0.5rem; border-radius: 5px; color: white; margin: 1rem 0;">
+                    <h3>🧠 Advanced ML Performance Analytics</h3>
+                    <p>Comprehensive analysis of model performance, prediction accuracy, and system health metrics</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                try:
+                    # Render the performance analytics module
+                    db_path = str(self.root_dir / "data" / "trading_predictions.db")
+                    render_performance_analytics(db_path)
+                except Exception as e:
+                    st.error(f"Error loading Performance Analytics Module: {str(e)}")
+                    st.info("Please ensure the trading predictions database is available and accessible.")
+        else:
+            # Show placeholder when module not available
+            st.markdown("---")
+            st.warning("🚀 Performance Analytics Module not available. Please install required dependencies to enable advanced ML performance insights.")
+    
     def run_dashboard(self):
         """Main dashboard function"""
         # Render sidebar
@@ -749,6 +959,9 @@ class TradingDataDashboard:
         self.render_evening_routine_data()
         self.render_data_quality_issues()
         self.render_real_time_monitoring()
+        
+        # Render Performance Analytics Module
+        self.render_performance_analytics_section()
 
 def main():
     """Main function to run the dashboard"""

@@ -39,7 +39,7 @@ def is_asx_trading_hours(dt: datetime) -> bool:
         return False
     
     # Check if it's during trading hours (10:00 AM - 4:00 PM)
-    trading_start = au_time.replace(hour=11, minute=15, second=0, microsecond=0)
+    trading_start = au_time.replace(hour=10, minute=0, second=0, microsecond=0)
     trading_end = au_time.replace(hour=16, minute=0, second=0, microsecond=0)
     
     return trading_start <= au_time <= trading_end
@@ -73,13 +73,13 @@ def calculate_trading_time_minutes(entry_time: datetime, current_time: datetime)
             # If it's weekend, jump to Monday 10 AM
             if au_time.weekday() >= 5:
                 days_until_monday = 7 - au_time.weekday()
-                next_trading = au_time.replace(hour=11, minute=15, second=0, microsecond=0) + timedelta(days=days_until_monday)
+                next_trading = au_time.replace(hour=10, minute=0, second=0, microsecond=0) + timedelta(days=days_until_monday)
             # If it's after hours on weekday, jump to next day 10 AM
             elif au_time.hour >= 16:
-                next_trading = (au_time + timedelta(days=1)).replace(hour=11, minute=15, second=0, microsecond=0)
+                next_trading = (au_time + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
             # If it's before hours on weekday, jump to 10 AM same day
             elif au_time.hour < 10:
-                next_trading = au_time.replace(hour=11, minute=15, second=0, microsecond=0)
+                next_trading = au_time.replace(hour=10, minute=0, second=0, microsecond=0)
             else:
                 # We're in trading hours, continue normal increment
                 continue
@@ -117,7 +117,6 @@ class EnhancedPaperTradingService:
         # Trading configuration (matches backtesting strategy)
         self.config = {
             'profit_target': 5.0,  # Target profit per trade
-            'stop_loss': 40.0,  # Stop loss threshold per trade
             'max_hold_time_minutes': 1440,  # 24 hours max hold
             'position_size': 10000,  # $10k per position
             'commission_rate': 0.0,  # 0% commission (default - adjustable via dashboard)
@@ -142,7 +141,7 @@ class EnhancedPaperTradingService:
         logger.info(f"✅ Enhanced Service initialized")
         logger.info(f"📊 Predictions DB: {self.predictions_db_path}")
         logger.info(f"💰 Paper Trading DB: {self.paper_trading_db_path}")
-        logger.info(f"🎯 Strategy: One position per symbol, ${self.config['profit_target']} target, stop-loss: ${self.config["stop_loss"]}")
+        logger.info(f"🎯 Strategy: One position per symbol, ${self.config['profit_target']} target")
         
         # Initialize last processed timestamp to 1 hour ago
         self.last_processed_timestamp = (datetime.now() - timedelta(hours=1)).isoformat()
@@ -207,7 +206,6 @@ class EnhancedPaperTradingService:
             cursor.execute("""
                 INSERT OR REPLACE INTO trading_config (key, value) VALUES 
                 ('profit_target', ?),
-                ("stop_loss", ?),
                 ('max_hold_time_minutes', ?),
                 ('position_size', ?),
                 ('check_interval_seconds', ?),
@@ -216,7 +214,6 @@ class EnhancedPaperTradingService:
                 ('max_commission', ?)
             """, (
                 self.config['profit_target'],
-                self.config["stop_loss"],
                 self.config['max_hold_time_minutes'],
                 self.config['position_size'],
                 self.config['check_interval_seconds'],
@@ -349,12 +346,6 @@ class EnhancedPaperTradingService:
         try:
             symbol = prediction['symbol']
             
-            # Check if we are in trading hours (11:15 AM - 4:00 PM Sydney)
-            current_time = datetime.now(pytz.UTC)
-            if not is_asx_trading_hours(current_time):
-                logger.info(f"⏰ Skipping {symbol} - outside trading hours (11:15 AM - 4:00 PM Sydney)")
-                return False
-
             # Check one position per symbol rule
             if not self.can_take_position(symbol):
                 logger.info(f"⚠️ Skipping {symbol} - already have position")
@@ -461,11 +452,6 @@ class EnhancedPaperTradingService:
             if current_profit >= position['target_profit']:
                 should_exit = True
                 exit_reason = f"Profit target reached (${current_profit:.2f} >= ${position['target_profit']:.2f})"
-            
-            # Stop loss triggered
-            elif current_profit <= -self.config["stop_loss"]:
-                should_exit = True
-                exit_reason = f"Stop loss triggered (${current_profit:.2f} <= -${self.config['stop_loss']:.2f})"
             
             # Max hold time exceeded (trading time)
             elif hold_time_minutes >= self.config['max_hold_time_minutes']:
@@ -584,7 +570,7 @@ class EnhancedPaperTradingService:
     def run(self):
         """Main service loop with enhanced strategy"""
         logger.info("🚀 Enhanced Paper Trading Service started!")
-        logger.info(f"🎯 Strategy: One position per symbol, ${self.config['profit_target']} profit target, stop-loss: ${self.config["stop_loss"]}")
+        logger.info(f"🎯 Strategy: One position per symbol, ${self.config['profit_target']} profit target")
         logger.info(f"⏰ Position checks every {self.config['check_interval_seconds']}s")
         logger.info(f"📡 Prediction checks every {self.config['prediction_check_interval_seconds']}s")
         

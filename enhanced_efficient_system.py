@@ -96,7 +96,7 @@ class EnhancedEfficientPredictionSystem:
     """Enhanced prediction system with technical analysis"""
     
     def __init__(self):
-        self.symbols = ["CBA.AX", "WBC.AX", "ANZ.AX", "NAB.AX", "MQG.AX"]
+        self.symbols = ["CBA.AX", "WBC.AX", "ANZ.AX", "NAB.AX", "MQG.AX", "SUN.AX", "QBE.AX"]
         self.db_path = "predictions.db"
         self.technical = TechnicalAnalyzer()
         
