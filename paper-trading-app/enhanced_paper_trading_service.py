@@ -7,6 +7,7 @@ Features:
 - Configurable profit target (default $5)
 - Real-time Yahoo Finance price data
 - Exit when profit target reached or max hold time exceeded
+- Single instance protection with process lock
 """
 
 import os
@@ -14,6 +15,8 @@ import sys
 import time
 import logging
 import sqlite3
+import fcntl
+import signal
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 import json
@@ -21,6 +24,45 @@ import pytz
 
 # Add current directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Global lock file handle
+lock_file = None
+
+def acquire_lock():
+    """Acquire an exclusive lock to prevent multiple instances"""
+    global lock_file
+    lock_file_path = '/tmp/enhanced_paper_trading_service.lock'
+    
+    try:
+        lock_file = open(lock_file_path, 'w')
+        fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        lock_file.write(str(os.getpid()))
+        lock_file.flush()
+        return True
+    except IOError:
+        if lock_file:
+            lock_file.close()
+        return False
+
+def release_lock():
+    """Release the lock and clean up"""
+    global lock_file
+    if lock_file:
+        try:
+            fcntl.lockf(lock_file, fcntl.LOCK_UN)
+            lock_file.close()
+        except:
+            pass
+        try:
+            os.unlink('/tmp/enhanced_paper_trading_service.lock')
+        except:
+            pass
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals gracefully"""
+    logging.info("🛑 Received shutdown signal, cleaning up...")
+    release_lock()
+    sys.exit(0)
 
 def is_asx_trading_hours(dt: datetime) -> bool:
     """
@@ -39,7 +81,7 @@ def is_asx_trading_hours(dt: datetime) -> bool:
         return False
     
     # Check if it's during trading hours (10:00 AM - 4:00 PM)
-    trading_start = au_time.replace(hour=11, minute=15, second=0, microsecond=0)
+    trading_start = au_time.replace(hour=10, minute=0, second=0, microsecond=0)
     trading_end = au_time.replace(hour=16, minute=0, second=0, microsecond=0)
     
     return trading_start <= au_time <= trading_end
@@ -73,13 +115,13 @@ def calculate_trading_time_minutes(entry_time: datetime, current_time: datetime)
             # If it's weekend, jump to Monday 10 AM
             if au_time.weekday() >= 5:
                 days_until_monday = 7 - au_time.weekday()
-                next_trading = au_time.replace(hour=11, minute=15, second=0, microsecond=0) + timedelta(days=days_until_monday)
+                next_trading = au_time.replace(hour=10, minute=0, second=0, microsecond=0) + timedelta(days=days_until_monday)
             # If it's after hours on weekday, jump to next day 10 AM
             elif au_time.hour >= 16:
-                next_trading = (au_time + timedelta(days=1)).replace(hour=11, minute=15, second=0, microsecond=0)
+                next_trading = (au_time + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
             # If it's before hours on weekday, jump to 10 AM same day
             elif au_time.hour < 10:
-                next_trading = au_time.replace(hour=11, minute=15, second=0, microsecond=0)
+                next_trading = au_time.replace(hour=10, minute=0, second=0, microsecond=0)
             else:
                 # We're in trading hours, continue normal increment
                 continue
@@ -100,9 +142,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Fixed paths for remote server
-PREDICTIONS_DB_PATH = '/root/test/predictions.db'
-PAPER_TRADING_DB_PATH = '/root/test/paper-trading-app/paper_trading.db'
+# Configuration
+PAPER_TRADING_DB_PATH = 'paper_trading.db'
+PREDICTIONS_DB_PATH = '../data/trading_predictions.db'
 
 class EnhancedPaperTradingService:
     """Enhanced paper trading service with backtesting strategy"""
@@ -117,14 +159,15 @@ class EnhancedPaperTradingService:
         # Trading configuration (matches backtesting strategy)
         self.config = {
             'profit_target': 5.0,  # Target profit per trade
-            'stop_loss': 40.0,  # Stop loss threshold per trade
             'max_hold_time_minutes': 1440,  # 24 hours max hold
             'position_size': 10000,  # $10k per position
             'commission_rate': 0.0,  # 0% commission (default - adjustable via dashboard)
             'min_commission': 0.0,  # Minimum commission (default $0)
             'max_commission': 100.0,  # Maximum commission cap
             'check_interval_seconds': 60,  # Check every 1 minute
-            'prediction_check_interval_seconds': 300  # Check for new predictions every 5 minutes
+            'prediction_check_interval_seconds': 300,  # Check for new predictions every 5 minutes
+            'db_retry_attempts': 3,  # Number of retry attempts for database operations
+            'db_retry_delay': 0.5  # Delay between retry attempts
         }
         
         # Active positions tracking
@@ -137,12 +180,31 @@ class EnhancedPaperTradingService:
             raise FileNotFoundError(f"Paper trading database not found: {self.paper_trading_db_path}")
             
         self._initialize_database()
+    
+    def _execute_db_operation(self, operation_name: str, operation_func, *args, **kwargs):
+        """Execute database operation with retry logic and proper error handling"""
+        for attempt in range(self.config['db_retry_attempts']):
+            try:
+                return operation_func(*args, **kwargs)
+            except sqlite3.OperationalError as e:
+                if 'database is locked' in str(e) and attempt < self.config['db_retry_attempts'] - 1:
+                    logger.warning(f"⚠️ Database locked during {operation_name}, retrying in {self.config['db_retry_delay']}s (attempt {attempt + 1})")
+                    time.sleep(self.config['db_retry_delay'])
+                    continue
+                else:
+                    logger.error(f"❌ Database error in {operation_name}: {e}")
+                    raise
+            except Exception as e:
+                logger.error(f"❌ Unexpected error in {operation_name}: {e}")
+                raise
+        
+        raise sqlite3.OperationalError(f"Failed to execute {operation_name} after {self.config['db_retry_attempts']} attempts")
         self._load_active_positions()
         
         logger.info(f"✅ Enhanced Service initialized")
         logger.info(f"📊 Predictions DB: {self.predictions_db_path}")
         logger.info(f"💰 Paper Trading DB: {self.paper_trading_db_path}")
-        logger.info(f"🎯 Strategy: One position per symbol, ${self.config['profit_target']} target, stop-loss: ${self.config["stop_loss"]}")
+        logger.info(f"🎯 Strategy: One position per symbol, ${self.config['profit_target']} target")
         
         # Initialize last processed timestamp to 1 hour ago
         self.last_processed_timestamp = (datetime.now() - timedelta(hours=1)).isoformat()
@@ -150,7 +212,7 @@ class EnhancedPaperTradingService:
     def _initialize_database(self):
         """Initialize enhanced database tables"""
         try:
-            conn = sqlite3.connect(self.paper_trading_db_path)
+            conn = sqlite3.connect(self.paper_trading_db_path, timeout=10.0)
             cursor = conn.cursor()
             
             # Enhanced positions table
@@ -207,7 +269,6 @@ class EnhancedPaperTradingService:
             cursor.execute("""
                 INSERT OR REPLACE INTO trading_config (key, value) VALUES 
                 ('profit_target', ?),
-                ("stop_loss", ?),
                 ('max_hold_time_minutes', ?),
                 ('position_size', ?),
                 ('check_interval_seconds', ?),
@@ -216,7 +277,6 @@ class EnhancedPaperTradingService:
                 ('max_commission', ?)
             """, (
                 self.config['profit_target'],
-                self.config["stop_loss"],
                 self.config['max_hold_time_minutes'],
                 self.config['position_size'],
                 self.config['check_interval_seconds'],
@@ -235,7 +295,7 @@ class EnhancedPaperTradingService:
     def _load_config_from_database(self):
         """Load configuration from database (for dashboard updates)"""
         try:
-            conn = sqlite3.connect(self.paper_trading_db_path)
+            conn = sqlite3.connect(self.paper_trading_db_path, timeout=10.0)
             cursor = conn.cursor()
             
             cursor.execute("SELECT key, value FROM trading_config")
@@ -254,9 +314,9 @@ class EnhancedPaperTradingService:
             logger.error(f"❌ Error loading config: {e}")
     
     def _load_active_positions(self):
-        """Load active positions from database"""
+        """Load active positions from database and sync cache"""
         try:
-            conn = sqlite3.connect(self.paper_trading_db_path)
+            conn = sqlite3.connect(self.paper_trading_db_path, timeout=10.0)
             cursor = conn.cursor()
             
             cursor.execute("""
@@ -265,6 +325,9 @@ class EnhancedPaperTradingService:
                 FROM enhanced_positions 
                 WHERE status = 'OPEN'
             """)
+            
+            # Clear and rebuild cache to ensure sync with database
+            self.active_positions = {}
             
             for row in cursor.fetchall():
                 symbol = row[0]
@@ -281,10 +344,13 @@ class EnhancedPaperTradingService:
             
             conn.close()
             
+            # Log the actual database state vs cache state
+            logger.info(f"� Cache synced: {len(self.active_positions)} active positions from database")
             if self.active_positions:
-                logger.info(f"📈 Loaded {len(self.active_positions)} active positions:")
                 for symbol, pos in self.active_positions.items():
                     logger.info(f"   {symbol}: {pos['shares']} shares @ ${pos['entry_price']:.2f}")
+            else:
+                logger.info("   No open positions found in database")
             
         except Exception as e:
             logger.error(f"❌ Error loading active positions: {e}")
@@ -292,7 +358,7 @@ class EnhancedPaperTradingService:
     def check_for_new_predictions(self) -> List[Dict]:
         """Check for new BUY predictions in the database"""
         try:
-            conn = sqlite3.connect(self.predictions_db_path)
+            conn = sqlite3.connect(self.predictions_db_path, timeout=10.0)
             cursor = conn.cursor()
             
             # Get new BUY predictions only
@@ -349,12 +415,6 @@ class EnhancedPaperTradingService:
         try:
             symbol = prediction['symbol']
             
-            # Check if we are in trading hours (11:15 AM - 4:00 PM Sydney)
-            current_time = datetime.now(pytz.UTC)
-            if not is_asx_trading_hours(current_time):
-                logger.info(f"⏰ Skipping {symbol} - outside trading hours (11:15 AM - 4:00 PM Sydney)")
-                return False
-
             # Check one position per symbol rule
             if not self.can_take_position(symbol):
                 logger.info(f"⚠️ Skipping {symbol} - already have position")
@@ -393,29 +453,32 @@ class EnhancedPaperTradingService:
             
             self.active_positions[symbol] = position
             
-            # Save to database
-            conn = sqlite3.connect(self.paper_trading_db_path)
-            cursor = conn.cursor()
+            # Save to database with retry logic
+            def save_position_to_db():
+                conn = sqlite3.connect(self.paper_trading_db_path, timeout=10.0)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    INSERT INTO enhanced_positions 
+                    (symbol, prediction_id, entry_time, entry_price, shares, investment, 
+                     commission_paid, target_profit, confidence)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    symbol,
+                    position['prediction_id'],
+                    position['entry_time'].isoformat(),
+                    position['entry_price'],
+                    position['shares'],
+                    position['investment'],
+                    position['commission_paid'],
+                    position['target_profit'],
+                    position['confidence']
+                ))
+                
+                conn.commit()
+                conn.close()
             
-            cursor.execute("""
-                INSERT INTO enhanced_positions 
-                (symbol, prediction_id, entry_time, entry_price, shares, investment, 
-                 commission_paid, target_profit, confidence)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                symbol,
-                position['prediction_id'],
-                position['entry_time'].isoformat(),
-                position['entry_price'],
-                position['shares'],
-                position['investment'],
-                position['commission_paid'],
-                position['target_profit'],
-                position['confidence']
-            ))
-            
-            conn.commit()
-            conn.close()
+            self._execute_db_operation("save_position", save_position_to_db)
             
             logger.info(f"✅ Position opened for {symbol}")
             return True
@@ -462,11 +525,6 @@ class EnhancedPaperTradingService:
                 should_exit = True
                 exit_reason = f"Profit target reached (${current_profit:.2f} >= ${position['target_profit']:.2f})"
             
-            # Stop loss triggered
-            elif current_profit <= -self.config["stop_loss"]:
-                should_exit = True
-                exit_reason = f"Stop loss triggered (${current_profit:.2f} <= -${self.config['stop_loss']:.2f})"
-            
             # Max hold time exceeded (trading time)
             elif hold_time_minutes >= self.config['max_hold_time_minutes']:
                 should_exit = True
@@ -504,7 +562,7 @@ class EnhancedPaperTradingService:
             logger.info(f"   Reason: {exit_reason}")
             
             # Record trade in database
-            conn = sqlite3.connect(self.paper_trading_db_path)
+            conn = sqlite3.connect(self.paper_trading_db_path, timeout=10.0)
             cursor = conn.cursor()
             
             cursor.execute("""
@@ -541,18 +599,43 @@ class EnhancedPaperTradingService:
             conn.commit()
             conn.close()
             
-            # Remove from active positions
-            del self.active_positions[symbol]
+            # Remove from active positions cache
+            if symbol in self.active_positions:
+                del self.active_positions[symbol]
+                logger.info(f"🔄 Removed {symbol} from position cache")
+            
+            # Validate cache is in sync with database
+            self._validate_position_cache()
             
             logger.info(f"✅ Trade completed for {symbol}")
             
         except Exception as e:
             logger.error(f"❌ Error closing position for {symbol}: {e}")
     
+    def _validate_position_cache(self):
+        """Validate that cache matches database state"""
+        try:
+            conn = sqlite3.connect(self.paper_trading_db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT COUNT(*) FROM enhanced_positions WHERE status = 'OPEN'")
+            db_count = cursor.fetchone()[0]
+            cache_count = len(self.active_positions)
+            
+            conn.close()
+            
+            if db_count != cache_count:
+                logger.warning(f"⚠️ Cache mismatch: DB has {db_count} open positions, cache has {cache_count}")
+                logger.info("🔄 Resyncing cache with database...")
+                self._load_active_positions()
+            
+        except Exception as e:
+            logger.error(f"❌ Error validating position cache: {e}")
+    
     def get_portfolio_summary(self) -> Dict:
         """Get current portfolio summary"""
         try:
-            conn = sqlite3.connect(self.paper_trading_db_path)
+            conn = sqlite3.connect(self.paper_trading_db_path, timeout=10.0)
             cursor = conn.cursor()
             
             # Get total trades and profit
@@ -584,7 +667,7 @@ class EnhancedPaperTradingService:
     def run(self):
         """Main service loop with enhanced strategy"""
         logger.info("🚀 Enhanced Paper Trading Service started!")
-        logger.info(f"🎯 Strategy: One position per symbol, ${self.config['profit_target']} profit target, stop-loss: ${self.config["stop_loss"]}")
+        logger.info(f"🎯 Strategy: One position per symbol, ${self.config['profit_target']} profit target")
         logger.info(f"⏰ Position checks every {self.config['check_interval_seconds']}s")
         logger.info(f"📡 Prediction checks every {self.config['prediction_check_interval_seconds']}s")
         
@@ -601,6 +684,11 @@ class EnhancedPaperTradingService:
                 if current_time - last_config_check >= 300:
                     self._load_config_from_database()
                     last_config_check = current_time
+                
+                # Sync cache with database every 10 minutes to prevent stale data
+                if current_time % 600 == 0:  # Every 10 minutes
+                    logger.info("🔄 Syncing position cache with database...")
+                    self._load_active_positions()
                 
                 # Check active positions every minute (during trading hours only)
                 if self.active_positions:
@@ -645,13 +733,27 @@ class EnhancedPaperTradingService:
                 time.sleep(60)  # Wait 1 minute on error
 
 def main():
-    """Main entry point"""
+    """Main entry point with single instance protection"""
+    # Set up signal handlers
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    # Try to acquire lock
+    if not acquire_lock():
+        print("❌ Another instance of the service is already running!")
+        print("   Only one instance is allowed to prevent database conflicts.")
+        return 1
+    
     try:
+        logger.info("🔒 Lock acquired - starting service")
         service = EnhancedPaperTradingService()
         service.run()
     except Exception as e:
         logger.error(f"❌ Failed to start service: {e}")
         return 1
+    finally:
+        release_lock()
+        logger.info("🔓 Lock released")
     return 0
 
 if __name__ == "__main__":
