@@ -70,7 +70,7 @@ def calculate_trading_time_minutes(entry_time_str, current_time=None):
 def get_current_config():
     """Load current configuration from database"""
     try:
-        conn = sqlite3.connect('paper_trading.db')
+        conn = sqlite3.connect('/root/test/paper-trading-app/paper_trading.db')
         cursor = conn.cursor()
         
         cursor.execute("SELECT key, value FROM trading_config")
@@ -207,7 +207,7 @@ def update_trading_config(profit_target, stop_loss, max_hold_time, position_size
                          commission_rate, min_commission, max_commission):
     """Update trading configuration in database"""
     try:
-        conn = sqlite3.connect('paper_trading.db')
+        conn = sqlite3.connect('/root/test/paper-trading-app/paper_trading.db')
         cursor = conn.cursor()
         
         # Update configuration
@@ -262,7 +262,7 @@ def display_portfolio_overview():
     st.markdown("### 💼 Portfolio Overview")
     
     try:
-        conn = sqlite3.connect('paper_trading.db')
+        conn = sqlite3.connect('/root/test/paper-trading-app/paper_trading.db')
         
         # Get active positions
         active_df = pd.read_sql_query("""
@@ -325,7 +325,7 @@ def display_recent_trades():
     st.markdown("### 📈 Recent Trades")
     
     try:
-        conn = sqlite3.connect('paper_trading.db')
+        conn = sqlite3.connect('/root/test/paper-trading-app/paper_trading.db')
         
         trades_df = pd.read_sql_query("""
             SELECT symbol, 
@@ -377,7 +377,7 @@ def display_active_positions():
     st.markdown("### 📊 Active Positions")
     
     try:
-        conn = sqlite3.connect('paper_trading.db')
+        conn = sqlite3.connect('/root/test/paper-trading-app/paper_trading.db')
         
         positions_df = pd.read_sql_query("""
             SELECT symbol, 
@@ -396,7 +396,6 @@ def display_active_positions():
             positions_df['hold_time_minutes'] = positions_df['entry_time'].apply(
                 lambda x: calculate_trading_time_minutes(x)
             )
-            
             # Add current price and profit columns
             try:
                 import yfinance as yf
