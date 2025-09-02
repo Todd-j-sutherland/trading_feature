@@ -1,0 +1,4 @@
+cat ~/.ssh/authorized_keys
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQD5cnEOeFnuOaXob9TojFi3lPk68uP17A5mV6stavVU+WiIVMDKgP5Wre0qEs6vuc2Nabk7q84sN6v7bseg204cxurFKUp/tVQk8rGD9oWUbvw25iUFyc/MTI3m66eMORnH64gMf8Eqm4SJdaoK9KM2yTIxuqigKNMLRM/mW/UyscZqle13EHu3xYUL+NYR6mdTXAj/5MANnfQZMW2vy0dYWEtFglPAh8sBOTpw2TsL6rX8WkIQtEzaRIh0mJ6TQPyLh9KlTNDsv6/PnUXhQwr5MJ7L+hyZ8ncpfGw8JIjc5XNlHW/oBHNqAKK2SLtzhFnkayaqZufzj+3aDb+WkmE1QePM+haNBUFKvs6rtXtZS7HxybIuflmPHBjZ2XIuE+gMJb0znfLhWka32JNQoETUWfyo5/lbH0iD4v63H4VATBMuQuNe1wEzzv55rdQd2esBCQeplgD8wD+YDX2zTWCf8PuYR26squ3fsx4p31LwWTq+qsGPBC9RnfrNn3PUqls= toddsutherland@Todds-MacBook-Pro.local
+# Added and Managed by DigitalOcean Droplet Agent (code name: DOTTY)
+ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBP3nFfRtacX82zWMUfjesWi6btapUiO4kLoGWzPu0UTE1VlFyUpnFGMfjz8iQ/3maLeDkayxOuX+3noTo80qepQ= {"os_user":"root","actor_email":"sutho100@gmail.com","expire_at":"2025-09-02T03:05:24Z"}-dotty_ssh
