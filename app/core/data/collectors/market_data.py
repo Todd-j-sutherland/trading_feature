@@ -140,7 +140,6 @@ class ASXDataFeed:
             
             logger.info(f"📊 Fallback data for {symbol}: ${current_data['price']:.2f} from yfinance")
             return current_data
-            }
             
             # Calculate change
             if current_data['prev_close'] > 0:
