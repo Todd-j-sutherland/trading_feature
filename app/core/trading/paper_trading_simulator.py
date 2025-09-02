@@ -124,10 +124,35 @@ class PaperTradingSimulator:
     
     def get_current_price(self, symbol: str) -> float:
         """
-        Get current price for a symbol.
-        In a real system, this would query market data.
-        For simulation, we'll use cached data or generate realistic prices.
+        Get current price for a symbol using enhanced market data collector.
+        Uses IG Markets integration for real-time ASX data with yfinance fallback.
         """
+        try:
+            # Import enhanced market data collector
+            from app.core.data.collectors.enhanced_market_data_collector import get_current_price
+            
+            # Get price data from enhanced collector
+            price_data = get_current_price(symbol)
+            
+            if price_data and price_data.get('success') and price_data.get('price', 0) > 0:
+                price = float(price_data['price'])
+                source = price_data.get('source', 'unknown')
+                delay = price_data.get('delay_minutes', 0)
+                
+                # Log price source info
+                if delay == 0:
+                    logger.info(f"📊 Real-time price for {symbol}: ${price:.2f} from {source}")
+                elif delay <= 60:
+                    logger.info(f"📊 Recent price for {symbol}: ${price:.2f} from {source} ({delay}min delay)")
+                else:
+                    logger.warning(f"⚠️ Stale price for {symbol}: ${price:.2f} from {source} ({delay}min delay)")
+                
+                return price
+            
+        except Exception as e:
+            logger.warning(f"Enhanced collector failed for {symbol}: {e}")
+        
+        # Fallback to original implementation with database cache
         try:
             # Try to get recent market data from cache
             with self.data_manager.get_connection() as conn:
@@ -140,7 +165,9 @@ class PaperTradingSimulator:
                 
                 result = cursor.fetchone()
                 if result:
-                    return float(result[0])
+                    price = float(result[0])
+                    logger.info(f"📊 Cached price for {symbol}: ${price:.2f}")
+                    return price
                 
                 # Fallback: Use historical average or reasonable estimate
                 # This would be replaced with real market data in production

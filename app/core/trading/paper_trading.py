@@ -58,12 +58,37 @@ class AdvancedPaperTrader:
             json.dump(state, f, indent=2)
     
     def get_current_price(self, symbol: str) -> float:
-        """Get current price for a symbol"""
+        """Get current price for a symbol using enhanced market data collector"""
+        try:
+            # Import enhanced market data collector
+            from app.core.data.collectors.enhanced_market_data_collector import get_current_price
+            
+            # Get price data
+            price_data = get_current_price(symbol)
+            
+            if price_data and price_data.get('success') and price_data.get('price', 0) > 0:
+                price = float(price_data['price'])
+                source = price_data.get('source', 'unknown')
+                delay = price_data.get('delay_minutes', 0)
+                
+                # Log based on data quality
+                if delay == 0:
+                    logger.info(f"📊 {symbol}: ${price:.2f} from {source} (real-time)")
+                else:
+                    logger.info(f"📊 {symbol}: ${price:.2f} from {source} ({delay}min delay)")
+                
+                return price
+            
+        except Exception as e:
+            logger.warning(f"Enhanced data failed for {symbol}: {e}")
+        
+        # Fallback to original implementation
         try:
             price_data = self.data_feed.get_current_price(symbol)
             return price_data.get('price', 100.0)
-        except:
-            return 100.0  # Fallback price
+        except Exception as e:
+            logger.error(f"Error getting price for {symbol}: {e}")
+            return 100.0  # Default fallback
     
     def calculate_position_size(self, symbol: str, signal_confidence: float) -> float:
         """Calculate position size based on confidence and risk management"""

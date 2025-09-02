@@ -37,13 +37,14 @@ Examples:
   python -m app.main news                 # Run news sentiment analysis
   python -m app.main simple-backtest      # Run lightweight backtesting
   python -m app.main backtest             # Run comprehensive backtesting
+  python -m app.main ig-markets-test      # Test IG Markets API integration
   python -m app.main --config custom.yml  # Use custom config
         """
     )
     
     parser.add_argument(
         'command',
-        choices=['morning', 'evening', 'status', 'weekly', 'restart', 'test', 'news', 'divergence', 'economic', 'backtest', 'simple-backtest'],
+        choices=['morning', 'evening', 'status', 'weekly', 'restart', 'test', 'news', 'divergence', 'economic', 'backtest', 'simple-backtest', 'ig-markets-test'],
         help='Command to execute'
     )
     
@@ -202,6 +203,56 @@ def run_comprehensive_backtest():
         import traceback
         traceback.print_exc()
 
+def run_ig_markets_test():
+    """Test IG Markets integration"""
+    print("🔄 Testing IG Markets integration...")
+    
+    try:
+        from app.core.data.collectors.enhanced_market_data_collector import EnhancedMarketDataCollector
+        from app.core.data.collectors.ig_markets_symbol_mapper import IGMarketsSymbolMapper
+        
+        # Initialize components
+        collector = EnhancedMarketDataCollector()
+        mapper = IGMarketsSymbolMapper()
+        
+        # Test symbols
+        test_symbols = ['CBA.AX', 'WBC.AX', 'ANZ.AX', 'NAB.AX', 'BHP.AX']
+        
+        print("Testing symbol mapping:")
+        for symbol in test_symbols:
+            epic = mapper.get_ig_epic(symbol)
+            print(f"  {symbol} → {epic}")
+        
+        print("\nTesting real-time prices:")
+        for symbol in test_symbols:
+            try:
+                price_data = collector.get_current_price(symbol)
+                if price_data:
+                    print(f"  {symbol}: ${price_data.get('price', 'N/A'):.3f} (Source: {price_data.get('source', 'Unknown')})")
+                else:
+                    print(f"  {symbol}: No data available")
+            except Exception as e:
+                print(f"  {symbol}: Error - {e}")
+        
+        # Show data source statistics
+        stats = collector.get_data_source_stats()
+        print(f"\nData Source Statistics:")
+        print(f"  IG Markets requests: {stats.get('ig_markets', 0)}")
+        print(f"  yfinance requests: {stats.get('yfinance', 0)}")
+        print(f"  Cache hits: {stats.get('cache_hits', 0)}")
+        print(f"  Total requests: {stats.get('total_requests', 0)}")
+        
+        # Test IG Markets health
+        ig_health = collector.is_ig_markets_healthy()
+        print(f"\nIG Markets Health: {'✅ Healthy' if ig_health else '❌ Unhealthy'}")
+        
+        print("✅ IG Markets integration test completed")
+        
+    except Exception as e:
+        print(f"❌ IG Markets test error: {e}")
+        import traceback
+        traceback.print_exc()
+
 def run_simple_backtest():
     """Run the lightweight backtesting analysis"""
     print("📊 Running Simple Backtesting Analysis...")
@@ -286,6 +337,8 @@ def main():
             run_comprehensive_backtest()
         elif args.command == 'simple-backtest':
             run_simple_backtest()
+        elif args.command == 'ig-markets-test':
+            run_ig_markets_test()
         
         logger.info(f"Command '{args.command}' completed successfully")
         print("✅ Command completed successfully")

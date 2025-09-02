@@ -142,11 +142,42 @@ class TradingSystemManager:
             # System status check
             print("✅ System status: Operational with standard AI structure")
             
-            # Initialize data collectors
-            print("\n📊 Initializing data collectors...")
+            # Initialize data collectors with IG Markets integration
+            print("\n📊 Initializing enhanced data collectors...")
             try:
                 from app.core.data.collectors.market_data import ASXDataFeed
                 from app.core.data.collectors.news_collector import SmartCollector
+                
+                # Check for IG Markets integration
+                try:
+                    from app.core.data.collectors.enhanced_market_data_collector import market_data_collector
+                    
+                    # Perform IG Markets health check
+                    health = market_data_collector.health_check()
+                    stats = market_data_collector.get_source_statistics()
+                    
+                    print(f"🎯 IG Markets Integration Status: {health['overall_status'].upper()}")
+                    
+                    if health['checks'].get('ig_markets', {}).get('status') == 'healthy':
+                        print("✅ IG Markets: Real-time ASX data available")
+                    elif health['checks'].get('ig_markets', {}).get('status') == 'unhealthy':
+                        print("⚠️ IG Markets: Connection issues - using fallback")
+                    else:
+                        print("ℹ️ IG Markets: Not configured - using yfinance")
+                    
+                    if health['checks'].get('yfinance', {}).get('status') == 'healthy':
+                        print("✅ yfinance: Backup data source operational")
+                    else:
+                        print("❌ yfinance: Backup source unavailable")
+                    
+                    # Show symbol mapping coverage
+                    mapping_stats = stats.get('symbol_mappings', {})
+                    mapped_count = mapping_stats.get('total_mapped', 0)
+                    if mapped_count > 0:
+                        print(f"📊 Symbol Coverage: {mapped_count} ASX symbols mapped to IG Markets")
+                    
+                except Exception as e:
+                    print(f"ℹ️ Enhanced data collector not available: {e}")
                 
                 data_feed = ASXDataFeed()
                 smart_collector = SmartCollector()
@@ -1360,13 +1391,58 @@ class TradingSystemManager:
             return []
 
     def quick_status(self):
-        """Quick system status check with AI components"""
+        """Quick system status check with AI components and IG Markets integration"""
         print("📊 QUICK STATUS CHECK - AI-Powered Trading System")
         print("=" * 50)
         
         print("\n🔄 Enhanced ML Status...")
         print("✅ Success")
         print("✅ Enhanced Sentiment Integration: Available")
+        
+        # Data Sources Status
+        print("\n📊 Real-Time Data Sources...")
+        try:
+            from app.core.data.collectors.enhanced_market_data_collector import market_data_collector
+            
+            # Perform IG Markets health check
+            health = market_data_collector.health_check()
+            stats = market_data_collector.get_source_statistics()
+            
+            print(f"🎯 Overall Data Status: {health['overall_status'].upper()}")
+            
+            # IG Markets status
+            ig_status = health['checks'].get('ig_markets', {})
+            if ig_status.get('status') == 'healthy':
+                print("✅ IG Markets: Real-time ASX data operational")
+            elif ig_status.get('status') == 'unhealthy':
+                print("⚠️ IG Markets: Connection issues detected")
+                if ig_status.get('error'):
+                    print(f"   Error: {ig_status['error']}")
+            else:
+                print("ℹ️ IG Markets: Not configured")
+            
+            # yfinance status
+            yf_status = health['checks'].get('yfinance', {})
+            if yf_status.get('status') == 'healthy':
+                print("✅ yfinance: Backup data source operational")
+            else:
+                print("❌ yfinance: Backup source issues")
+                if yf_status.get('error'):
+                    print(f"   Error: {yf_status['error']}")
+            
+            # Usage statistics
+            if stats['total_requests'] > 0:
+                print(f"📈 Data Requests: {stats['total_requests']} total")
+                if stats['ig_markets'] > 0:
+                    print(f"   🎯 IG Markets: {stats['ig_markets']} ({stats.get('ig_markets_percentage', 0):.1f}%)")
+                if stats['yfinance'] > 0:
+                    print(f"   📊 yfinance: {stats['yfinance']} ({stats.get('yfinance_percentage', 0):.1f}%)")
+                if stats['cache_hits'] > 0:
+                    print(f"   ⚡ Cache hits: {stats['cache_hits']} ({stats.get('cache_hit_rate', 0):.1f}%)")
+            
+        except Exception as e:
+            print(f"⚠️ Enhanced data collector status unknown: {e}")
+            print("ℹ️ Falling back to basic yfinance data")
         
         # AI Components Status
         print("\n🤖 AI Components Status...")

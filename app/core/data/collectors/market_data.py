@@ -1,7 +1,8 @@
 # src/data_feed.py
 """
 Data feed module for fetching free market data
-Uses yfinance for stock data and web scraping for real-time prices
+Enhanced with IG Markets integration for real-time ASX data
+Uses enhanced market data collector with intelligent fallback
 """
 
 import yfinance as yf
@@ -21,7 +22,13 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.config.settings import Settings
-# from utils.cache_manager import CacheManager  # Optional caching - disabled for now
+
+# Import enhanced market data collector
+try:
+    from app.core.data.collectors.enhanced_market_data_collector import EnhancedMarketDataCollector
+    ENHANCED_COLLECTOR_AVAILABLE = True
+except ImportError:
+    ENHANCED_COLLECTOR_AVAILABLE = False
 
 # Enhanced data validation import
 try:
@@ -34,7 +41,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 class ASXDataFeed:
-    """Fetches market data from free sources"""
+    """Enhanced ASX data feed with IG Markets integration"""
     
     def __init__(self):
         self.settings = Settings()
@@ -44,6 +51,22 @@ class ASXDataFeed:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
+        
+        # Initialize enhanced market data collector if available
+        if ENHANCED_COLLECTOR_AVAILABLE:
+            try:
+                self.enhanced_collector = EnhancedMarketDataCollector()
+                self.enhanced_available = True
+                logger.info("✅ Enhanced market data collector initialized with IG Markets")
+            except Exception as e:
+                self.enhanced_collector = None
+                self.enhanced_available = False
+                logger.warning(f"Enhanced collector initialization failed: {e}")
+        else:
+            self.enhanced_collector = None
+            self.enhanced_available = False
+            logger.info("Enhanced collector not available - using basic yfinance")
+        
         # Add data validation if available
         if DataValidator is not None:
             self.validator = DataValidator()
@@ -53,7 +76,7 @@ class ASXDataFeed:
             self.enable_validation = False
     
     def get_current_data(self, symbol: str) -> Dict:
-        """Get current price and basic data for a symbol"""
+        """Get current price and basic data for a symbol - Enhanced with IG Markets"""
         # Check cache (disabled for now)
         cache_key = f"current_{symbol}"
         cached_data = None  # self.cache.get(cache_key) if self.cache else None
@@ -61,6 +84,37 @@ class ASXDataFeed:
         if cached_data:
             return cached_data
         
+        # Use enhanced collector if available (with IG Markets integration)
+        if self.enhanced_available:
+            try:
+                enhanced_data = self.enhanced_collector.get_current_price(symbol)
+                
+                if enhanced_data and enhanced_data.get('success'):
+                    # Convert to expected format
+                    current_data = {
+                        'symbol': symbol,
+                        'price': enhanced_data.get('price', 0),
+                        'volume': enhanced_data.get('volume', 0),
+                        'day_high': enhanced_data.get('day_high', 0),
+                        'day_low': enhanced_data.get('day_low', 0),
+                        'prev_close': enhanced_data.get('previous_close', 0),
+                        'open': enhanced_data.get('open', 0),
+                        'market_cap': 0,  # Would need additional call
+                        'pe_ratio': 0,    # Would need additional call
+                        'dividend_yield': 0,  # Would need additional call
+                        'timestamp': enhanced_data.get('timestamp', datetime.now().isoformat()),
+                        'data_source': enhanced_data.get('source', 'Enhanced Collector'),
+                        'data_quality': enhanced_data.get('data_quality', 'unknown'),
+                        'delay_minutes': enhanced_data.get('delay_minutes', 0)
+                    }
+                    
+                    logger.info(f"📊 Enhanced data for {symbol}: ${current_data['price']:.2f} from {current_data['data_source']}")
+                    return current_data
+                    
+            except Exception as e:
+                logger.warning(f"Enhanced collector failed for {symbol}: {e}")
+        
+        # Fallback to original yfinance implementation
         try:
             # Try yfinance first
             ticker = yf.Ticker(symbol)
@@ -78,7 +132,14 @@ class ASXDataFeed:
                 'market_cap': info.get('marketCap', 0),
                 'pe_ratio': info.get('trailingPE', 0),
                 'dividend_yield': info.get('dividendYield', 0),
-                'timestamp': datetime.now().isoformat()
+                'timestamp': datetime.now().isoformat(),
+                'data_source': 'yfinance (fallback)',
+                'data_quality': 'delayed',
+                'delay_minutes': 900  # Assume significant delay
+            }
+            
+            logger.info(f"📊 Fallback data for {symbol}: ${current_data['price']:.2f} from yfinance")
+            return current_data
             }
             
             # Calculate change
