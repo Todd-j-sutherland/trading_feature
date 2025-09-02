@@ -1,0 +1,95 @@
+# REMOTE VALIDATION COMMANDS
+# Copy and paste these commands on your droplet to validate paper trading data
+
+echo "🔍 Starting Paper Trading Data Validation..."
+
+# Navigate to project directory
+cd /root/test
+
+# Activate virtual environment
+source /root/trading_venv/bin/activate
+export PYTHONPATH=/root/test
+
+# Pull latest changes
+git pull origin phase1/paper-running
+
+# Run the validation script
+python validate_paper_trading_data.py
+
+echo ""
+echo "📊 Additional manual checks you can run:"
+echo ""
+
+echo "1. Check paper trading portfolio status:"
+echo "cd /root/test/paper-trading-app && source ./paper_trading_venv/bin/activate && python -c \"
+from enhanced_paper_trading_service_with_ig import EnhancedPaperTradingServiceWithIG
+service = EnhancedPaperTradingServiceWithIG()
+summary = service.get_enhanced_portfolio_summary()
+print('Portfolio Value:', summary.get('account', {}).get('portfolio_value', 0))
+print('Active Positions:', len(summary.get('positions', [])))
+print('IG Markets Enabled:', service.ig_markets_enabled)
+\""
+
+echo ""
+echo "2. Test IG Markets connectivity:"
+echo "python -c \"
+from app.core.data.collectors.enhanced_market_data_collector import EnhancedMarketDataCollector
+collector = EnhancedMarketDataCollector()
+print('IG Markets Health:', collector.is_ig_markets_healthy())
+price = collector.get_current_price_data('CBA.AX')
+print('CBA.AX Price:', price.get('price', 'No data') if price else 'Failed')
+\""
+
+echo ""
+echo "3. Check recent paper trading activity:"
+echo "cd /root/test/paper-trading-app && sqlite3 paper_trading.db \"
+SELECT 'Total Trades: ' || COUNT(*) FROM trades;
+SELECT 'Recent Trades (last 24h): ' || COUNT(*) FROM trades WHERE timestamp > datetime('now', '-24 hours');
+SELECT 'Current Cash: $' || cash_balance FROM accounts ORDER BY id DESC LIMIT 1;
+SELECT 'Portfolio Value: $' || portfolio_value FROM accounts ORDER BY id DESC LIMIT 1;
+\""
+
+echo ""
+echo "4. Compare sample prices manually:"
+echo "python -c \"
+import yfinance as yf
+from app.core.data.collectors.enhanced_market_data_collector import EnhancedMarketDataCollector
+
+symbols = ['CBA.AX', 'ANZ.AX', 'WBC.AX']
+collector = EnhancedMarketDataCollector()
+
+for symbol in symbols:
+    # IG Markets price
+    ig_data = collector.get_current_price_data(symbol)
+    ig_price = ig_data.get('price') if ig_data else None
+    
+    # Yahoo Finance price  
+    ticker = yf.Ticker(symbol)
+    yf_price = None
+    try:
+        yf_price = ticker.info.get('currentPrice')
+        if not yf_price:
+            hist = ticker.history(period='1d')
+            if not hist.empty:
+                yf_price = hist['Close'].iloc[-1]
+    except:
+        pass
+    
+    print(f'{symbol}:')
+    print(f'  IG Markets: \${ig_price:.2f}' if ig_price else '  IG Markets: No data')
+    print(f'  Yahoo Finance: \${yf_price:.2f}' if yf_price else '  Yahoo Finance: No data')
+    if ig_price and yf_price:
+        diff = abs(ig_price - yf_price)
+        diff_pct = (diff / yf_price) * 100
+        print(f'  Difference: \${diff:.2f} ({diff_pct:.2f}%)')
+    print()
+\""
+
+echo ""
+echo "🎯 After running these checks, look for:"
+echo "✅ Portfolio values that match your expectations"
+echo "✅ IG Markets health showing as 'True' or 'Healthy'"
+echo "✅ Price differences between IG Markets and Yahoo Finance < 1%"
+echo "⚠️ Large discrepancies in position values"
+echo "⚠️ IG Markets integration failures"
+echo "⚠️ Missing or corrupted trading data"
