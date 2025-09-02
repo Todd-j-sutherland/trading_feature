@@ -116,7 +116,7 @@ class EnhancedPaperTradingService:
         
         # Trading configuration (matches backtesting strategy)
         self.config = {
-            'profit_target': 5.0,  # Target profit per trade
+            'profit_target': 20.0,  # Target profit per trade ($20)
             'max_hold_time_minutes': 1440,  # 24 hours max hold
             'position_size': 10000,  # $10k per position
             'commission_rate': 0.0,  # 0% commission (default - adjustable via dashboard)
@@ -325,16 +325,33 @@ class EnhancedPaperTradingService:
             return []
     
     def get_current_price(self, symbol: str) -> Optional[float]:
-        """Get current price using yfinance"""
+        """Get current price using real-time price fetcher"""
         try:
-            import yfinance as yf
-            ticker = yf.Ticker(symbol)
-            data = ticker.history(period='1d')
-            if not data.empty:
-                return float(data['Close'].iloc[-1])
-            return None
+            from real_time_price_fetcher import RealTimePriceFetcher
+            
+            if not hasattr(self, '_price_fetcher'):
+                self._price_fetcher = RealTimePriceFetcher()
+            
+            price_data = self._price_fetcher.get_current_price(symbol)
+            
+            if price_data:
+                price, source_info, delay_minutes = price_data
+                
+                # Log with appropriate level based on delay
+                if delay_minutes == 0:
+                    logger.info(f"📊 {symbol}: ${price:.2f} from {source_info} (real-time)")
+                elif delay_minutes <= 60:
+                    logger.info(f"📊 {symbol}: ${price:.2f} from {source_info} ({delay_minutes}min delay)")
+                else:
+                    logger.warning(f"⚠️ {symbol}: ${price:.2f} from {source_info} ({delay_minutes}min delay - STALE)")
+                
+                return float(price)
+            else:
+                logger.error(f"❌ Could not get price for {symbol} from any data source")
+                return None
+                
         except Exception as e:
-            logger.error(f"❌ Error getting price for {symbol}: {e}")
+            logger.error(f"❌ Error getting current price for {symbol}: {e}")
             return None
     
     def can_take_position(self, symbol: str) -> bool:
