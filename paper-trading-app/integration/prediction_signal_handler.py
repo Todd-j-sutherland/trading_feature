@@ -21,7 +21,7 @@ from config import TRADING_CONFIG
 class PredictionSignalHandler:
     """Handles incoming prediction signals and converts them to paper trades"""
     
-    def __init__(self, paper_trading_db_path="paper_trading.db", predictions_db_path="../predictions.db"):
+    def __init__(self, paper_trading_db_path="paper_trading.db", predictions_db_path="../data/trading_predictions.db"):
         self.paper_trading_db = paper_trading_db_path
         self.predictions_db = predictions_db_path
         self.logger = logging.getLogger(__name__)
