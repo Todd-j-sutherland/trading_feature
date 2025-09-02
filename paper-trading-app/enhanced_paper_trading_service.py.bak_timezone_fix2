@@ -529,7 +529,7 @@ class EnhancedPaperTradingService:
             # Store position in memory and database
             position = {
                 'prediction_id': prediction['prediction_id'],
-                'entry_time': datetime.now(pytz.UTC),
+                'entry_time': datetime.now(),
                 'entry_price': current_price,
                 'shares': shares,
                 'investment': actual_investment,

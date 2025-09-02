@@ -184,7 +184,7 @@ class EnhancedPaperTradingService:
         
         # Trading configuration (matches backtesting strategy)
         self.config = {
-            'profit_target': 20.0,  # Target profit per trade
+            'profit_target': 5.0,  # Target profit per trade
             'max_hold_time_minutes': 1440,  # 24 hours max hold
             'position_size': 10000,  # $10k per position
             'commission_rate': 0.0,  # 0% commission (default - adjustable via dashboard)
@@ -529,7 +529,7 @@ class EnhancedPaperTradingService:
             # Store position in memory and database
             position = {
                 'prediction_id': prediction['prediction_id'],
-                'entry_time': datetime.now(pytz.UTC),
+                'entry_time': datetime.now(),
                 'entry_price': current_price,
                 'shares': shares,
                 'investment': actual_investment,
