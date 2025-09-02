@@ -5,19 +5,22 @@
 The paper-trading-app is not picking up predictions because of a **path configuration mismatch** between the local and remote environments.
 
 ### Current Configuration (Local Environment)
+
 - **Paper Trading Service Path**: `../data/trading_predictions.db`
 - **Actual Database Location**: `predictions.db` (in root directory)
 - **Missing Directory**: `data/` directory doesn't exist locally
 
 ### Environment Differences
-| Environment | Structure | Predictions DB Path |
-|-------------|-----------|-------------------|
-| **Remote** | `/root/test/` | `/root/test/data/trading_predictions.db` |
-| **Local** | `C:\Users\todd.sutherland\trading_feature\` | `C:\Users\todd.sutherland\trading_feature\predictions.db` |
+
+| Environment | Structure                                   | Predictions DB Path                                       |
+| ----------- | ------------------------------------------- | --------------------------------------------------------- |
+| **Remote**  | `/root/test/`                               | `/root/test/data/trading_predictions.db`                  |
+| **Local**   | `C:\Users\todd.sutherland\trading_feature\` | `C:\Users\todd.sutherland\trading_feature\predictions.db` |
 
 ## 🛠️ Solutions
 
 ### Option 1: Fix Local Path Configuration (Recommended)
+
 Update the paper trading service to use the correct local path:
 
 ```python
@@ -29,12 +32,14 @@ PREDICTIONS_DB_PATH = '../predictions.db'
 ```
 
 ### Option 2: Create Remote-like Structure
+
 ```bash
 mkdir data
 cp predictions.db data/trading_predictions.db
 ```
 
 ### Option 3: Environment-aware Path Detection
+
 ```python
 # Smart path detection
 if os.path.exists('../data/trading_predictions.db'):
@@ -48,11 +53,13 @@ else:
 ## 📊 Database Status Analysis
 
 ### Available Databases
+
 - ✅ `predictions.db` (27 KB - contains data)
 - ❌ `trading_predictions.db` (0 KB - empty)
 - ❌ `data/trading_predictions.db` (doesn't exist)
 
 ### Expected Integration Flow
+
 1. **Prediction System** → Creates predictions in `predictions.db`
 2. **Paper Trading Service** → Reads from `../data/trading_predictions.db`
 3. **Result**: Service can't find predictions (path mismatch)
@@ -60,12 +67,15 @@ else:
 ## 🔧 Additional Issues
 
 ### Python Environment
+
 - Local environment lacks Python installation
 - Service cannot run locally without Python
 - Recommend installing Python or using WSL
 
 ### Database Schema Validation
+
 Need to verify the `predictions.db` contains the expected table structure:
+
 - `predictions` table with required columns:
   - `prediction_id`
   - `symbol`

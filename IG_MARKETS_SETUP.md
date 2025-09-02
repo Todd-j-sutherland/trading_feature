@@ -43,18 +43,21 @@ python3 ig_markets_fetcher.py
 ## IG Markets API Advantages
 
 ### Real-Time Data
+
 - ✅ **Zero delay** during ASX trading hours
 - ✅ **Bid/Ask spreads** for better price accuracy
 - ✅ **Professional market data** (same as trading platform)
 - ✅ **Demo account access** (no real money required)
 
 ### ASX Coverage
+
 - ✅ **Full ASX coverage** including all major stocks
 - ✅ **Market depth** and order book data
 - ✅ **Extended hours** trading data
 - ✅ **Corporate actions** and dividends
 
 ### API Features
+
 - ✅ **RESTful API** with JSON responses
 - ✅ **Rate limiting** handled gracefully
 - ✅ **Authentication** with session tokens
@@ -63,7 +66,7 @@ python3 ig_markets_fetcher.py
 ## Current Data Source Priority
 
 1. **IG Markets** (Real-time, demo account) 🥇
-2. **Alpha Vantage** (Real-time, requires API key) 🥈  
+2. **Alpha Vantage** (Real-time, requires API key) 🥈
 3. **yfinance** (20+ min delay, free fallback) 🥉
 
 ## Integration with Paper Trading
@@ -79,6 +82,7 @@ The enhanced paper trading service will now:
 ## Testing Your Setup
 
 ### Quick Test
+
 ```bash
 cd /root/test
 python3 -c "
@@ -91,6 +95,7 @@ print(f'Delay: {result.get(\"delay_minutes\", 0)} minutes')
 ```
 
 ### Expected Output with IG Markets
+
 ```
 Price: $38.65
 Source: ig_markets
@@ -98,6 +103,7 @@ Delay: 0 minutes
 ```
 
 ### Expected Output without IG Markets (fallback)
+
 ```
 Price: $38.65
 Source: yfinance
@@ -107,12 +113,14 @@ Delay: 20.3 minutes
 ## Paper Trading Performance
 
 ### Before IG Markets Integration
+
 - Data source: yfinance only
 - Delay: 20+ minutes during trading hours
 - Accuracy: Lower (delayed prices)
 - Market data: Close prices only
 
 ### After IG Markets Integration
+
 - Data source: IG Markets real-time
 - Delay: 0 minutes during trading hours
 - Accuracy: Higher (bid/ask spreads)
@@ -123,11 +131,13 @@ Delay: 20.3 minutes
 ### Common Issues
 
 1. **Authentication Failed**
+
    - Check username/password for demo account
    - Verify API key is correct
    - Ensure demo account is active
 
 2. **Symbol Not Found**
+
    - IG uses different EPICs than ASX codes
    - System will auto-search for matching markets
    - Check IG platform for exact symbol names
@@ -146,7 +156,7 @@ Delay: 20.3 minutes
 ## Next Steps
 
 1. ✅ Set up IG Markets credentials
-2. ✅ Test real-time price fetching  
+2. ✅ Test real-time price fetching
 3. ✅ Run enhanced paper trading service
 4. ✅ Monitor $20 profit targets with real-time data
 5. ✅ Compare performance vs delayed data

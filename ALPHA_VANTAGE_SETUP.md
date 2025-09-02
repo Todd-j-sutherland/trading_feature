@@ -19,6 +19,7 @@
 ### Step 2: Update Environment Variable
 
 Replace the demo key in your .env file:
+
 ```bash
 # On remote server
 cd /root/test
@@ -42,11 +43,13 @@ python3 real_time_price_fetcher.py
 ## Current Performance
 
 ### Data Delays (as of Sept 2, 2025 15:48 AEST)
+
 - **yfinance**: ~20 minutes delay during trading hours
 - **Alpha Vantage** (with real key): Real-time quotes
 - **Prediction system**: Still using timestamp from computation time
 
 ### Paper Trading Improvements
+
 - ✅ Fixed timezone issues (no more 300+ minute hold times)
 - ✅ Updated to $20 profit targets
 - ✅ Real-time price monitoring every 60 seconds
@@ -65,12 +68,14 @@ If Alpha Vantage free tier is too limited, other options include:
 ## Impact on Trading Strategy
 
 ### Before Fixes
+
 - Hold times: 300+ minutes (timezone bugs)
 - Profit target: $5
 - Data freshness: Unknown/inconsistent
 - Price checks: Manual/inconsistent
 
 ### After Fixes
+
 - Hold times: Accurate (timezone-aware)
 - Profit target: $20
 - Data freshness: Monitored with warnings
@@ -87,6 +92,7 @@ If Alpha Vantage free tier is too limited, other options include:
 ## Technical Notes
 
 The real-time price fetcher will:
+
 - Try Alpha Vantage first (real-time if available)
 - Fall back to yfinance with delay warnings
 - Log data source and freshness for each price fetch

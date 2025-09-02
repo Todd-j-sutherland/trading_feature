@@ -5,6 +5,7 @@
 The paper-trading-app was not picking up predictions from the database due to a **missing directory structure** and **empty database file**.
 
 ### Root Cause
+
 - **Expected Path**: `../data/trading_predictions.db` (correct path for remote structure)
 - **Missing Structure**: `data/` directory didn't exist locally
 - **Wrong Data Location**: Predictions were in `predictions.db` instead of `data/trading_predictions.db`
@@ -13,17 +14,21 @@ The paper-trading-app was not picking up predictions from the database due to a 
 ## 🛠️ Applied Fixes
 
 ### 1. Created Proper Directory Structure
+
 ```bash
 mkdir -p data
 ```
 
 ### 2. Copied Predictions Data to Correct Location
+
 ```bash
 cp predictions.db data/trading_predictions.db
 ```
 
 ### 3. Verified Configuration
+
 The paper trading service is correctly configured to look for:
+
 ```python
 PREDICTIONS_DB_PATH = '../data/trading_predictions.db'
 ```
@@ -31,27 +36,30 @@ PREDICTIONS_DB_PATH = '../data/trading_predictions.db'
 This matches the expected remote structure (`/root/test/data/trading_predictions.db`)
 
 ### 3. Created Testing Tools
+
 - **Database connectivity test**: `test_db_connectivity.py`
 - **Investigation script**: `investigate_databases.py`
 - **Diagnosis document**: `PAPER_TRADING_DATABASE_DIAGNOSIS.md`
 
 ## 📊 Environment Compatibility
 
-| Environment | Structure | Database Path | Status |
-|-------------|-----------|---------------|---------|
-| **Remote** | `/root/test/` | `../data/trading_predictions.db` | ✅ Supported |
-| **Local Windows** | `trading_feature/` | `../predictions.db` | ✅ Fixed |
-| **Local WSL** | `~/trading_feature/` | `../predictions.db` | ✅ Should work |
+| Environment       | Structure            | Database Path                    | Status         |
+| ----------------- | -------------------- | -------------------------------- | -------------- |
+| **Remote**        | `/root/test/`        | `../data/trading_predictions.db` | ✅ Supported   |
+| **Local Windows** | `trading_feature/`   | `../predictions.db`              | ✅ Fixed       |
+| **Local WSL**     | `~/trading_feature/` | `../predictions.db`              | ✅ Should work |
 
 ## 🧪 Testing & Validation
 
 ### Run Database Connectivity Test
+
 ```bash
 cd paper-trading-app
 python test_db_connectivity.py
 ```
 
 ### Expected Output
+
 ```
 ✅ Database Path Detection: ../predictions.db
 ✅ Database Connectivity: Successfully connected
@@ -60,6 +68,7 @@ python test_db_connectivity.py
 ```
 
 ### Test Enhanced Service
+
 ```bash
 cd paper-trading-app
 python enhanced_paper_trading_service.py --test
@@ -77,6 +86,7 @@ python enhanced_paper_trading_service.py --test
 ## 🚨 Remaining Considerations
 
 ### Python Environment Issue
+
 The local Windows environment doesn't have Python installed, which prevents running the paper trading service locally. Options:
 
 1. **Install Python**: Download from python.org
@@ -84,6 +94,7 @@ The local Windows environment doesn't have Python installed, which prevents runn
 3. **Remote Testing**: Test on the remote environment where Python is available
 
 ### Database Content Validation
+
 Ensure the `predictions.db` contains recent, valid predictions:
 
 ```python
