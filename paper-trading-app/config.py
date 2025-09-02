@@ -26,7 +26,11 @@ TRADING_CONFIG = {
     'commission_rate': DEFAULT_COMMISSION_RATE,
     'min_commission': 0.0,  # $0 minimum (configurable)
     'max_commission': 100.0,  # $100 maximum (configurable)
-    'slippage_rate': DEFAULT_SLIPPAGE_RATE
+    'slippage_rate': DEFAULT_SLIPPAGE_RATE,
+    # IG Markets integration settings
+    'use_ig_markets': True,
+    'ig_markets_priority': True,
+    'price_source_timeout_seconds': 10
 }
 
 RISK_CONFIG = {
@@ -68,9 +72,27 @@ DASHBOARD_TITLE = "Paper Trading Dashboard"
 REFRESH_INTERVAL = 30               # Seconds between price updates
 DEFAULT_CHART_PERIOD = "1mo"       # Default chart period
 
+# Data Sources Configuration
+PRICE_DATA_SOURCE = "enhanced_ig_markets"  # Use IG Markets integration
+BACKUP_DATA_SOURCE = "yfinance"           # Fallback to yfinance
+ENABLE_IG_MARKETS = True                   # Enable IG Markets integration
+
+# IG Markets Integration Settings
+IG_MARKETS_CONFIG = {
+    'enabled': True,
+    'fallback_to_yfinance': True,
+    'cache_duration_minutes': 5,
+    'health_check_interval_seconds': 600,
+    'log_usage_stats': True,
+    'preferred_symbols': [
+        'CBA.AX', 'WBC.AX', 'ANZ.AX', 'NAB.AX', 
+        'BHP.AX', 'RIO.AX', 'CSL.AX', 'TLS.AX'
+    ]
+}
+
 # Data Sources
-PRICE_DATA_SOURCE = "yfinance"
-BACKUP_DATA_SOURCE = "alpha_vantage"  # If yfinance fails
+PRICE_DATA_SOURCE = "enhanced_ig_markets"  # Primary: IG Markets integration
+BACKUP_DATA_SOURCE = "yfinance"           # Fallback: yfinance
 
 # Logging Configuration
 LOG_LEVEL = "INFO"
