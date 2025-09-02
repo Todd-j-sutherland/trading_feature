@@ -206,6 +206,9 @@ class EnhancedPaperTradingService:
             raise FileNotFoundError(f"Paper trading database not found: {self.paper_trading_db_path}")
             
         self._initialize_database()
+        self._load_active_positions()
+        # Initialize last processed timestamp to 1 hour ago
+        self.last_processed_timestamp = (datetime.now() - timedelta(hours=1)).isoformat()
     
     def _execute_db_operation(self, operation_name: str, operation_func, *args, **kwargs):
         """Execute database operation with retry logic and proper error handling"""
@@ -370,7 +373,7 @@ class EnhancedPaperTradingService:
                 symbol = row[0]
                 self.active_positions[symbol] = {
                     'prediction_id': row[1],
-                    'entry_time': datetime.fromisoformat(row[2]),
+                    'entry_time': datetime.fromisoformat(row[2]).replace(tzinfo=pytz.UTC),
                     'entry_price': row[3],
                     'shares': row[4],
                     'investment': row[5],
@@ -588,7 +591,7 @@ class EnhancedPaperTradingService:
     
     def check_position_exits(self):
         """Check all active positions for exit conditions"""
-        current_time = datetime.now()
+        current_time = datetime.now(pytz.UTC)
         
         # Only make exit decisions during trading hours
         if not is_asx_trading_hours(current_time):
@@ -648,7 +651,7 @@ class EnhancedPaperTradingService:
                 return
             
             position = self.active_positions[symbol]
-            current_time = datetime.now()
+            current_time = datetime.now(pytz.UTC)
             
             # Calculate final trade details
             proceeds = (position['shares'] * exit_price) - exit_commission
@@ -777,7 +780,7 @@ class EnhancedPaperTradingService:
             try:
                 current_time = time.time()
                 current_datetime = datetime.now()
-                is_market_open = is_asx_trading_hours(current_datetime)
+                is_market_open = is_asx_trading_hours(datetime.now(pytz.UTC))
                 
                 # Check for configuration updates every 5 minutes
                 if current_time - last_config_check >= 300:
@@ -800,7 +803,7 @@ class EnhancedPaperTradingService:
                             logger.info(f"💤 Market closed - {len(self.active_positions)} positions waiting for market open")
                 
                 # Check for new predictions every 5 minutes (during position opening hours only)
-                if is_position_opening_hours(datetime.now()) and current_time - last_prediction_check >= self.config['prediction_check_interval_seconds']:
+                if is_position_opening_hours(datetime.now(pytz.UTC)) and current_time - last_prediction_check >= self.config['prediction_check_interval_seconds']:
                     new_predictions = self.check_for_new_predictions()
                     
                     if new_predictions:
@@ -814,7 +817,7 @@ class EnhancedPaperTradingService:
                         logger.info("😴 No new BUY predictions")
                     
                     last_prediction_check = current_time
-                elif not is_position_opening_hours(datetime.now()) and is_asx_trading_hours(datetime.now()):
+                elif not is_position_opening_hours(datetime.now(pytz.UTC)) and is_asx_trading_hours(datetime.now(pytz.UTC)):
                     # After 3:15 PM but before 4:00 PM - only log occasionally
                     if current_time % 600 == 0:  # Every 10 minutes
                         logger.info("🕐 Position opening hours ended (3:15 PM) - only closing existing positions")
