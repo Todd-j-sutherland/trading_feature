@@ -25,6 +25,14 @@ import pytz
 # Add current directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Import enhanced IG Markets integration
+try:
+    from enhanced_ig_markets_integration import get_enhanced_price_source
+    ENHANCED_PRICING_AVAILABLE = True
+except ImportError:
+    ENHANCED_PRICING_AVAILABLE = False
+    logging.warning("Enhanced IG Markets pricing not available, using yfinance only")
+
 # Global lock file handle
 lock_file = None
 
@@ -184,7 +192,8 @@ class EnhancedPaperTradingService:
         
         # Trading configuration (matches backtesting strategy)
         self.config = {
-            'profit_target': 20.0,  # Target profit per trade
+            'profit_target': 32.0,  # Target profit per trade
+            'stop_loss': 15.0,  # Stop loss per trade
             'max_hold_time_minutes': 1440,  # 24 hours max hold
             'position_size': 10000,  # $10k per position
             'commission_rate': 0.0,  # 0% commission (default - adjustable via dashboard)
@@ -481,8 +490,15 @@ class EnhancedPaperTradingService:
             logger.error(f"❌ Error marking prediction as processed: {e}")
     
     def get_current_price(self, symbol: str) -> Optional[float]:
-        """Get current price using yfinance"""
+        """Get current price using enhanced IG Markets integration with yfinance fallback"""
         try:
+            if ENHANCED_PRICING_AVAILABLE:
+                enhanced_source = get_enhanced_price_source()
+                price = enhanced_source.get_current_price(symbol)
+                if price is not None:
+                    return price
+            
+            # Fallback to original yfinance method
             import yfinance as yf
             ticker = yf.Ticker(symbol)
             data = ticker.history(period='1d')
@@ -626,6 +642,11 @@ class EnhancedPaperTradingService:
             if current_profit >= position['target_profit']:
                 should_exit = True
                 exit_reason = f"Profit target reached (${current_profit:.2f} >= ${position['target_profit']:.2f})"
+            
+            # Stop loss reached
+            elif current_profit <= -self.config['stop_loss']:
+                should_exit = True
+                exit_reason = f"Stop loss triggered (${current_profit:.2f} <= -${self.config['stop_loss']:.2f})"
             
             # Max hold time exceeded (trading time)
             elif hold_time_minutes >= self.config['max_hold_time_minutes']:
