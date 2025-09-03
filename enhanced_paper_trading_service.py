@@ -43,6 +43,30 @@ def is_asx_trading_hours(dt: datetime) -> bool:
     trading_end = au_time.replace(hour=16, minute=0, second=0, microsecond=0)
     
     return trading_start <= au_time <= trading_end
+def is_position_opening_hours(dt: datetime) -> bool:
+    """
+    Check if new positions can be opened (10:00 AM - 3:15 PM AEST/AEDT)
+    Allows closing positions until 4:00 PM but stops new positions at 3:15 PM
+    """
+    # Convert to Australian timezone
+    au_tz = pytz.timezone("Australia/Sydney")
+
+    # If no timezone info, assume it"s already in Australian timezone
+    if dt.tzinfo is None:
+        au_time = au_tz.localize(dt)
+    else:
+        au_time = dt.astimezone(au_tz)
+
+    # Check if it"s a weekday (Monday = 0, Sunday = 6)
+    if au_time.weekday() >= 5:  # Saturday or Sunday
+        return False
+
+    # Check if it"s during position opening hours (10:00 AM - 3:15 PM)
+    opening_start = au_time.replace(hour=10, minute=0, second=0, microsecond=0)
+    opening_end = au_time.replace(hour=15, minute=15, second=0, microsecond=0)
+
+    return opening_start <= au_time < opening_end
+
 
 def calculate_trading_time_minutes(entry_time: datetime, current_time: datetime) -> float:
     """

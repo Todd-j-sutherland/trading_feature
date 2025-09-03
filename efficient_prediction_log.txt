@@ -96,3 +96,75 @@
 [2025-08-29 01:18:06] ✅ QBE.AX: HOLD (conf: 0.723, RSI: 54.1, Tech: 50.0)
 [2025-08-29 01:18:06] ✅ Enhanced predictions completed: 7/7 symbols
 [2025-08-29 01:18:06] 💾 Technical analysis included - memory optimized
+[2025-09-02 23:34:53] ⏰ Outside market hours (current: 23:xx AEST)
+[2025-09-02 23:34:53] 🕐 Skipping prediction cycle - outside market hours
+[2025-09-03 02:50:55] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-09-03 02:50:55] ✅ CBA.AX: HOLD (conf: 0.653, RSI: 57.5, Tech: 50.0)
+[2025-09-03 02:50:56] ✅ WBC.AX: BUY (conf: 0.663, RSI: 80.8, Tech: 65.0)
+[2025-09-03 02:50:56] ✅ ANZ.AX: BUY (conf: 0.817, RSI: 67.5, Tech: 75.0)
+[2025-09-03 02:50:56] ✅ NAB.AX: BUY (conf: 0.772, RSI: 83.7, Tech: 65.0)
+[2025-09-03 02:50:56] ✅ MQG.AX: BUY (conf: 0.885, RSI: 76.1, Tech: 75.0)
+[2025-09-03 02:50:56] ✅ SUN.AX: BUY (conf: 0.950, RSI: 75.6, Tech: 75.0)
+[2025-09-03 02:50:57] ✅ QBE.AX: BUY (conf: 0.850, RSI: 68.8, Tech: 60.0)
+[2025-09-03 02:50:57] ✅ Enhanced predictions completed: 7/7 symbols
+[2025-09-03 02:50:57] 💾 Technical analysis included - memory optimized
+[2025-09-03 03:00:03] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-09-03 03:00:03] ✅ CBA.AX: HOLD (conf: 0.653, RSI: 57.5, Tech: 50.0)
+[2025-09-03 03:00:04] ✅ WBC.AX: BUY (conf: 0.663, RSI: 80.8, Tech: 65.0)
+[2025-09-03 03:00:04] ✅ ANZ.AX: BUY (conf: 0.817, RSI: 67.5, Tech: 75.0)
+[2025-09-03 03:00:05] ✅ NAB.AX: BUY (conf: 0.772, RSI: 83.7, Tech: 65.0)
+[2025-09-03 03:00:05] ✅ MQG.AX: BUY (conf: 0.885, RSI: 76.1, Tech: 75.0)
+[2025-09-03 03:00:05] ✅ SUN.AX: BUY (conf: 0.950, RSI: 75.6, Tech: 75.0)
+[2025-09-03 03:00:06] ✅ QBE.AX: BUY (conf: 0.850, RSI: 68.8, Tech: 60.0)
+[2025-09-03 03:00:06] ✅ Enhanced predictions completed: 7/7 symbols
+[2025-09-03 03:00:06] 💾 Technical analysis included - memory optimized
+[2025-09-03 03:30:02] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-09-03 03:30:03] ✅ CBA.AX: HOLD (conf: 0.653, RSI: 57.5, Tech: 50.0)
+[2025-09-03 03:30:03] ✅ WBC.AX: BUY (conf: 0.663, RSI: 80.8, Tech: 65.0)
+[2025-09-03 03:30:04] ✅ ANZ.AX: BUY (conf: 0.817, RSI: 67.5, Tech: 75.0)
+[2025-09-03 03:30:04] ✅ NAB.AX: BUY (conf: 0.772, RSI: 83.7, Tech: 65.0)
+[2025-09-03 03:30:04] ✅ MQG.AX: BUY (conf: 0.885, RSI: 76.1, Tech: 75.0)
+[2025-09-03 03:30:04] ✅ SUN.AX: BUY (conf: 0.950, RSI: 75.6, Tech: 75.0)
+[2025-09-03 03:30:05] ✅ QBE.AX: BUY (conf: 0.850, RSI: 68.8, Tech: 60.0)
+[2025-09-03 03:30:05] ✅ Enhanced predictions completed: 7/7 symbols
+[2025-09-03 03:30:05] 💾 Technical analysis included - memory optimized
+[2025-09-03 04:00:03] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-09-03 04:00:04] ✅ CBA.AX: HOLD (conf: 0.653, RSI: 57.5, Tech: 50.0)
+[2025-09-03 04:00:04] ✅ WBC.AX: BUY (conf: 0.663, RSI: 80.8, Tech: 65.0)
+[2025-09-03 04:00:04] ✅ ANZ.AX: BUY (conf: 0.817, RSI: 67.5, Tech: 75.0)
+[2025-09-03 04:00:05] ✅ NAB.AX: BUY (conf: 0.772, RSI: 83.7, Tech: 65.0)
+[2025-09-03 04:00:05] ✅ MQG.AX: BUY (conf: 0.885, RSI: 76.1, Tech: 75.0)
+[2025-09-03 04:00:05] ✅ SUN.AX: BUY (conf: 0.950, RSI: 75.6, Tech: 75.0)
+[2025-09-03 04:00:11] Error saving QBE.AX: database is locked
+[2025-09-03 04:00:11] ✅ Enhanced predictions completed: 7/7 symbols
+[2025-09-03 04:00:11] 💾 Technical analysis included - memory optimized
+[2025-09-03 04:30:02] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-09-03 04:30:03] ✅ CBA.AX: HOLD (conf: 0.653, RSI: 57.5, Tech: 50.0)
+[2025-09-03 04:30:03] ✅ WBC.AX: BUY (conf: 0.663, RSI: 80.8, Tech: 65.0)
+[2025-09-03 04:30:03] ✅ ANZ.AX: BUY (conf: 0.817, RSI: 67.5, Tech: 75.0)
+[2025-09-03 04:30:04] ✅ NAB.AX: BUY (conf: 0.772, RSI: 83.7, Tech: 65.0)
+[2025-09-03 04:30:04] ✅ MQG.AX: BUY (conf: 0.885, RSI: 76.1, Tech: 75.0)
+[2025-09-03 04:30:04] ✅ SUN.AX: BUY (conf: 0.950, RSI: 75.6, Tech: 75.0)
+[2025-09-03 04:30:04] ✅ QBE.AX: BUY (conf: 0.850, RSI: 68.8, Tech: 60.0)
+[2025-09-03 04:30:04] ✅ Enhanced predictions completed: 7/7 symbols
+[2025-09-03 04:30:04] 💾 Technical analysis included - memory optimized
+[2025-09-03 05:00:04] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-09-03 05:00:05] ✅ CBA.AX: HOLD (conf: 0.653, RSI: 57.5, Tech: 50.0)
+[2025-09-03 05:00:05] ✅ WBC.AX: BUY (conf: 0.663, RSI: 80.8, Tech: 65.0)
+[2025-09-03 05:00:11] Error saving ANZ.AX: database is locked
+[2025-09-03 05:00:16] Error saving NAB.AX: database is locked
+[2025-09-03 05:00:21] Error saving MQG.AX: database is locked
+[2025-09-03 05:00:26] Error saving SUN.AX: database is locked
+[2025-09-03 05:00:32] Error saving QBE.AX: database is locked
+[2025-09-03 05:00:32] ✅ Enhanced predictions completed: 7/7 symbols
+[2025-09-03 05:00:32] 💾 Technical analysis included - memory optimized
+[2025-09-03 05:30:02] 🚀 Starting enhanced prediction cycle with technical analysis
+[2025-09-03 05:30:03] ✅ CBA.AX: HOLD (conf: 0.653, RSI: 57.5, Tech: 50.0)
+[2025-09-03 05:30:03] ✅ WBC.AX: BUY (conf: 0.663, RSI: 80.8, Tech: 65.0)
+[2025-09-03 05:30:03] ✅ ANZ.AX: BUY (conf: 0.817, RSI: 67.5, Tech: 75.0)
+[2025-09-03 05:30:03] ✅ NAB.AX: BUY (conf: 0.772, RSI: 83.7, Tech: 65.0)
+[2025-09-03 05:30:04] ✅ MQG.AX: BUY (conf: 0.885, RSI: 76.1, Tech: 75.0)
+[2025-09-03 05:30:04] ✅ SUN.AX: BUY (conf: 0.950, RSI: 75.6, Tech: 75.0)
+[2025-09-03 05:30:04] ✅ QBE.AX: BUY (conf: 0.850, RSI: 68.8, Tech: 60.0)
+[2025-09-03 05:30:04] ✅ Enhanced predictions completed: 7/7 symbols
+[2025-09-03 05:30:04] 💾 Technical analysis included - memory optimized
