@@ -1,6 +1,0 @@
-Host trading-server
-    HostName 170.64.199.151
-    User root
-    IdentityFile ~/.ssh/id_ed25519
-    IdentitiesOnly yes
-    StrictHostKeyChecking no
