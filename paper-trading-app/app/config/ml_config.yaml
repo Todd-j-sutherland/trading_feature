@@ -1,0 +1,74 @@
+# ML Model Configuration
+model_settings:
+  # Minimum samples required for training
+  min_training_samples: 500
+  
+  # Model types to train
+  models:
+    - random_forest
+    - xgboost
+    - gradient_boosting
+    - neural_network
+    - logistic_regression
+  
+  # Feature engineering settings
+  features:
+    # Base features from sentiment analysis
+    base_features:
+      - sentiment_score
+      - confidence
+      - news_count
+      - reddit_sentiment
+      - event_score
+    
+    # Engineered features
+    engineered_features:
+      - sentiment_confidence_interaction
+      - news_volume_category
+      - hour
+      - day_of_week
+      - is_market_hours
+    
+    # Technical features (if available)
+    technical_features:
+      - rsi
+      - macd_signal
+      - momentum_score
+      - volume_ratio
+  
+  # Training settings
+  training:
+    test_size: 0.2
+    cv_splits: 5  # Time series splits
+    random_state: 42
+    
+    # Class weight strategies
+    class_weight: balanced
+    
+    # Optimization metric
+    optimization_metric: precision  # Focus on avoiding false positives
+    
+  # Prediction thresholds
+  thresholds:
+    default: 0.5
+    conservative: 0.65
+    aggressive: 0.35
+    
+  # Online learning settings
+  online_learning:
+    enabled: true
+    min_batch_size: 10
+    update_frequency: daily
+    
+# Model performance thresholds
+performance_thresholds:
+  min_precision: 0.6
+  min_recall: 0.4
+  min_f1_score: 0.5
+  min_auc_roc: 0.65
+  
+# Data quality requirements
+data_quality:
+  min_samples_per_class: 50
+  max_class_imbalance_ratio: 3.0
+  feature_missing_threshold: 0.1  # Max 10% missing values

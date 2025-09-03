@@ -1,0 +1,10 @@
+# Market-Aware Paper Trading Cron Jobs
+
+# Morning routine (7:00 AM weekdays) - Generate signals
+0 7 * * 1-5 cd /root/test && ./start_market_aware.sh morning >> /root/test/logs/market_aware_morning.log 2>&1
+
+# Continuous monitoring during market hours (every 30 minutes, 10 AM - 4 PM weekdays)  
+*/30 10-16 * * 1-5 cd /root/test && ./start_market_aware.sh test >> /root/test/logs/market_aware_signals.log 2>&1
+
+# Status check (6:00 PM weekdays)
+0 18 * * 1-5 cd /root/test && ./start_market_aware.sh status >> /root/test/logs/market_aware_status.log 2>&1
