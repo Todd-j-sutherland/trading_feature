@@ -928,16 +928,16 @@ class EnhancedMLTrainingPipeline:
             X = np.array(feature_vector).reshape(1, -1)
             
             # Make predictions
-            direction_pred = direction_model.predict(X)[0]
+            direction_pred = direction_model.predict(X)
+            magnitude_pred = magnitude_model.predict(X)
             direction_proba = direction_model.predict_proba(X)
-            magnitude_pred = magnitude_model.predict(X)[0]
-            
+            # magnitude_proba = magnitude_model.predict_proba(X)  # Regressors dont have predict_proba
             # Calculate confidence scores
             direction_confidence = [np.max(proba) for proba in direction_proba]
             avg_confidence = np.mean(direction_confidence)
             
             # Determine optimal action
-            action = self._determine_optimal_action(direction_pred, magnitude_pred, avg_confidence)
+            action = self._determine_optimal_action(direction_pred[0], magnitude_pred[0], avg_confidence)
             
             # Safe conversion with NaN handling
             def safe_int_convert(value):
@@ -948,14 +948,14 @@ class EnhancedMLTrainingPipeline:
             
             return {
                 'direction_predictions': {
-                    '1h': safe_int_convert(direction_pred[0]),
-                    '4h': safe_int_convert(direction_pred[1]),
-                    '1d': safe_int_convert(direction_pred[2])
+                    '1h': safe_int_convert(direction_pred[0][0]),
+                    '4h': safe_int_convert(direction_pred[0][1]),
+                    '1d': safe_int_convert(direction_pred[0][2])
                 },
                 'magnitude_predictions': {
-                    '1h': safe_float_convert(magnitude_pred[0]),
-                    '4h': safe_float_convert(magnitude_pred[1]),
-                    '1d': safe_float_convert(magnitude_pred[2])
+                    '1h': safe_float_convert(magnitude_pred[0][0]),
+                    '4h': safe_float_convert(magnitude_pred[0][1]),
+                    '1d': safe_float_convert(magnitude_pred[0][2])
                 },
                 'confidence_scores': {
                     '1h': safe_float_convert(direction_confidence[0]),

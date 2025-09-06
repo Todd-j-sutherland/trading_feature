@@ -9,16 +9,16 @@ import sys
 import logging
 
 # Set up logging first
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('enhanced_paper_trading_with_ig.log'),
-        logging.StreamHandler()
-    ]
-)
-
 logger = logging.getLogger(__name__)
+if not logger.hasHandlers():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('enhanced_paper_trading_with_ig.log'),
+            logging.StreamHandler()
+        ]
+    )
 
 # Import IG Markets integration
 try:
@@ -73,7 +73,7 @@ class EnhancedPaperTradingServiceWithIG(EnhancedPaperTradingService):
             })
         
         logger.info(f"📊 Data Source Configuration: {self.config.get('data_source_preference')}")
-    
+
     def get_current_price(self, symbol: str):
         """
         Enhanced get_current_price with IG Markets integration
@@ -147,10 +147,10 @@ class EnhancedPaperTradingServiceWithIG(EnhancedPaperTradingService):
                     cache_percentage = (stats.get('cache_hits', 0) / total) * 100
                     logger.info(f"   IG Markets usage: {ig_percentage:.1f}%")
                     logger.info(f"   Cache efficiency: {cache_percentage:.1f}%")
-                
+            
             except Exception as e:
                 logger.error(f"Error logging data source statistics: {e}")
-    
+
     def run(self):
         """
         Enhanced run method with IG Markets monitoring
@@ -264,7 +264,7 @@ class EnhancedPaperTradingServiceWithIG(EnhancedPaperTradingService):
                     
                     # Wait for next check
                     time.sleep(self.config['check_interval_seconds'])
-                    
+                
                 except KeyboardInterrupt:
                     logger.info("🛑 Service stopped by user")
                     self.running = False

@@ -35,6 +35,9 @@ class PricePrediction:
         self.model_used = model_used
         self.supporting_features = supporting_features or {}
         
+        # Extract prediction_details if present in supporting_features
+        self.prediction_details = self.supporting_features.get("prediction_details", {})
+        
         # Calculate derived metrics
         self.price_change = predicted_price - current_price
         self.price_change_pct = (self.price_change / current_price) * 100 if current_price > 0 else 0

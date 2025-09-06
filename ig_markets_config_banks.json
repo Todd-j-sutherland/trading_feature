@@ -1,0 +1,132 @@
+{
+  "base_url": "https://demo-api.ig.com/gateway/deal",
+  "api_key": "ac68e6f053799a4a36c75936c088fc4d6cfcfa6e",
+  "username": "sutho100", 
+  "password": "Helloworld987543$",
+  "account_id": "Z3GAGH",
+  "demo_mode": true,
+  "max_api_calls_per_hour": 600,
+  "timeout": 30,
+  "max_retries": 3,
+  "api": {
+    "demo_url": "https://demo-api.ig.com/gateway/deal",
+    "live_url": "https://api.ig.com/gateway/deal",
+    "version": "2",
+    "user_agent": "IG Markets Paper Trading System v1.0",
+    "timeout": 30,
+    "max_retries": 3
+  },
+  "symbol_mappings": {
+    "CBA.AX": {
+      "ig_epic": "AU.CBA.CHESS.IP",
+      "fallback_epic": "AU.CBA.CHESS.IP",
+      "name": "Commonwealth Bank",
+      "sector": "Banking",
+      "currency": "AUD",
+      "enabled": true,
+      "min_deal_size": 1,
+      "max_deal_size": 10000
+    },
+    "WBC.AX": {
+      "ig_epic": "AU.WBC.CHESS.IP",
+      "fallback_epic": "AU.WBC.CHESS.IP",
+      "name": "Westpac Banking Corp",
+      "sector": "Banking", 
+      "currency": "AUD",
+      "enabled": true,
+      "min_deal_size": 1,
+      "max_deal_size": 10000
+    },
+    "ANZ.AX": {
+      "ig_epic": "AU.ANZ.CHESS.IP",
+      "fallback_epic": "AU.ANZ.CHESS.IP",
+      "name": "Australia & New Zealand Banking Group",
+      "sector": "Banking",
+      "currency": "AUD", 
+      "enabled": true,
+      "min_deal_size": 1,
+      "max_deal_size": 10000
+    },
+    "NAB.AX": {
+      "ig_epic": "AU.NAB.CHESS.IP",
+      "fallback_epic": "AU.NAB.CHESS.IP",
+      "name": "National Australia Bank",
+      "sector": "Banking",
+      "currency": "AUD",
+      "enabled": true,
+      "min_deal_size": 1,
+      "max_deal_size": 10000
+    },
+    "MQG.AX": {
+      "ig_epic": "AU.MQG.CHESS.IP",
+      "fallback_epic": "AU.MQG.CHESS.IP", 
+      "name": "Macquarie Group",
+      "sector": "Banking",
+      "currency": "AUD",
+      "enabled": true,
+      "min_deal_size": 1,
+      "max_deal_size": 10000
+    },
+    "BEN.AX": {
+      "ig_epic": "AU.BEN.CHESS.IP",
+      "fallback_epic": "AU.BEN.CHESS.IP",
+      "name": "Bendigo Bank",
+      "sector": "Banking",
+      "currency": "AUD",
+      "enabled": true,
+      "min_deal_size": 1,
+      "max_deal_size": 10000
+    },
+    "BOQ.AX": {
+      "ig_epic": "AU.BOQ.CHESS.IP",
+      "fallback_epic": "AU.BOQ.CHESS.IP",
+      "name": "Bank of Queensland",
+      "sector": "Banking", 
+      "currency": "AUD",
+      "enabled": true,
+      "min_deal_size": 1,
+      "max_deal_size": 10000
+    },
+    "SUN.AX": {
+      "ig_epic": "AU.SUN.CHESS.IP",
+      "fallback_epic": "AU.SUN.CHESS.IP",
+      "name": "Suncorp Group",
+      "sector": "Financial Services",
+      "currency": "AUD",
+      "enabled": true,
+      "min_deal_size": 1,
+      "max_deal_size": 10000
+    }
+  },
+  "trading_windows": {
+    "australian_market": {
+      "open_time": "10:00",
+      "close_time": "16:00",
+      "timezone": "Australia/Sydney",
+      "trading_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    },
+    "extended_hours": {
+      "pre_market_start": "07:00",
+      "post_market_end": "19:00",
+      "enabled": false
+    }
+  },
+  "market_data": {
+    "price_update_frequency": 1,
+    "historical_data_days": 30,
+    "cache_duration_minutes": 5,
+    "fallback_data_source": "yfinance"
+  },
+  "position_sizing": {
+    "default_risk_per_trade": 0.02,
+    "max_position_value": 10000.0,
+    "min_position_value": 100.0,
+    "confidence_scaling": true
+  },
+  "emergency_settings": {
+    "circuit_breaker_enabled": true,
+    "max_daily_loss": 5000.0,
+    "emergency_exit_all": false,
+    "pause_trading_on_errors": true
+  }
+}

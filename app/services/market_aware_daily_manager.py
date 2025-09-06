@@ -73,7 +73,7 @@ class MarketAwareTradingManager(TradingSystemManager):
         """Generate trading signals using market-aware prediction system"""
         
         # Sample stock data (in a real system, this would come from data collectors)
-        sample_symbols = ['CBA.AX', 'WBC.AX', 'ANZ.AX', 'NAB.AX', 'BHP.AX', 'RIO.AX', 'CSL.AX', 'TLS.AX']
+        sample_symbols = ["CBA.AX", "WBC.AX", "ANZ.AX", "NAB.AX", "MQG.AX", "SUN.AX", "QBE.AX"]
         portfolio_data = {}
         
         try:

@@ -9,17 +9,17 @@ import sys
 import logging
 from pathlib import Path
 
-# Set up logging first
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('paper_trading_ig_startup.log'),
-        logging.StreamHandler()
-    ]
-)
-
+# Set up logging first - only if not already configured
 logger = logging.getLogger(__name__)
+if not logger.hasHandlers():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('paper_trading_ig_startup.log'),
+            logging.StreamHandler()
+        ]
+    )
 
 def initialize_paper_trading_with_ig():
     """

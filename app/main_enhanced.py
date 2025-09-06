@@ -19,6 +19,15 @@ from app.config.logging import setup_logging
 from app.services.market_aware_daily_manager import MarketAwareTradingManager, create_market_aware_manager
 from app.core.ml.prediction import create_market_aware_predictor
 
+# Plugin integration - minimal additions
+from app.core.main_app_integration import (
+    initialize_app_plugins, 
+    enhance_morning_routine, 
+    enhance_evening_routine,
+    enhance_status_check, 
+    print_plugin_summary
+)
+
 def setup_enhanced_cli():
     """Setup enhanced command line interface"""
     parser = argparse.ArgumentParser(
@@ -218,6 +227,10 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info(f"Starting Enhanced Trading System - Command: {args.command}")
     
+    # Initialize plugins (IG Markets credentials + Exit Strategy)
+    plugin_results = initialize_app_plugins()
+    logger.info(f"🔌 Plugins initialized: {sum(plugin_results.values()) if isinstance(plugin_results, dict) else 0} active")
+    
     try:
         success = True
         
@@ -225,12 +238,23 @@ def main():
             # Enhanced morning routine with market context
             print("🚀 Starting Market-Aware Morning Routine...")
             manager = create_market_aware_manager(config_path=args.config, dry_run=args.dry_run)
-            manager.enhanced_morning_routine()
+            routine_data = manager.enhanced_morning_routine()
+            
+            # Add plugin enhancements (IG Markets + Exit Strategy)
+            routine_data = enhance_morning_routine(routine_data)
             
         elif args.command == 'market-status':
             # Market context status check
             manager = create_market_aware_manager(config_path=args.config, dry_run=args.dry_run)
-            manager.quick_market_status()
+            status_data = manager.quick_market_status()
+            
+            # Add plugin status information (handle None return)
+            if status_data is None:
+                status_data = {}
+            status_data = enhance_status_check(status_data)
+            
+            # Show comprehensive plugin status
+            print_plugin_summary()
             
         elif args.command == 'market-signals':
             # Generate market-aware signals
@@ -249,11 +273,17 @@ def main():
             manager = create_market_aware_manager(config_path=args.config, dry_run=args.dry_run)
             
             if args.command == 'morning':
-                manager.morning_routine()
+                routine_data = manager.morning_routine()
+                # Add plugin enhancements for standard morning routine
+                routine_data = enhance_morning_routine(routine_data)
             elif args.command == 'evening':
-                manager.evening_routine()
+                routine_data = manager.evening_routine()
+                # Add plugin enhancements for standard evening routine  
+                routine_data = enhance_evening_routine(routine_data)
             elif args.command == 'status':
-                manager.quick_status()
+                status_data = manager.quick_status()
+                # Add plugin status information
+                status_data = enhance_status_check(status_data)
                 
         else:
             print(f"❌ Unknown command: {args.command}")

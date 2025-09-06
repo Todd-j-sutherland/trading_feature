@@ -1,0 +1,39 @@
+{
+  "api_key": "ac68e6f053799a4a36c75936c088fc4d6cfcfa6e",
+  "username": "sutho100",
+  "password": "Helloworld987543$",
+  "account_id": "",
+  "base_url": "https://demo-api.ig.com",
+  "default_position_size": 100,
+  "risk_percentage": 2.0,
+  "max_positions": 10,
+  "symbol_mapping": {
+    "CBA.AX": "AU.CBA.CHESS.IP",
+    "ANZ.AX": "AU.ANZ.CHESS.IP", 
+    "WBC.AX": "AU.WBC.CHESS.IP",
+    "NAB.AX": "AU.NAB.CHESS.IP",
+    "MQG.AX": "AU.MQG.CHESS.IP",
+    "BHP.AX": "AU.BHP.CHESS.IP",
+    "CSL.AX": "AU.CSL.CHESS.IP",
+    "QBE.AX": "AU.QBE.CHESS.IP",
+    "SUN.AX": "AU.SUN.CHESS.IP",
+    "WOW.AX": "AU.WOW.CHESS.IP",
+    "TCL.AX": "AU.TCL.CHESS.IP",
+    "JHX.AX": "AU.JHX.CHESS.IP",
+    "TLS.AX": "AU.TLS.CHESS.IP",
+    "WES.AX": "AU.WES.CHESS.IP",
+    "RIO.AX": "AU.RIO.CHESS.IP"
+  },
+  "trading_hours": {
+    "market_open_utc": "00:30",
+    "market_close_utc": "05:30",
+    "trading_days": [1, 2, 3, 4, 5]
+  },
+  "exit_strategy": {
+    "profit_target_percentage": 2.8,
+    "stop_loss_percentage": 2.0,
+    "max_hold_hours": 18,
+    "confidence_threshold": 0.65,
+    "time_decay_factor": 0.1
+  }
+}

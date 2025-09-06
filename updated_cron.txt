@@ -1,0 +1,2 @@
+# FIXED Price Mapping Cron System  
+*/30 0-5 * * 1-5 cd /root/test && python3 fixed_price_mapping_system.py >> prediction_fixed_log.txt 2>&1

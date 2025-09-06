@@ -1115,9 +1115,9 @@ class NewsSentimentAnalyzer:
                 result['ml_feature_id'] = feature_id
             
             # Add ML prediction if model is available
-            if self.ml_model:
-                ml_prediction = self._get_ml_prediction(result)
-                result['ml_prediction'] = ml_prediction
+#            if self.ml_model:
+#                ml_prediction = self._get_ml_prediction(result)
+#                result['ml_prediction'] = ml_prediction
             
             # Apply Enhanced Sentiment Analysis if available
             if self.enhanced_integration:

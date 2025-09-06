@@ -316,8 +316,15 @@ class MarketAwarePredictor:
             
             for article in news[:5]:  # Limit to recent 5 articles
                 try:
-                    title = article.get('title', '')
-                    summary = article.get('summary', '')
+                    # Extract from nested content structure (yfinance API change)
+                    content = article.get('content', {})
+                    title = content.get('title', '') if isinstance(content, dict) else ''
+                    summary = content.get('summary', '') if isinstance(content, dict) else ''
+                    
+                    # Fallback for old API structure
+                    if not title and not summary:
+                        title = article.get('title', '')
+                        summary = article.get('summary', '')
                     
                     # Combine title and summary
                     text = f"{title} {summary}"

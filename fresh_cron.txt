@@ -1,0 +1,10 @@
+# Market-aware predictions every 30 minutes during market hours (WORKING SYSTEM)
+*/30 0-5 * * * cd /root/test && python3 enhanced_efficient_system_market_aware.py --cron-mode >> /var/log/predictions.log 2>&1
+# Outcome evaluation hourly  
+0 * * * * cd /root/test && python3 evaluate_predictions.py
+# Evening ML training daily at 8 UTC
+0 8 * * * cd /root/test && python3 enhanced_evening_analyzer_with_ml.py
+# Sync market-aware predictions to main table every 10 minutes during market hours
+*/10 6-17 * * 1-5 cd /root/test && /root/trading_venv/bin/python sync_predictions_tables.py >> /var/log/sync_predictions.log 2>&1
+# IG Markets demo trading execution every 15 minutes during market hours
+*/15 0-5 * * * cd /root/test && /root/trading_venv/bin/python ig_live_trading_executor.py >> /var/log/ig_live_trading.log 2>&1

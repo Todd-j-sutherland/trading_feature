@@ -23,6 +23,13 @@ import json
 import pytz
 
 # Add current directory to path for imports
+# IG Markets Integration
+try:
+    from enhanced_ig_markets_integration import initialize_ig_markets_integration
+    IG_MARKETS_AVAILABLE = True
+except ImportError:
+    IG_MARKETS_AVAILABLE = False
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Global lock file handle
@@ -177,10 +184,23 @@ class EnhancedPaperTradingService:
     
     def __init__(self):
         """Initialize the service"""
+        logger = logging.getLogger(__name__)
+
         self.predictions_db_path = PREDICTIONS_DB_PATH
         self.paper_trading_db_path = PAPER_TRADING_DB_PATH
         self.last_processed_timestamp = None
         self.running = True
+        
+        # Initialize IG Markets integration
+        if IG_MARKETS_AVAILABLE:
+            try:
+                ig_success = initialize_ig_markets_integration()
+                logger.info(f"📊 IG Markets integration: (Healthy if ig_success else Unhealthy)")
+            except Exception as e:
+                logger.warning(f"WARNING: IG Markets initialization failed: {e}")
+        else:
+            logger.info("📊 IG Markets integration: Not Available")
+
         
         # Trading configuration (matches backtesting strategy)
         self.config = {

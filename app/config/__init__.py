@@ -39,7 +39,7 @@ IG_MARKETS_CONFIG = {
     'log_usage_stats': True,
     'preferred_symbols': [
         'CBA.AX', 'WBC.AX', 'ANZ.AX', 'NAB.AX',
-        'BHP.AX', 'RIO.AX', 'CSL.AX', 'TLS.AX'
+        'MQG.AX', 'SUN.AX', 'QBE.AX'  # Only bank symbols
     ]
 }
 
