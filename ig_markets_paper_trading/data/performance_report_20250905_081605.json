@@ -1,0 +1,32 @@
+{
+  "generated_at": "2025-09-05T08:16:05.057050",
+  "report_period_days": 30,
+  "account_summary": {
+    "total_balance": 10000.0,
+    "available_funds": 10000.0,
+    "used_funds": 0.0,
+    "unrealized_pnl": 0.0,
+    "realized_pnl": 0.0
+  },
+  "overall_performance": {
+    "total_trades": 0,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "win_rate": 0,
+    "total_profit_loss": 0,
+    "avg_profit_per_trade": 0,
+    "avg_return_pct": 0,
+    "max_drawdown": 0,
+    "max_gain": 0
+  },
+  "daily_performance": [],
+  "symbol_performance": [],
+  "recent_trades": [],
+  "risk_metrics": {
+    "max_drawdown": 0,
+    "max_gain": 0,
+    "avg_trade_size": 0,
+    "profit_factor": Infinity,
+    "sharpe_ratio": 0.0
+  }
+}

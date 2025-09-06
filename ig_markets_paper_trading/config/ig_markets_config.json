@@ -1,0 +1,28 @@
+{
+  "api_key": "ac68e6f053799a4a36c75936c088fc4d6cfcfa6e",
+  "username": "sutho100",
+  "password": "Helloworld987543$",
+  "account_id": "Z3GAGH",
+  "base_url": "https://demo-api.ig.com/gateway/deal",
+  "timeout": 30,
+  "max_retries": 3,
+  "cst_token": "",
+  "x_security_token": "",
+  "symbol_mappings": {
+    "CBA.AX": "AU.CBA.CHESS.IP",
+    "ANZ.AX": "AU.ANZ.CHESS.IP", 
+    "WBC.AX": "AU.WBC.CHESS.IP",
+    "NAB.AX": "AU.NAB.CHESS.IP",
+    "MQG.AX": "AU.MQG.CHESS.IP",
+    "BHP.AX": "AU.BHP.CHESS.IP",
+    "CSL.AX": "AU.CSL.CHESS.IP",
+    "QBE.AX": "AU.QBE.CHESS.IP",
+    "SUN.AX": "AU.SUN.CHESS.IP",
+    "WOW.AX": "AU.WOW.CHESS.IP",
+    "TCL.AX": "AU.TCL.CHESS.IP",
+    "JHX.AX": "AU.JHX.CHESS.IP",
+    "TLS.AX": "AU.TLS.CHESS.IP",
+    "WES.AX": "AU.WES.CHESS.IP",
+    "RIO.AX": "AU.RIO.CHESS.IP"
+  }
+}

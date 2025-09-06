@@ -1,0 +1,11 @@
+# IG Markets Paper Trading Cron Jobs
+# Add these lines to your crontab (crontab -e) for automated execution
+
+# Run paper trading every 2 hours during market hours (9 AM - 4 PM, Mon-Fri)
+0 */2 9-16 * 1-5 cd $(pwd)/ig_markets_paper_trading && python3 scripts/run_paper_trader.py >> logs/cron.log 2>&1
+
+# Generate daily performance report at 5 PM
+0 17 * * 1-5 cd $(pwd)/ig_markets_paper_trading && python3 scripts/performance_report.py >> logs/cron.log 2>&1
+
+# Weekly log cleanup (remove logs older than 30 days)
+0 2 * * 0 find $(pwd)/ig_markets_paper_trading/logs -name "*.log" -mtime +30 -delete
