@@ -1,0 +1,127 @@
+{
+  "total_tests": 20,
+  "passed_tests": 20,
+  "failed_tests": 0,
+  "test_details": [
+    {
+      "test_name": "orchestrator health check",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.586086"
+    },
+    {
+      "test_name": "trading health check",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.592012"
+    },
+    {
+      "test_name": "sentiment health check",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.594615"
+    },
+    {
+      "test_name": "Trading service portfolio",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.597177"
+    },
+    {
+      "test_name": "Sentiment service analysis",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.599833"
+    },
+    {
+      "test_name": "Orchestrator system status",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.611861"
+    },
+    {
+      "test_name": "Trading API portfolio",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.617013"
+    },
+    {
+      "test_name": "Trading API signal analysis",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.621575"
+    },
+    {
+      "test_name": "Sentiment API single symbol",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.624568"
+    },
+    {
+      "test_name": "Sentiment API batch",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.629656"
+    },
+    {
+      "test_name": "Orchestrator API system status",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.643337"
+    },
+    {
+      "test_name": "Orchestrator API prediction",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.653724"
+    },
+    {
+      "test_name": "Inter-service communication",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.658937"
+    },
+    {
+      "test_name": "Error handling - invalid signal",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.659113"
+    },
+    {
+      "test_name": "Error handling - invalid symbol",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.660643"
+    },
+    {
+      "test_name": "Backwards compatibility - trading",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.661593"
+    },
+    {
+      "test_name": "Backwards compatibility - sentiment",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.661695"
+    },
+    {
+      "test_name": "Performance test",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.668755"
+    },
+    {
+      "test_name": "Data validation - sentiment",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.668862"
+    },
+    {
+      "test_name": "Data validation - portfolio",
+      "passed": true,
+      "error": "",
+      "timestamp": "2025-09-06T16:09:56.671102"
+    }
+  ]
+}
