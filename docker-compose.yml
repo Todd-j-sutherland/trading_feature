@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: services/Dockerfile.orchestrator
+    ports:
+      - "8000:8000"
+    depends_on:
+      - trading-service
+      - sentiment-service
+    environment:
+      - TRADING_SERVICE_URL=http://trading-service:8001
+      - SENTIMENT_SERVICE_URL=http://sentiment-service:8002
+    networks:
+      - trading-network
+
+  trading-service:
+    build:
+      context: .
+      dockerfile: services/trading-service/Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data:/app/data
+    networks:
+      - trading-network
+
+  sentiment-service:
+    build:
+      context: .
+      dockerfile: services/sentiment-service/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - NEWS_SOURCES_CONFIG=/app/config/news_sources.json
+    networks:
+      - trading-network
+
+  # Add additional services as they are implemented
+  # ml-service:
+  #   build:
+  #     context: .
+  #     dockerfile: services/ml-service/Dockerfile
+  #   ports:
+  #     - "8003:8003"
+  #   networks:
+  #     - trading-network
+
+  # data-service:
+  #   build:
+  #     context: .
+  #     dockerfile: services/data-service/Dockerfile
+  #   ports:
+  #     - "8004:8004"
+  #   networks:
+  #     - trading-network
+
+networks:
+  trading-network:
+    driver: bridge
+
+volumes:
+  trading-data:
+    driver: local
