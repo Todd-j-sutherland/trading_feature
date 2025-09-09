@@ -1,0 +1,36 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+PYTHONPATH=C:\Users\todd.sutherland\trading_feature
+
+# LOCAL TRADING SYSTEM CRON JOBS (Windows/WSL Adapted)
+# Base directory: C:\Users\todd.sutherland\trading_feature
+
+# Market predictions (Mon-Fri, 00:00-05:59 UTC, every 30 min)
+*/30 0-5 * * 1-5 cd "C:\Users\todd.sutherland\trading_feature" && python3 production/cron/fixed_price_mapping_system.py >> logs/prediction_fixed.log 2>&1
+
+# Morning analysis (Mon-Fri, 07:00 UTC)
+0 7 * * 1-5 cd "C:\Users\todd.sutherland\trading_feature" && python3 enhanced_morning_analyzer_with_ml.py >> logs/market_aware_morning.log 2>&1
+
+# Hourly evaluation
+0 * * * * cd "C:\Users\todd.sutherland\trading_feature" && bash evaluate_predictions_comprehensive.sh >> logs/evaluation.log 2>&1
+
+# Daily ML training (08:00 UTC)
+0 8 * * * cd "C:\Users\todd.sutherland\trading_feature" && python3 enhanced_evening_analyzer_with_ml.py >> logs/evening_ml_training.log 2>&1
+
+# Dashboard updates (every 4 hours)
+0 */4 * * * cd "C:\Users\todd.sutherland\trading_feature" && python3 comprehensive_table_dashboard.py >> logs/dashboard_updates.log 2>&1
+
+# Database maintenance (daily 02:00 UTC)
+0 2 * * * cd "C:\Users\todd.sutherland\trading_feature" && sqlite3 data/trading_predictions.db 'VACUUM; REINDEX;' >> logs/db_maintenance.log 2>&1
+
+# Market context monitoring (Mon-Fri, 10:00-16:00 AEST)
+*/30 10-16 * * 1-5 cd "C:\Users\todd.sutherland\trading_feature" && python3 -m app.main_enhanced market-status >> logs/market_context.log 2>&1
+
+# System health monitoring
+0 */2 * * * cd "C:\Users\todd.sutherland\trading_feature" && echo "Health OK" >> logs/system_health.log
+
+# Notes for Windows users:
+# - Install WSL2 for proper cron support
+# - Or use Windows Task Scheduler as alternative
+# - Ensure Python path is correctly configured
+# - Create logs/ directory: mkdir logs
