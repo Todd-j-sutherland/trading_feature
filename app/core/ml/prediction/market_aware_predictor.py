@@ -292,20 +292,29 @@ class MarketAwarePricePredictor(PricePredictor):
         buy_threshold = market_data["buy_threshold"]
         recommended_action = "HOLD"
         
-        # Standard BUY logic with market-aware thresholds
-        if final_confidence > buy_threshold and tech_score > 60:
-            if market_data["context"] == "BEARISH":
+        # VOLUME TREND VALIDATION - Critical BUY fix
+        volume_blocked = False
+        if volume_trend < -0.30:  # Extreme volume decline
+            volume_blocked = True
+            recommended_action = "HOLD"
+        
+        # Standard BUY logic with market-aware thresholds AND volume validation
+        if final_confidence > buy_threshold and tech_score > 60 and not volume_blocked:
+            # Block BUY signals with significant volume decline
+            if volume_trend < -0.15:
+                recommended_action = "HOLD"
+            elif market_data["context"] == "BEARISH":
                 # STRICTER requirements during bearish markets
-                if news_sentiment > 0.10 and tech_score > 70:
+                if news_sentiment > 0.10 and tech_score > 70 and volume_trend > -0.05:
                     recommended_action = "BUY"
             else:
-                # Normal requirements
-                if news_sentiment > -0.05:
+                # Normal requirements with volume check
+                if news_sentiment > -0.05 and volume_trend > -0.10:
                     recommended_action = "BUY"
         
-        # Strong BUY signals
+        # Strong BUY signals with volume validation
         if final_confidence > (buy_threshold + 0.10) and tech_score > 70:
-            if market_data["context"] != "BEARISH" and news_sentiment > 0.02:
+            if market_data["context"] != "BEARISH" and news_sentiment > 0.02 and volume_trend > 0.05:
                 recommended_action = "STRONG_BUY"
         
         # Safety override for very negative sentiment

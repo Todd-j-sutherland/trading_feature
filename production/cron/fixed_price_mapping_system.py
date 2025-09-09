@@ -197,6 +197,19 @@ def run_fixed_prediction_system():
         # Extract data for all symbols with fixed parsing
         symbol_data = extract_all_symbol_data(result.stdout)
         
+        # ENHANCED: Track BUY prediction bias fix effectiveness
+        buy_count = sum(1 for analysis in symbol_data.values() if analysis.get('action') == 'BUY')
+        total_count = len(symbol_data)
+        buy_rate = (buy_count / total_count * 100) if total_count > 0 else 0
+        
+        print(f"📊 BUY Bias Check: {buy_count}/{total_count} = {buy_rate:.1f}% BUY signals")
+        if buy_rate > 70:
+            print(f"⚠️ WARNING: High BUY rate ({buy_rate:.1f}%) - may indicate bias issue")
+        elif buy_rate < 20:
+            print(f"⚠️ WARNING: Low BUY rate ({buy_rate:.1f}%) - may be too conservative")
+        else:
+            print(f"✅ BUY rate appears balanced: {buy_rate:.1f}%")
+        
         # Convert to predictions batch
         predictions_batch = []
         for symbol, analysis in symbol_data.items():

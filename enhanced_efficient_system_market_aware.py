@@ -54,15 +54,23 @@ class MarketContextAnalyzer:
             # Calculate 5-day market trend
             market_trend = ((data['Close'].iloc[-1] / data['Close'].iloc[0]) - 1) * 100
             
-            # Determine market context
-            if market_trend < -2:  # Market down >2%
+            # Determine market context - IMPROVED: More sensitive thresholds
+            if market_trend < -1.5:  # Market down >1.5% (was 2%)
                 context = "BEARISH"
                 confidence_multiplier = 0.7  # Reduce confidence by 30%
                 buy_threshold = 0.80  # Higher threshold
-            elif market_trend > 2:  # Market up >2%
+            elif market_trend > 1.5:  # Market up >1.5% (was 2%)
                 context = "BULLISH"
                 confidence_multiplier = 1.1  # Boost confidence by 10%
                 buy_threshold = 0.65  # Lower threshold
+            elif market_trend < -0.5:  # Mild bearish (-0.5% to -1.5%)
+                context = "WEAK_BEARISH"
+                confidence_multiplier = 0.9  # Slight reduction
+                buy_threshold = 0.75  # Slightly higher threshold
+            elif market_trend > 0.5:  # Mild bullish (0.5% to 1.5%)
+                context = "WEAK_BULLISH"
+                confidence_multiplier = 1.05  # Slight boost
+                buy_threshold = 0.68  # Slightly lower threshold
             else:
                 context = "NEUTRAL"
                 confidence_multiplier = 1.0
@@ -413,16 +421,28 @@ class MarketAwarePredictor:
         # Base news factor (0-20 points) - reduced from original
         news_base = news_confidence * 0.15  # Reduced from 0.20
         
-        # ENHANCED: Sentiment adjustment with market context
+        # ENHANCED: Market-context-aware sentiment adjustment
         sentiment_factor = 0.0
         if market_data["context"] == "BEARISH":
             # Require stronger positive sentiment during bearish markets
-            if news_sentiment > 0.15:  # Raised from 0.05
-                sentiment_factor = min(news_sentiment * 30, 0.15)  # Reduced multiplier
+            if news_sentiment > 0.15:
+                sentiment_factor = min(news_sentiment * 25, 0.12)  # Conservative positive boost
             elif news_sentiment < -0.05:
-                sentiment_factor = max(news_sentiment * 60, -0.15)  # Stronger penalty
+                sentiment_factor = max(news_sentiment * 70, -0.20)  # Strong penalty for negative
+        elif market_data["context"] == "WEAK_BEARISH":
+            # Moderate sentiment requirements during mild bearish conditions
+            if news_sentiment > 0.10:
+                sentiment_factor = min(news_sentiment * 35, 0.14)  # Moderate positive boost
+            elif news_sentiment < -0.05:
+                sentiment_factor = max(news_sentiment * 60, -0.15)  # Moderate penalty
+        elif market_data["context"] in ["BULLISH", "WEAK_BULLISH"]:
+            # More lenient during bullish conditions
+            if news_sentiment > 0.02:
+                sentiment_factor = min(news_sentiment * 60, 0.15)  # Strong positive boost
+            elif news_sentiment < -0.10:
+                sentiment_factor = max(news_sentiment * 40, -0.08)  # Light penalty
         else:
-            # Normal sentiment processing
+            # Normal/neutral sentiment processing
             if news_sentiment > 0.05:
                 sentiment_factor = min(news_sentiment * 50, 0.10)
             elif news_sentiment < -0.05:
@@ -436,14 +456,18 @@ class MarketAwarePredictor:
         volume_correlation = volume_data["price_volume_correlation"]
         volume_quality = volume_data["volume_quality_score"]
         
-        # Volume trend factor (0-10 points)
+        # Volume trend factor (0-10 points) - FIXED: Stronger penalties for declining volume
         volume_trend_factor = 0.0
         if volume_trend > 0.2:  # Strong volume increase
             volume_trend_factor = 0.10
         elif volume_trend > 0.05:  # Moderate volume increase
             volume_trend_factor = 0.05
-        elif volume_trend < -0.2:  # Volume declining (risk)
-            volume_trend_factor = -0.05
+        elif volume_trend < -0.4:  # Severe volume decline
+            volume_trend_factor = -0.20  # Strong penalty
+        elif volume_trend < -0.2:  # Moderate volume decline
+            volume_trend_factor = -0.15  # Medium penalty
+        elif volume_trend < -0.1:  # Light volume decline
+            volume_trend_factor = -0.08  # Light penalty
         
         # Price-volume correlation (0-10 points)
         correlation_factor = max(0.0, volume_correlation * 0.10)
@@ -482,25 +506,72 @@ class MarketAwarePredictor:
         action = "HOLD"
         buy_threshold = market_data["buy_threshold"]
         
-        # Standard BUY logic with market-aware thresholds
-        if final_confidence > buy_threshold and tech_score > 60:
-            if market_data["context"] == "BEARISH":
+        # VOLUME TREND THRESHOLD VALIDATION - Global BUY Blocker
+        volume_blocked = False
+        if volume_trend < -0.30:  # Extreme volume decline (>30%)
+            volume_blocked = True
+            action = "HOLD"  # Global block for extreme volume decline
+        
+        # Standard BUY logic with market-aware thresholds AND volume validation
+        if final_confidence > buy_threshold and tech_score > 60 and not volume_blocked:
+            # CRITICAL FIX: Block BUY signals with declining volume trends
+            if volume_trend < -0.15:  # More than 15% volume decline
+                action = "HOLD"  # Override BUY due to volume decline
+            elif market_data["context"] == "BEARISH":
                 # STRICTER requirements during bearish markets
-                if news_sentiment > 0.10 and tech_score > 70:  # Much higher bar
+                if news_sentiment > 0.10 and tech_score > 70 and volume_trend > -0.05:  # Require stable/growing volume
+                    action = "BUY"
+            elif market_data["context"] == "WEAK_BEARISH":
+                # Moderate requirements during mild bearish conditions
+                if news_sentiment > 0.05 and tech_score > 65 and volume_trend > -0.08:  # Moderate requirements
                     action = "BUY"
             else:
-                # Normal requirements
-                if news_sentiment > -0.05:
+                # Normal requirements with volume check
+                if news_sentiment > -0.05 and volume_trend > -0.10:  # Light volume decline tolerance
                     action = "BUY"
         
-        # Strong BUY signals
+        # Strong BUY signals with volume validation
         if final_confidence > (buy_threshold + 0.10) and tech_score > 70:
-            if market_data["context"] != "BEARISH" and news_sentiment > 0.02:
+            if market_data["context"] != "BEARISH" and news_sentiment > 0.02 and volume_trend > 0.05:  # Require volume growth for STRONG_BUY
                 action = "STRONG_BUY"
         
         # Safety override for very negative sentiment or poor technicals
         if news_sentiment < -0.15 or final_confidence < 0.30:
             action = "HOLD"
+        
+        # BUY DECISION VALIDATION LOGGING
+        if action in ["BUY", "STRONG_BUY"]:
+            print(f"🟢 {action} APPROVED for {symbol}:")
+            print(f"   ✅ Confidence: {final_confidence:.3f} > {buy_threshold:.3f}")
+            print(f"   ✅ Tech Score: {tech_score:.1f} > 60")
+            print(f"   ✅ Volume Trend: {volume_trend:+.1%} (passed validation)")
+            print(f"   ✅ News Sentiment: {news_sentiment:+.3f} (passed validation)")
+            print(f"   ✅ Market Context: {market_data['context']}")
+        elif final_confidence > buy_threshold:
+            print(f"🟡 BUY BLOCKED for {symbol} (confidence {final_confidence:.3f} > {buy_threshold:.3f}):")
+            if volume_blocked:
+                print(f"   🚫 VOLUME BLOCKED: {volume_trend:+.1%} < -30% (extreme decline)")
+            if tech_score <= 60:
+                print(f"   ❌ Tech Score: {tech_score:.1f} ≤ 60")
+            if volume_trend < -0.15 and not volume_blocked:
+                print(f"   ❌ Volume Trend: {volume_trend:+.1%} < -15% (severe decline)")
+            if market_data["context"] == "BEARISH":
+                if news_sentiment <= 0.10:
+                    print(f"   ❌ News Sentiment: {news_sentiment:+.3f} ≤ 0.10 (bearish requirement)")
+                if tech_score <= 70:
+                    print(f"   ❌ Tech Score: {tech_score:.1f} ≤ 70 (bearish requirement)")
+                if volume_trend <= -0.05:
+                    print(f"   ❌ Volume Trend: {volume_trend:+.1%} ≤ -5% (bearish requirement)")
+            elif market_data["context"] == "WEAK_BEARISH":
+                if news_sentiment <= 0.05:
+                    print(f"   ❌ News Sentiment: {news_sentiment:+.3f} ≤ 0.05 (weak bearish requirement)")
+                if tech_score <= 65:
+                    print(f"   ❌ Tech Score: {tech_score:.1f} ≤ 65 (weak bearish requirement)")
+            else:
+                if news_sentiment <= -0.05:
+                    print(f"   ❌ News Sentiment: {news_sentiment:+.3f} ≤ -0.05")
+                if volume_trend <= -0.10:
+                    print(f"   ❌ Volume Trend: {volume_trend:+.1%} ≤ -10%")
         
         return {
             "confidence": final_confidence,

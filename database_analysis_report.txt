@@ -1,0 +1,180 @@
+=== TRADING SYSTEM DATABASE ANALYSIS REPORT ===
+Generated on: Tue, Sep  9, 2025  7:11:41 PM
+
+1. Basic Database Structure Analysis:
+=================================
+
+Tables in database:
+daily_volume_data            model_performance_enhanced 
+enhanced_evening_analysis    outcomes                   
+enhanced_features            performance_history        
+enhanced_morning_analysis    predicted_actions_view     
+enhanced_outcomes            predictions                
+market_aware_predictions     predictions_backup_20250908
+model_performance            temporal_safe_predictions  
+
+Predictions table structure:
+0|prediction_id|TEXT|0||1
+1|symbol|TEXT|1||0
+2|prediction_timestamp|DATETIME|1||0
+3|predicted_action|TEXT|1||0
+4|action_confidence|REAL|1||0
+5|predicted_direction|INTEGER|0||0
+6|predicted_magnitude|REAL|0||0
+7|feature_vector|TEXT|0||0
+8|model_version|TEXT|0||0
+9|created_at|DATETIME|0|CURRENT_TIMESTAMP|0
+10|entry_price|REAL|0|0|0
+11|optimal_action|TEXT|0||0
+12|prediction_details|TEXT|0||0
+13|confidence_breakdown|TEXT|0||0
+14|market_context|TEXT|0|'NEUTRAL'|0
+15|market_trend_pct|REAL|0|'0.0'|0
+16|market_volatility|REAL|0|'0.0'|0
+17|market_momentum|REAL|0|'0.0'|0
+18|sector_performance|REAL|0|'0.0'|0
+19|volume_profile|TEXT|0|'NORMAL'|0
+20|risk_level|TEXT|0|'MEDIUM'|0
+21|confidence_components|TEXT|0|'{}'|0
+22|technical_indicators|TEXT|0|'{}'|0
+23|news_impact_score|REAL|0|'0.0'|0
+24|volume_trend_score|REAL|0|'0.0'|0
+25|price_momentum|REAL|0|'0.0'|0
+26|buy_threshold_used|REAL|0|0.7|0
+27|tech_score|INTEGER|0|50|0
+28|news_sentiment|REAL|0|0.0|0
+29|volume_trend|REAL|0|0.0|0
+30|price_change_pct|REAL|0|0.0|0
+31|recommended_action|TEXT|0|'HOLD'|0
+
+Outcomes table structure:
+0|outcome_id|TEXT|0||1
+1|prediction_id|TEXT|1||0
+2|actual_return|REAL|0||0
+3|actual_direction|INTEGER|0||0
+4|entry_price|REAL|0||0
+5|exit_price|REAL|0||0
+6|evaluation_timestamp|DATETIME|0||0
+7|created_at|DATETIME|0|CURRENT_TIMESTAMP|0
+8|outcome_details|TEXT|0||0
+9|performance_metrics|TEXT|0||0
+
+2. Recent Prediction Overview:
+=============================
+
+Prediction actions in last 7 days:
+HOLD|250
+BUY|180
+SELL|7
+
+3. BUY Prediction Analysis:
+==========================
+
+Total BUY predictions:
+412
+
+Recent BUY predictions details:
+QBE.AX|0.70149267578125|NEUTRAL|41|0.148|-44.8|2025-09-09T05:30:28.935182
+SUN.AX|0.721979370117187|NEUTRAL|40|0.092|-40.6|2025-09-09T05:30:28.928525
+MQG.AX|0.815926818847656|NEUTRAL|43|0.133|-17.4|2025-09-09T05:30:28.923031
+NAB.AX|0.834907165527344|NEUTRAL|42|0.167|-26.7|2025-09-09T05:30:28.916042
+ANZ.AX|0.76659765625|NEUTRAL|39|0.114|-36.0|2025-09-09T05:30:28.910571
+WBC.AX|0.811875915527344|NEUTRAL|44|0.08|-50.7|2025-09-09T05:30:28.904082
+QBE.AX|0.70149267578125|NEUTRAL|41|0.148|-44.8|2025-09-09T05:00:29.687219
+SUN.AX|0.721979370117187|NEUTRAL|40|0.092|-40.6|2025-09-09T05:00:29.681909
+MQG.AX|0.815926818847656|NEUTRAL|43|0.133|-17.4|2025-09-09T05:00:29.675099
+NAB.AX|0.834907165527344|NEUTRAL|42|0.167|-26.7|2025-09-09T05:00:29.668798
+
+4. BUY Performance vs Outcomes:
+===============================
+
+BUY predictions with outcomes:
+388
+
+BUY success rate and average return:
+Error in success rate query - checking outcomes table structure...
+outcome_id
+prediction_id
+actual_return
+actual_direction
+entry_price
+exit_price
+evaluation_timestamp
+created_at
+outcome_details
+performance_metrics
+
+Corrected BUY performance analysis:
+Checking actual outcomes table columns:
+CREATE TABLE outcomes (
+                outcome_id TEXT PRIMARY KEY,
+                prediction_id TEXT NOT NULL,
+                actual_return REAL,
+                actual_direction INTEGER,
+                entry_price REAL,
+                exit_price REAL,
+                evaluation_timestamp DATETIME,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP, outcome_details TEXT, performance_metrics TEXT,
+                FOREIGN KEY (prediction_id) REFERENCES predictions(prediction_id)
+            )
+
+Sample outcomes data to understand structure:
+915011a5-2cf2-4e1c-a7c0-a68326946664|enhanced_CBA.AX_20250822_040438|0.000173594003360271|1|172.809997558594|172.839996337891|2025-08-22T08:00:37.961388|2025-08-22 08:00:37|{"outcome_type": "price_evaluation", "entry_price": 172.80999755859375, "exit_price": 172.83999633789062, "price_change": 0.029998779296875, "price_change_pct": 0.01735940033602713, "actual_return": 0.0001735940033602713, "direction": 1, "evaluation_timestamp": "2025-08-22T08:00:37.961388", "updated_at": "2025-09-05T03:17:09.008312"}|{"return_calculated": true, "price_data_complete": true, "direction_tracked": true, "updated": true}
+09f31eb2-6bef-4966-8a31-0076dc621781|test_CBA.AX_%Y%m%d_%H%M%S|0.000173594003360271|1|172.809997558594|172.839996337891|2025-08-22T08:00:37.603945|2025-08-22 08:00:38|{"outcome_type": "price_evaluation", "entry_price": 172.80999755859375, "exit_price": 172.83999633789062, "price_change": 0.029998779296875, "price_change_pct": 0.01735940033602713, "actual_return": 0.0001735940033602713, "direction": 1, "evaluation_timestamp": "2025-08-22T08:00:37.603945", "updated_at": "2025-09-05T03:17:09.009084"}|{"return_calculated": true, "price_data_complete": true, "direction_tracked": true, "updated": true}
+deb0ab73-2639-4549-9775-e5a0e48c0a0c|enhanced_CBA.AX_20250822_040314|0.000173594003360271|1|172.809997558594|172.839996337891|2025-08-22T08:00:38.097884|2025-08-22 08:00:38|{"outcome_type": "price_evaluation", "entry_price": 172.80999755859375, "exit_price": 172.83999633789062, "price_change": 0.029998779296875, "price_change_pct": 0.01735940033602713, "actual_return": 0.0001735940033602713, "direction": 1, "evaluation_timestamp": "2025-08-22T08:00:38.097884", "updated_at": "2025-09-05T03:17:09.009142"}|{"return_calculated": true, "price_data_complete": true, "direction_tracked": true, "updated": true}
+
+5. Failed BUY Predictions Details:
+==================================
+
+BUY predictions with negative returns (assuming negative return = failed):
+Checking available columns in outcomes table for return analysis:
+0|outcome_id|TEXT|0||1
+1|prediction_id|TEXT|1||0
+2|actual_return|REAL|0||0
+3|actual_direction|INTEGER|0||0
+4|entry_price|REAL|0||0
+5|exit_price|REAL|0||0
+6|evaluation_timestamp|DATETIME|0||0
+7|created_at|DATETIME|0|CURRENT_TIMESTAMP|0
+8|outcome_details|TEXT|0||0
+9|performance_metrics|TEXT|0||0
+
+6. Market Context Analysis:
+==========================
+
+Market context distribution for BUY predictions:
+NEUTRAL|409
+NEUTRAL (-0.59%, Vol: 1.0%)|2
+NEUTRAL (-0.63%, Vol: 1.0%)|1
+
+7. High Confidence BUY Predictions:
+===================================
+
+High confidence BUY predictions (>75%):
+CBA.AX|0.999|NEUTRAL|50|0.0|{"overall": 0.999, "converted": true}
+WBC.AX|0.98|NEUTRAL|50|0.0|{"overall": 0.98, "converted": true}
+MQG.AX|0.95|NEUTRAL|50|0.0|{"overall": 0.95, "converted": true}
+MQG.AX|0.95|NEUTRAL|50|0.0|{"overall": 0.95, "converted": true}
+MQG.AX|0.95|NEUTRAL|50|0.0|{"overall": 0.95, "converted": true}
+MQG.AX|0.95|NEUTRAL|50|0.0|{"overall": 0.95, "converted": true}
+MQG.AX|0.95|NEUTRAL|50|0.0|{"overall": 0.95, "converted": true}
+MQG.AX|0.95|NEUTRAL|50|0.0|{"overall": 0.95, "converted": true}
+MQG.AX|0.95|NEUTRAL|50|0.0|{"overall": 0.95, "converted": true}
+MQG.AX|0.95|NEUTRAL|50|0.0|{"overall": 0.95, "converted": true}
+
+8. Recent Market Context vs BUY Signals:
+========================================
+
+Daily BUY signals by market context (last 10 days):
+2025-09-09|NEUTRAL|24
+2025-09-08|NEUTRAL|47
+2025-09-06|NEUTRAL|5
+2025-09-05|NEUTRAL|32
+2025-09-05|NEUTRAL (-0.59%, Vol: 1.0%)|2
+2025-09-05|NEUTRAL (-0.63%, Vol: 1.0%)|1
+2025-09-04|NEUTRAL|27
+2025-09-03|NEUTRAL|42
+2025-09-02|NEUTRAL|36
+2025-09-01|NEUTRAL|48
+
+=== END OF REPORT ===
