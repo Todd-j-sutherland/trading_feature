@@ -316,8 +316,8 @@ class MarketAwarePredictor:
             
             for article in news[:5]:  # Limit to recent 5 articles
                 try:
-                    title = article.get('title', '')
-                    summary = article.get('summary', '')
+                    title = article.get('content', {}).get('title', '')
+                    summary = article.get('content', {}).get('summary', '')
                     
                     # Combine title and summary
                     text = f"{title} {summary}"
