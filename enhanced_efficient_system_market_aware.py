@@ -58,23 +58,23 @@ class MarketContextAnalyzer:
             if market_trend < -1.5:  # Market down >1.5% (was 2%)
                 context = "BEARISH"
                 confidence_multiplier = 0.7  # Reduce confidence by 30%
-                buy_threshold = 0.80  # Higher threshold
+                buy_threshold = 0.65  # Adjusted for current conditions
             elif market_trend > 1.5:  # Market up >1.5% (was 2%)
                 context = "BULLISH"
                 confidence_multiplier = 1.1  # Boost confidence by 10%
-                buy_threshold = 0.65  # Lower threshold
+                buy_threshold = 0.55  # Adjusted for bullish
             elif market_trend < -0.5:  # Mild bearish (-0.5% to -1.5%)
                 context = "WEAK_BEARISH"
                 confidence_multiplier = 0.9  # Slight reduction
-                buy_threshold = 0.75  # Slightly higher threshold
+                buy_threshold = 0.62  # Adjusted for weak bearish
             elif market_trend > 0.5:  # Mild bullish (0.5% to 1.5%)
                 context = "WEAK_BULLISH"
                 confidence_multiplier = 1.05  # Slight boost
-                buy_threshold = 0.68  # Slightly lower threshold
+                buy_threshold = 0.58  # Adjusted for weak bullish
             else:
                 context = "NEUTRAL"
                 confidence_multiplier = 1.0
-                buy_threshold = 0.70
+                buy_threshold = 0.60  # Lowered base threshold
             
             # Get intraday volatility
             daily_volatility = ((data['High'] - data['Low']) / data['Close']).mean() * 100
@@ -462,18 +462,29 @@ class MarketAwarePredictor:
             volume_trend_factor = 0.10
         elif volume_trend > 0.05:  # Moderate volume increase
             volume_trend_factor = 0.05
-        elif volume_trend < -0.4:  # Severe volume decline
-            volume_trend_factor = -0.20  # Strong penalty
-        elif volume_trend < -0.2:  # Moderate volume decline
-            volume_trend_factor = -0.15  # Medium penalty
-        elif volume_trend < -0.1:  # Light volume decline
-            volume_trend_factor = -0.08  # Light penalty
+        elif volume_trend > -0.1:  # Neutral to slight decline
+            volume_trend_factor = 0.02  # Small positive contribution
+        elif volume_trend > -0.3:  # Moderate decline (market-wide condition)
+            volume_trend_factor = 0.01  # Minimal positive to avoid 0.0
+        elif volume_trend > -0.5:  # Severe decline but not extreme
+            volume_trend_factor = -0.05  # Reduced penalty
+        else:  # Extreme decline > 50%
+            volume_trend_factor = -0.10  # Moderate penalty (was -0.20)
         
         # Price-volume correlation (0-10 points)
         correlation_factor = max(0.0, volume_correlation * 0.10)
         
         volume_component = volume_quality * 0.10 + volume_trend_factor + correlation_factor
-        volume_component = max(0.0, min(volume_component, 0.20))  # Clamp to 0-20%
+        # Ensure minimum positive contribution even during market-wide volume declines
+        volume_component = max(0.02, min(volume_component, 0.20))  # Min 2% contribution
+        # DEBUG: Volume component calculation details
+        print(f"   📊 Volume Analysis for {symbol}:")
+        print(f"      Volume Trend: {volume_trend:+.1%}")
+        print(f"      Volume Quality: {volume_quality:.3f}")
+        print(f"      Volume Correlation: {volume_correlation:.3f}")
+        print(f"      Volume Trend Factor: {volume_trend_factor:+.3f}")
+        print(f"      Correlation Factor: {correlation_factor:+.3f}")
+        print(f"      Final Volume Component: {volume_component:.3f}")
         
         # 4. RISK ADJUSTMENT COMPONENT (10% total weight)
         volatility = float(feature_parts[6]) if len(feature_parts) > 6 else 1
@@ -508,31 +519,31 @@ class MarketAwarePredictor:
         
         # VOLUME TREND THRESHOLD VALIDATION - Global BUY Blocker
         volume_blocked = False
-        if volume_trend < -0.30:  # Extreme volume decline (>30%)
+        if volume_trend < -0.60:  # Extreme volume decline (>60%)
             volume_blocked = True
             action = "HOLD"  # Global block for extreme volume decline
         
         # Standard BUY logic with market-aware thresholds AND volume validation
-        if final_confidence > buy_threshold and tech_score > 60 and not volume_blocked:
+        if final_confidence > buy_threshold and tech_score > 40 and not volume_blocked:
             # CRITICAL FIX: Block BUY signals with declining volume trends
-            if volume_trend < -0.15:  # More than 15% volume decline
+            if volume_trend < -0.40:  # More than 40% volume decline
                 action = "HOLD"  # Override BUY due to volume decline
             elif market_data["context"] == "BEARISH":
                 # STRICTER requirements during bearish markets
-                if news_sentiment > 0.10 and tech_score > 70 and volume_trend > -0.05:  # Require stable/growing volume
+                if news_sentiment > 0.05 and tech_score > 50 and volume_trend > -0.25:  # Relaxed volume requirement
                     action = "BUY"
             elif market_data["context"] == "WEAK_BEARISH":
                 # Moderate requirements during mild bearish conditions
-                if news_sentiment > 0.05 and tech_score > 65 and volume_trend > -0.08:  # Moderate requirements
+                if news_sentiment > 0.02 and tech_score > 45 and volume_trend > -0.20:  # Relaxed requirements
                     action = "BUY"
             else:
                 # Normal requirements with volume check
-                if news_sentiment > -0.05 and volume_trend > -0.10:  # Light volume decline tolerance
+                if news_sentiment > -0.08 and volume_trend > -0.30:  # Moderate volume decline tolerance
                     action = "BUY"
         
         # Strong BUY signals with volume validation
-        if final_confidence > (buy_threshold + 0.10) and tech_score > 70:
-            if market_data["context"] != "BEARISH" and news_sentiment > 0.02 and volume_trend > 0.05:  # Require volume growth for STRONG_BUY
+        if final_confidence > (buy_threshold + 0.08) and tech_score > 55:
+            if market_data["context"] != "BEARISH" and news_sentiment > -0.02 and volume_trend > -0.15:  # Relaxed volume for STRONG_BUY
                 action = "STRONG_BUY"
         
         # Safety override for very negative sentiment or poor technicals
