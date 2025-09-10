@@ -88,10 +88,9 @@ class FixedOutcomeEvaluator:
             ticker = yf.Ticker(symbol)
             
             # Get recent data
-            end_time = datetime.now()
-            start_time = prediction_time.date()
+            # Use period for minute data to get recent prices
             
-            hist = ticker.history(start=start_time, end=end_time, interval='1h')
+            hist = ticker.history(period="5d", interval="1m")
             
             if len(hist) > 0:
                 # Get the most recent close price
@@ -118,7 +117,7 @@ class FixedOutcomeEvaluator:
                 ticker = yf.Ticker(symbol)
                 hist = ticker.history(start=prediction_time.date(), 
                                     end=(prediction_time + timedelta(days=1)).date(), 
-                                    interval='1h')
+                                    interval="1m")
                 if len(hist) > 0:
                     entry_price = float(hist['Close'].iloc[0])
                 else:
