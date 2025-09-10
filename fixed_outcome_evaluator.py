@@ -47,14 +47,15 @@ class FixedOutcomeEvaluator:
             cursor = conn.cursor()
             
             # Find predictions older than specified hours that haven't been evaluated
+            # Fix timezone issue: extract UTC part from timezone-aware timestamps
             cursor.execute("""
                 SELECT p.prediction_id, p.symbol, p.prediction_timestamp, 
                        p.predicted_action, p.action_confidence, p.entry_price
                 FROM predictions p
                 LEFT JOIN outcomes o ON p.prediction_id = o.prediction_id
                 WHERE o.prediction_id IS NULL
-                AND p.prediction_timestamp < datetime('now', '-{} hours')
-                AND p.prediction_timestamp > datetime('now', '-72 hours')
+                AND datetime(substr(p.prediction_timestamp, 1, 19)) < datetime('now', '-{} hours')
+                AND datetime(substr(p.prediction_timestamp, 1, 19)) > datetime('now', '-72 hours')
                 ORDER BY p.prediction_timestamp DESC
                 LIMIT 50
             """.format(hours_ago))
@@ -82,20 +83,18 @@ class FixedOutcomeEvaluator:
             return []
     
     def fetch_current_price(self, symbol: str, prediction_time: datetime) -> Optional[float]:
-        """Fetch current price for evaluation"""
+        """Fetch current price for evaluation using minute data"""
         try:
             # Try yfinance for current price
             ticker = yf.Ticker(symbol)
             
-            # Get recent data
-            # Use period for minute data to get recent prices
-            
-            hist = ticker.history(period="5d", interval="1m")
+            # Get recent minute data for more current pricing
+            hist = ticker.history(period='5d', interval='1m')
             
             if len(hist) > 0:
                 # Get the most recent close price
                 current_price = float(hist['Close'].iloc[-1])
-                logger.debug(f"Fetched price for {symbol}: ${current_price}")
+                logger.debug(f"Fetched current price for {symbol}: ${current_price}")
                 return current_price
             else:
                 logger.warning(f"No price data available for {symbol}")
@@ -117,7 +116,7 @@ class FixedOutcomeEvaluator:
                 ticker = yf.Ticker(symbol)
                 hist = ticker.history(start=prediction_time.date(), 
                                     end=(prediction_time + timedelta(days=1)).date(), 
-                                    interval="1m")
+                                    interval='1h')
                 if len(hist) > 0:
                     entry_price = float(hist['Close'].iloc[0])
                 else:
