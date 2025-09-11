@@ -1,0 +1,17 @@
+{
+  "training_date": "2025-09-11T08:51:30.988885",
+  "samples_used": 1004,
+  "direction_accuracy": 0.8706467661691543,
+  "magnitude_mae": 0.9250589395224695,
+  "feature_names": [
+    "confidence",
+    "buy_signal",
+    "sell_signal",
+    "pred_direction",
+    "pred_magnitude",
+    "entry_price",
+    "symbol_hash",
+    "hour",
+    "weekday"
+  ]
+}
