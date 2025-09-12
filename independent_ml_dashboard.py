@@ -628,6 +628,131 @@ class TradingMLTracker:
         
         return pd.DataFrame(display_data)
     
+    def get_buy_performance_metrics(self, days=30):
+        """Get BUY-specific performance metrics"""
+        if self.use_sample_data:
+            # Sample BUY performance data
+            total_buys = 45
+            successful_buys = 32
+            avg_buy_return = 0.024
+            avg_buy_confidence = 0.78
+            best_buy_return = 0.087
+            worst_buy_return = -0.032
+            
+            return {
+                'total_buy_predictions': total_buys,
+                'successful_buy_predictions': successful_buys,
+                'buy_success_rate': successful_buys / total_buys,
+                'avg_buy_return': avg_buy_return,
+                'avg_buy_confidence': avg_buy_confidence,
+                'best_buy_return': best_buy_return,
+                'worst_buy_return': worst_buy_return,
+                'buy_roi': avg_buy_return * successful_buys,
+                'recent_buy_trend': 'improving'
+            }
+        
+        try:
+            conn = self.get_db_connection()
+            if not conn:
+                return None
+            
+            query = """
+                SELECT 
+                    COUNT(*) as total_buy_predictions,
+                    SUM(CASE 
+                        WHEN p.predicted_action = 'BUY' AND o.actual_return > 0 THEN 1
+                        ELSE 0 
+                    END) as successful_buy_predictions,
+                    AVG(CASE 
+                        WHEN p.predicted_action = 'BUY' THEN o.actual_return
+                        ELSE NULL 
+                    END) as avg_buy_return,
+                    AVG(CASE 
+                        WHEN p.predicted_action = 'BUY' THEN p.confidence
+                        ELSE NULL 
+                    END) as avg_buy_confidence,
+                    MAX(CASE 
+                        WHEN p.predicted_action = 'BUY' THEN o.actual_return
+                        ELSE NULL 
+                    END) as best_buy_return,
+                    MIN(CASE 
+                        WHEN p.predicted_action = 'BUY' THEN o.actual_return
+                        ELSE NULL 
+                    END) as worst_buy_return
+                FROM predictions p
+                LEFT JOIN outcomes o ON p.id = o.prediction_id
+                WHERE p.predicted_action = 'BUY'
+                AND DATE(p.created_at) >= DATE('now', '-{} days')
+                AND o.actual_return IS NOT NULL
+            """.format(days)
+            
+            result = pd.read_sql_query(query, conn)
+            
+            if not result.empty and result.iloc[0]['total_buy_predictions'] > 0:
+                row = result.iloc[0]
+                
+                # Calculate buy ROI
+                buy_roi = (row['avg_buy_return'] or 0) * (row['successful_buy_predictions'] or 0)
+                
+                # Get recent trend by comparing last 7 days vs previous 7-14 days
+                recent_query = """
+                    SELECT AVG(CASE 
+                        WHEN p.predicted_action = 'BUY' AND o.actual_return > 0 THEN 1.0
+                        ELSE 0.0 
+                    END) as recent_success_rate
+                    FROM predictions p
+                    LEFT JOIN outcomes o ON p.id = o.prediction_id
+                    WHERE p.predicted_action = 'BUY'
+                    AND DATE(p.created_at) >= DATE('now', '-7 days')
+                    AND o.actual_return IS NOT NULL
+                """
+                
+                previous_query = """
+                    SELECT AVG(CASE 
+                        WHEN p.predicted_action = 'BUY' AND o.actual_return > 0 THEN 1.0
+                        ELSE 0.0 
+                    END) as previous_success_rate
+                    FROM predictions p
+                    LEFT JOIN outcomes o ON p.id = o.prediction_id
+                    WHERE p.predicted_action = 'BUY'
+                    AND DATE(p.created_at) >= DATE('now', '-14 days')
+                    AND DATE(p.created_at) < DATE('now', '-7 days')
+                    AND o.actual_return IS NOT NULL
+                """
+                
+                recent_result = pd.read_sql_query(recent_query, conn)
+                previous_result = pd.read_sql_query(previous_query, conn)
+                
+                recent_rate = recent_result.iloc[0]['recent_success_rate'] or 0
+                previous_rate = previous_result.iloc[0]['previous_success_rate'] or 0
+                
+                if recent_rate > previous_rate + 0.05:
+                    trend = 'improving'
+                elif recent_rate < previous_rate - 0.05:
+                    trend = 'declining'
+                else:
+                    trend = 'stable'
+                
+                conn.close()
+                
+                return {
+                    'total_buy_predictions': int(row['total_buy_predictions'] or 0),
+                    'successful_buy_predictions': int(row['successful_buy_predictions'] or 0),
+                    'buy_success_rate': (row['successful_buy_predictions'] or 0) / (row['total_buy_predictions'] or 1),
+                    'avg_buy_return': row['avg_buy_return'] or 0,
+                    'avg_buy_confidence': row['avg_buy_confidence'] or 0,
+                    'best_buy_return': row['best_buy_return'] or 0,
+                    'worst_buy_return': row['worst_buy_return'] or 0,
+                    'buy_roi': buy_roi,
+                    'recent_buy_trend': trend
+                }
+            
+            conn.close()
+            return None
+            
+        except Exception as e:
+            return None
+
     def get_last_ml_training_date(self):
         """Get the date of the last ML model training"""
         if self.use_sample_data:
@@ -807,6 +932,208 @@ def main():
     else:
         st.info("📊 **Sample Data**: Demonstrating dashboard capabilities with generated data")
     
+    # BUY Performance Analysis - Most Important Section
+    st.markdown("---")
+    st.subheader("💰 BUY Signal Performance Analysis")
+    st.markdown("*The most critical trading metrics for profitable signals*")
+    
+    buy_metrics = tracker.get_buy_performance_metrics(days=days)
+    
+    if buy_metrics:
+        # BUY-specific KPIs
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        with col1:
+            st.metric(
+                "Total BUY Signals", 
+                buy_metrics['total_buy_predictions'],
+                delta=f"{buy_metrics['successful_buy_predictions']} profitable"
+            )
+        
+        with col2:
+            buy_success_rate = buy_metrics['buy_success_rate']
+            success_delta = "🎯 Strong" if buy_success_rate > 0.65 else "✅ Good" if buy_success_rate > 0.55 else "⚠️ Needs Improvement"
+            st.metric(
+                "BUY Success Rate", 
+                f"{buy_success_rate:.1%}",
+                delta=success_delta
+            )
+        
+        with col3:
+            avg_return = buy_metrics['avg_buy_return']
+            return_delta = "💎 Excellent" if avg_return > 0.03 else "📈 Good" if avg_return > 0.01 else "📉 Weak"
+            st.metric(
+                "Avg BUY Return", 
+                f"{avg_return:.2%}",
+                delta=return_delta
+            )
+        
+        with col4:
+            buy_confidence = buy_metrics['avg_buy_confidence']
+            conf_delta = "🔥 High Confidence" if buy_confidence > 0.75 else "👍 Confident" if buy_confidence > 0.65 else "🤔 Uncertain"
+            st.metric(
+                "BUY Confidence", 
+                f"{buy_confidence:.1%}",
+                delta=conf_delta
+            )
+        
+        with col5:
+            trend = buy_metrics['recent_buy_trend']
+            trend_emoji = "📈" if trend == 'improving' else "📉" if trend == 'declining' else "➡️"
+            st.metric(
+                "Recent Trend", 
+                f"{trend_emoji} {trend.title()}",
+                delta="Last 7 days vs prior week"
+            )
+        
+        # BUY Performance Insights
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            # BUY signal strength assessment
+            if buy_success_rate > 0.7 and avg_return > 0.025:
+                st.success("🚀 **EXCELLENT BUY SIGNALS!** High success rate with strong returns. Your ML model excels at identifying profitable opportunities.")
+            elif buy_success_rate > 0.6 and avg_return > 0.015:
+                st.success("💎 **STRONG BUY PERFORMANCE!** Good success rate with solid returns. BUY signals are highly reliable.")
+            elif buy_success_rate > 0.55:
+                st.info("👍 **DECENT BUY SIGNALS.** Above-average performance but could be optimized for better returns.")
+            else:
+                st.warning("⚠️ **BUY SIGNALS NEED IMPROVEMENT.** Consider adjusting confidence thresholds or retraining models.")
+            
+            # Confidence analysis
+            if buy_confidence > 0.8:
+                st.info(f"🎯 **High Confidence BUY Signals**: Average {buy_confidence:.1%} confidence suggests strong conviction in predictions.")
+            elif buy_confidence > 0.7:
+                st.info(f"✅ **Confident BUY Signals**: {buy_confidence:.1%} average confidence indicates good model certainty.")
+            else:
+                st.warning(f"🤔 **Low Confidence Warning**: {buy_confidence:.1%} average confidence suggests model uncertainty in BUY signals.")
+        
+        with col2:
+            # BUY-specific metrics
+            st.metric("Best BUY Return", f"{buy_metrics['best_buy_return']:.2%}")
+            st.metric("Worst BUY Loss", f"{buy_metrics['worst_buy_return']:.2%}")
+            
+            # Calculate estimated ROI for period
+            total_roi = buy_metrics['buy_roi']
+            if total_roi > 0:
+                st.metric("Est. BUY ROI", f"+{total_roi:.2%}", help="Estimated return from all BUY signals")
+            else:
+                st.metric("Est. BUY ROI", f"{total_roi:.2%}", help="Estimated return from all BUY signals")
+        
+        # BUY signal trend visualization
+        st.subheader("📊 BUY Signal Performance Trend")
+        
+        # Get daily BUY performance data
+        try:
+            conn = tracker.get_db_connection()
+            if conn:
+                buy_daily_query = """
+                    SELECT 
+                        DATE(p.created_at) as date,
+                        COUNT(*) as buy_predictions,
+                        SUM(CASE WHEN o.actual_return > 0 THEN 1 ELSE 0 END) as successful_buys,
+                        AVG(o.actual_return) as avg_daily_return,
+                        AVG(p.confidence) as avg_daily_confidence
+                    FROM predictions p
+                    LEFT JOIN outcomes o ON p.id = o.prediction_id
+                    WHERE p.predicted_action = 'BUY'
+                    AND DATE(p.created_at) >= DATE('now', '-{} days')
+                    AND o.actual_return IS NOT NULL
+                    GROUP BY DATE(p.created_at)
+                    ORDER BY date
+                """.format(days)
+                
+                buy_daily_df = pd.read_sql_query(buy_daily_query, conn)
+                conn.close()
+                
+                if not buy_daily_df.empty:
+                    buy_daily_df['date'] = pd.to_datetime(buy_daily_df['date'])
+                    buy_daily_df['buy_success_rate'] = buy_daily_df['successful_buys'] / buy_daily_df['buy_predictions']
+                    
+                    fig_buy = make_subplots(
+                        rows=2, cols=2,
+                        subplot_titles=(
+                            'Daily BUY Success Rate',
+                            'Daily BUY Average Return',
+                            'BUY Signal Volume',
+                            'BUY Confidence Levels'
+                        ),
+                        vertical_spacing=0.15
+                    )
+                    
+                    # BUY success rate trend
+                    fig_buy.add_trace(
+                        go.Scatter(
+                            x=buy_daily_df['date'],
+                            y=buy_daily_df['buy_success_rate'] * 100,
+                            mode='lines+markers',
+                            name='BUY Success %',
+                            line=dict(color='green', width=3),
+                            marker=dict(size=8)
+                        ),
+                        row=1, col=1
+                    )
+                    
+                    # BUY average return
+                    fig_buy.add_trace(
+                        go.Scatter(
+                            x=buy_daily_df['date'],
+                            y=buy_daily_df['avg_daily_return'] * 100,
+                            mode='lines+markers',
+                            name='Avg Return %',
+                            line=dict(color='blue', width=3),
+                            marker=dict(size=8)
+                        ),
+                        row=1, col=2
+                    )
+                    
+                    # BUY signal volume
+                    fig_buy.add_trace(
+                        go.Bar(
+                            x=buy_daily_df['date'],
+                            y=buy_daily_df['buy_predictions'],
+                            name='Daily BUY Signals',
+                            marker_color='lightgreen'
+                        ),
+                        row=2, col=1
+                    )
+                    
+                    # BUY confidence
+                    fig_buy.add_trace(
+                        go.Scatter(
+                            x=buy_daily_df['date'],
+                            y=buy_daily_df['avg_daily_confidence'] * 100,
+                            mode='lines+markers',
+                            name='Confidence %',
+                            line=dict(color='orange', width=3),
+                            marker=dict(size=8)
+                        ),
+                        row=2, col=2
+                    )
+                    
+                    fig_buy.update_layout(
+                        height=500,
+                        title=f"BUY Signal Performance Dashboard - Last {days} Days",
+                        showlegend=False
+                    )
+                    
+                    fig_buy.update_yaxes(title_text="Success Rate (%)", row=1, col=1)
+                    fig_buy.update_yaxes(title_text="Return (%)", row=1, col=2)
+                    fig_buy.update_yaxes(title_text="Signal Count", row=2, col=1)
+                    fig_buy.update_yaxes(title_text="Confidence (%)", row=2, col=2)
+                    
+                    st.plotly_chart(fig_buy, use_container_width=True)
+                else:
+                    st.info("📊 No daily BUY signal data available for the selected period.")
+            else:
+                st.warning("⚠️ Unable to connect to database for BUY trend analysis.")
+        except Exception as e:
+            st.error(f"Error creating BUY trend charts: {e}")
+    
+    else:
+        st.warning("📭 No BUY signal data available for the selected period.")
+        st.info("BUY signals are the most important for profitable trading. Check back after the system generates more predictions.")
+
     # Performance Charts
     st.subheader("📈 Performance Analysis")
     

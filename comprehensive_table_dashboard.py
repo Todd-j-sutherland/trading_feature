@@ -909,6 +909,273 @@ class TradingDataDashboard:
         else:
             st.info(f"No data found in table {table_name}")
     
+    def render_buy_performance_section(self):
+        """Render BUY performance analysis section"""
+        st.markdown("---")
+        st.markdown("""
+        <div style="background: linear-gradient(90deg, #00c851 0%, #007e33 100%); padding: 1rem; border-radius: 10px; color: white; margin: 1rem 0;">
+            <h2>💰 BUY Performance Analysis - Most Critical Metrics</h2>
+            <p>Comprehensive analysis of BUY predictions performance and success rates</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Time period selector
+        col1, col2, col3 = st.columns([2, 1, 1])
+        with col1:
+            time_filter = st.selectbox("📅 Select Time Period", 
+                                     ["Last 7 Days", "Last 30 Days", "All Time"],
+                                     index=1)
+        
+        # Get BUY performance data
+        buy_data = self.get_buy_performance_data(time_filter)
+        
+        if buy_data['total_buy_predictions'] > 0:
+            # Performance metrics row
+            metric_cols = st.columns(4)
+            
+            with metric_cols[0]:
+                st.metric(
+                    label="🎯 BUY Success Rate",
+                    value=f"{buy_data['success_rate']:.1f}%",
+                    delta=f"{buy_data['total_successful']} wins",
+                    help="Percentage of BUY predictions that were profitable"
+                )
+            
+            with metric_cols[1]:
+                st.metric(
+                    label="💵 Average Return",
+                    value=f"{buy_data['avg_return']:.2f}%",
+                    delta=f"±{buy_data['return_volatility']:.2f}%",
+                    help="Average percentage return for BUY positions"
+                )
+            
+            with metric_cols[2]:
+                st.metric(
+                    label="📊 Total BUY Trades",
+                    value=f"{buy_data['total_buy_predictions']}",
+                    delta=f"{buy_data['evaluated_count']} evaluated",
+                    help="Total BUY predictions made vs evaluated"
+                )
+            
+                with metric_cols[3]:
+                    avg_conf = buy_data['avg_confidence']
+                    st.metric(
+                        label="🎲 Avg Confidence",
+                        value=f"{avg_conf*100:.1f}%",
+                        delta=f"Range: {buy_data['min_confidence']*100:.1f}-{buy_data['max_confidence']*100:.1f}%",
+                        help="Average confidence level for BUY predictions"
+                    )            # Detailed performance breakdown
+            st.subheader("📈 BUY Performance Breakdown")
+            
+            # Create tabs for different views
+            perf_tabs = st.tabs(["🏆 Recent BUY Results", "📊 Confidence Analysis", "📅 Performance Trends"])
+            
+            with perf_tabs[0]:
+                st.write(f"**Recent BUY Predictions ({time_filter})**")
+                if len(buy_data['recent_trades']) > 0:
+                    # Display recent trades table
+                    recent_df = buy_data['recent_trades']
+                    st.dataframe(
+                        recent_df,
+                        column_config={
+                            "symbol": "Symbol",
+                            "prediction_timestamp": st.column_config.DatetimeColumn("Prediction Time"),
+                            "predicted_action": "Action",
+                            "entry_price": st.column_config.NumberColumn("Entry Price", format="$%.2f"),
+                            "action_confidence": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=1),
+                            "actual_return": st.column_config.NumberColumn("Return %", format="%.2f%%"),
+                            "successful": "Success"
+                        },
+                        hide_index=True
+                    )
+                else:
+                    st.info("No recent BUY trades available for the selected time period")
+            
+            with perf_tabs[1]:
+                st.write("**Confidence vs Success Rate Analysis**")
+                if buy_data['confidence_analysis']:
+                    conf_data = buy_data['confidence_analysis']
+                    
+                    # Show confidence bins
+                    st.write("Performance by Confidence Level:")
+                    for bin_range, stats in conf_data.items():
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric(f"Confidence {bin_range}", f"{stats['count']} trades")
+                        with col2:
+                            st.metric("Success Rate", f"{stats['success_rate']:.1f}%")
+                        with col3:
+                            st.metric("Avg Return", f"{stats['avg_return']:.2f}%")
+                else:
+                    st.info("Not enough data for confidence analysis")
+            
+            with perf_tabs[2]:
+                st.write("**Performance Over Time**")
+                if len(buy_data['daily_performance']) > 0:
+                    daily_df = buy_data['daily_performance']
+                    st.dataframe(
+                        daily_df,
+                        column_config={
+                            "date": "Date",
+                            "buy_count": "BUY Trades",
+                            "success_rate": st.column_config.ProgressColumn("Success Rate", min_value=0, max_value=100),
+                            "avg_return": st.column_config.NumberColumn("Avg Return %", format="%.2f%%")
+                        },
+                        hide_index=True
+                    )
+                else:
+                    st.info("No daily performance data available")
+        else:
+            st.warning("No BUY predictions found for the selected time period")
+    
+    def get_buy_performance_data(self, time_filter):
+        """Get BUY performance data from database"""
+        main_db_path = self.root_dir / "data" / "trading_predictions.db"
+        
+        # Determine date filter
+        if time_filter == "Last 7 Days":
+            date_condition = "AND p.prediction_timestamp >= datetime('now', '-7 days')"
+        elif time_filter == "Last 30 Days":
+            date_condition = "AND p.prediction_timestamp >= datetime('now', '-30 days')"
+        else:
+            date_condition = ""
+        
+        try:
+            import sqlite3
+            import pandas as pd
+            
+            with sqlite3.connect(main_db_path) as conn:
+                # Get BUY predictions with outcomes
+                query = f"""
+                SELECT 
+                    p.symbol,
+                    p.prediction_timestamp,
+                    p.predicted_action,
+                    p.action_confidence,
+                    p.entry_price,
+                    o.actual_return,
+                    CASE WHEN o.actual_return > 0 THEN 1 ELSE 0 END as successful,
+                    o.created_at as outcome_time
+                FROM predictions p
+                LEFT JOIN outcomes o ON p.prediction_id = o.prediction_id
+                WHERE p.predicted_action = 'BUY' {date_condition}
+                ORDER BY p.prediction_timestamp DESC
+                """
+                
+                df = pd.read_sql_query(query, conn)
+                
+                # Fix datetime parsing issue
+                if len(df) > 0:
+                    # Handle timestamp format - use mixed format for flexibility
+                    try:
+                        df['prediction_timestamp'] = pd.to_datetime(df['prediction_timestamp'], format='mixed')
+                    except:
+                        # If mixed format fails, try without format specification
+                        df['prediction_timestamp'] = pd.to_datetime(df['prediction_timestamp'])
+                
+                if len(df) == 0:
+                    return {
+                        'total_buy_predictions': 0,
+                        'evaluated_count': 0,
+                        'total_successful': 0,
+                        'success_rate': 0,
+                        'avg_return': 0,
+                        'return_volatility': 0,
+                        'avg_confidence': 0,
+                        'min_confidence': 0,
+                        'max_confidence': 0,
+                        'recent_trades': pd.DataFrame(),
+                        'confidence_analysis': {},
+                        'daily_performance': pd.DataFrame()
+                    }
+                
+                # Calculate metrics
+                total_predictions = len(df)
+                evaluated_df = df[df['actual_return'].notna()]
+                evaluated_count = len(evaluated_df)
+                
+                if evaluated_count > 0:
+                    successful_count = len(evaluated_df[evaluated_df['successful'] == 1])
+                    success_rate = (successful_count / evaluated_count) * 100
+                    avg_return = evaluated_df['actual_return'].mean()
+                    return_volatility = evaluated_df['actual_return'].std()
+                    
+                    # Confidence analysis
+                    confidence_analysis = {}
+                    if evaluated_count >= 5:  # Need minimum data for analysis
+                        evaluated_df['conf_bin'] = pd.cut(evaluated_df['action_confidence'], 
+                                                        bins=[0, 0.6, 0.7, 0.8, 0.9, 1.0], 
+                                                        labels=['50-60%', '60-70%', '70-80%', '80-90%', '90-100%'])
+                        
+                        for bin_name in evaluated_df['conf_bin'].unique():
+                            if pd.isna(bin_name):
+                                continue
+                            bin_data = evaluated_df[evaluated_df['conf_bin'] == bin_name]
+                            if len(bin_data) > 0:
+                                confidence_analysis[str(bin_name)] = {
+                                    'count': len(bin_data),
+                                    'success_rate': (len(bin_data[bin_data['successful'] == 1]) / len(bin_data)) * 100,
+                                    'avg_return': bin_data['actual_return'].mean()
+                                }
+                    
+                    # Daily performance
+                    if evaluated_count > 0:
+                        # Convert timestamp to date for grouping
+                        try:
+                            evaluated_df['date'] = pd.to_datetime(evaluated_df['prediction_timestamp'], format='mixed').dt.date
+                        except:
+                            evaluated_df['date'] = pd.to_datetime(evaluated_df['prediction_timestamp']).dt.date
+                            
+                        daily_perf = evaluated_df.groupby('date').agg({
+                            'symbol': 'count',
+                            'successful': 'mean',
+                            'actual_return': 'mean'
+                        }).reset_index()
+                        daily_perf.columns = ['date', 'buy_count', 'success_rate', 'avg_return']
+                        daily_perf['success_rate'] = daily_perf['success_rate'] * 100
+                        daily_perf = daily_perf.sort_values('date', ascending=False)
+                    else:
+                        daily_perf = pd.DataFrame()
+                else:
+                    successful_count = 0
+                    success_rate = 0
+                    avg_return = 0
+                    return_volatility = 0
+                    confidence_analysis = {}
+                    daily_perf = pd.DataFrame()
+                
+                return {
+                    'total_buy_predictions': total_predictions,
+                    'evaluated_count': evaluated_count,
+                    'total_successful': successful_count,
+                    'success_rate': success_rate,
+                    'avg_return': avg_return,
+                    'return_volatility': return_volatility if return_volatility and not pd.isna(return_volatility) else 0,
+                    'avg_confidence': df['action_confidence'].mean(),
+                    'min_confidence': df['action_confidence'].min(),
+                    'max_confidence': df['action_confidence'].max(),
+                    'recent_trades': df.head(20),  # Show last 20 trades
+                    'confidence_analysis': confidence_analysis,
+                    'daily_performance': daily_perf
+                }
+                
+        except Exception as e:
+            st.error(f"Error loading BUY performance data: {str(e)}")
+            return {
+                'total_buy_predictions': 0,
+                'evaluated_count': 0,
+                'total_successful': 0,
+                'success_rate': 0,
+                'avg_return': 0,
+                'return_volatility': 0,
+                'avg_confidence': 0,
+                'min_confidence': 0,
+                'max_confidence': 0,
+                'recent_trades': pd.DataFrame(),
+                'confidence_analysis': {},
+                'daily_performance': pd.DataFrame()
+            }
+    
     def render_performance_analytics_section(self):
         """Render the performance analytics module section"""
         if PERFORMANCE_ANALYTICS_AVAILABLE:
@@ -959,6 +1226,9 @@ class TradingDataDashboard:
         self.render_evening_routine_data()
         self.render_data_quality_issues()
         self.render_real_time_monitoring()
+        
+        # Render BUY Performance Section (Most Important)
+        self.render_buy_performance_section()
         
         # Render Performance Analytics Module
         self.render_performance_analytics_section()
