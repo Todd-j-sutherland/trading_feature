@@ -662,11 +662,11 @@ class EnhancedMorningAnalyzer:
 
     def _save_predictions_if_available(self, analysis_results):
         """Save predictions to the predictions table if ML predictions are available"""
-        try:
-            ml_preds = analysis_results.get("ml_predictions", {})
-            if not ml_preds or not isinstance(ml_preds, dict):
-                self.logger.info("🔍 No ML predictions to save to predictions table")
-                return
+        # DISABLED: Only fixed_price_mapping_v4.0 should generate predictions
+        # This analyzer is for analysis only, not prediction generation
+        self.logger.info("🔍 Prediction saving disabled - this analyzer is for analysis only")
+        self.logger.info("✅ Predictions are handled by fixed_price_mapping_v4.0 system")
+        return
                 
             import sqlite3
             from datetime import datetime
