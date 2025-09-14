@@ -1,0 +1,181 @@
+# Trading System Deployment Configuration
+# This file defines deployment settings, environment configurations,
+# and operational parameters for the trading microservices architecture.
+
+environment: production
+
+# Services to deploy (in dependency order)
+services:
+  - market-data
+  - sentiment  
+  - ml-model
+  - prediction
+  - paper-trading
+  - scheduler
+  - monitoring
+  - monitoring-dashboard
+
+# Service dependencies for deployment ordering
+dependencies:
+  market-data: []
+  sentiment: []
+  ml-model: []
+  prediction: [market-data, sentiment]
+  paper-trading: [prediction]
+  scheduler: [prediction, paper-trading]
+  monitoring: []
+  monitoring-dashboard: [monitoring]
+
+# Resource limits per service
+resource_limits:
+  default:
+    memory: 512M
+    cpu: 100%
+    tasks: 50
+    
+  # Service-specific overrides
+  prediction:
+    memory: 1G
+    cpu: 150%
+    tasks: 100
+    
+  monitoring:
+    memory: 1G
+    cpu: 100%
+    tasks: 75
+    
+  monitoring-dashboard:
+    memory: 512M
+    cpu: 50%
+    tasks: 25
+
+# Deployment settings
+healthcheck_timeout: 60
+rollback_enabled: true
+backup_before_deploy: true
+deployment_timeout: 300
+
+# Environment-specific configurations
+environments:
+  development:
+    redis_url: "redis://localhost:6379"
+    log_level: DEBUG
+    backup_retention_days: 7
+    
+  staging:
+    redis_url: "redis://localhost:6379"
+    log_level: INFO
+    backup_retention_days: 14
+    
+  production:
+    redis_url: "redis://localhost:6379"
+    log_level: INFO
+    backup_retention_days: 30
+
+# Security settings
+security:
+  enable_authentication: true
+  rate_limiting: true
+  audit_logging: true
+  socket_permissions: 0o666
+
+# Backup configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention_days: 30
+  compression: true
+  
+  # What to backup
+  include:
+    - databases: 
+        - "*.db"
+        - "data/*.db"
+    - configuration:
+        - "config/"
+        - "systemd/"
+    - services:
+        - "services/"
+    - logs:
+        - "logs/"
+        
+  # What to exclude
+  exclude:
+    - "*.pyc"
+    - "__pycache__/"
+    - ".git/"
+    - "trading_venv/"
+    - "backup*/"
+
+# Monitoring and alerting
+monitoring:
+  enabled: true
+  health_check_interval: 30
+  metrics_retention_days: 90
+  
+  # Alert thresholds
+  thresholds:
+    memory_usage: 85
+    cpu_usage: 90
+    disk_usage: 90
+    error_rate: 5
+    response_time: 10000  # milliseconds
+    
+  # Alert channels
+  alerts:
+    email:
+      enabled: false
+      smtp_server: ""
+      smtp_port: 587
+      username: ""
+      password: ""
+      recipients: []
+      
+    webhook:
+      enabled: false
+      url: ""
+      
+    console:
+      enabled: true
+
+# Network configuration
+network:
+  socket_directory: "/tmp"
+  socket_prefix: "trading_"
+  dashboard_port: 5000
+  dashboard_host: "0.0.0.0"
+
+# Operational procedures
+operations:
+  # Graceful shutdown timeout
+  shutdown_timeout: 30
+  
+  # Service restart strategy
+  restart_strategy: "exponential_backoff"
+  max_restart_attempts: 3
+  restart_delay: 5
+  
+  # Health check configuration
+  health_checks:
+    enabled: true
+    timeout: 10
+    retries: 3
+    interval: 30
+    
+  # Log rotation
+  log_rotation:
+    enabled: true
+    max_size: "100M"
+    backup_count: 5
+    
+# Maintenance windows
+maintenance:
+  # Preferred maintenance window (UTC)
+  window_start: "02:00"
+  window_end: "05:00"
+  
+  # Days for maintenance (0 = Monday)
+  allowed_days: [0, 1, 2, 3, 4, 6]  # Monday-Friday, Sunday
+  
+  # Emergency maintenance override
+  emergency_override: true

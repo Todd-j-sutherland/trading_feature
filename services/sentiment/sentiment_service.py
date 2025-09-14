@@ -96,18 +96,54 @@ class SentimentService(BaseService):
         self.register_handler("get_news_volume", self.get_news_volume)
     
     async def analyze_sentiment(self, symbol: str):
-        """Get sentiment analysis for specific symbol"""
+        """Get sentiment analysis for specific symbol with validation"""
+        # Input validation
+        if not symbol or not isinstance(symbol, str):
+            return {
+                "error": "Invalid symbol parameter",
+                "symbol": symbol,
+                "sentiment_score": 0.0,
+                "news_confidence": 0.0,
+                "fallback": True
+            }
+        
+        # Sanitize symbol
+        symbol = symbol.upper().strip()
+        if not symbol.replace('.', '').replace('-', '').isalnum():
+            return {
+                "error": "Invalid symbol format",
+                "symbol": symbol,
+                "sentiment_score": 0.0,
+                "news_confidence": 0.0,
+                "fallback": True
+            }
+        
         try:
             # Check cache first
             cache_key = f"sentiment:{symbol}"
             if cache_key in self.sentiment_cache:
                 cached_data, timestamp = self.sentiment_cache[cache_key]
-                if datetime.now().timestamp() - timestamp < self.cache_ttl:
-                    self.logger.info(f'"symbol": "{symbol}", "action": "sentiment_cache_hit"')
-                    return cached_data
+                cache_age = datetime.now().timestamp() - timestamp
+                if cache_age < self.cache_ttl:
+                    self.logger.info(f'"symbol": "{symbol}", "cache_age": {cache_age:.1f}, "action": "sentiment_cache_hit"')
+                    return {**cached_data, "cached": True, "cache_age": cache_age}
             
-            # Fetch fresh sentiment data
-            sentiment_data = await self._fetch_symbol_sentiment(symbol)
+            # Fetch fresh sentiment data with timeout protection
+            try:
+                sentiment_data = await asyncio.wait_for(
+                    self._fetch_symbol_sentiment(symbol), 
+                    timeout=30.0
+                )
+            except asyncio.TimeoutError:
+                self.logger.error(f'"symbol": "{symbol}", "error": "sentiment_fetch_timeout", "action": "fallback_to_neutral"')
+                sentiment_data = self._get_neutral_sentiment(symbol, "Timeout during sentiment fetch")
+            
+            # Validate sentiment data structure
+            if not isinstance(sentiment_data, dict):
+                raise ValueError("Invalid sentiment data format")
+            
+            # Ensure required fields exist with valid values
+            sentiment_data = self._validate_sentiment_data(sentiment_data, symbol)
             
             # Cache the result
             self.sentiment_cache[cache_key] = (sentiment_data, datetime.now().timestamp())
@@ -119,21 +155,82 @@ class SentimentService(BaseService):
                 "confidence": sentiment_data.get("news_confidence", 0.5)
             })
             
-            self.logger.info(f'"symbol": "{symbol}", "sentiment": {sentiment_data.get("sentiment_score", 0.0)}, "action": "sentiment_analyzed"')
-            return sentiment_data
+            self.logger.info(f'"symbol": "{symbol}", "sentiment": {sentiment_data.get("sentiment_score", 0.0)}, "confidence": {sentiment_data.get("news_confidence", 0.5)}, "action": "sentiment_analyzed"')
+        return sentiment_data
+    
+    def _get_neutral_sentiment(self, symbol: str, error_msg: str = None) -> Dict[str, Any]:
+        """Get neutral sentiment response for error cases"""
+        return {
+            "symbol": symbol,
+            "sentiment_score": 0.0,
+            "news_confidence": 0.5,
+            "news_quality_score": 0.5,
+            "news_volume": 0,
+            "sentiment_breakdown": {"positive": 0, "neutral": 1, "negative": 0},
+            "error": error_msg,
+            "fallback": True,
+            "timestamp": datetime.now().isoformat(),
+            "cached": False
+        }
+    
+    def _validate_sentiment_data(self, data: Dict[str, Any], symbol: str) -> Dict[str, Any]:
+        """Validate and sanitize sentiment data structure"""
+        validated = {
+            "symbol": symbol,
+            "sentiment_score": 0.0,
+            "news_confidence": 0.5,
+            "news_quality_score": 0.5,
+            "news_volume": 0,
+            "sentiment_breakdown": {"positive": 0, "neutral": 0, "negative": 0},
+            "cached": False
+        }
+        
+        # Validate sentiment_score
+        if "sentiment_score" in data:
+            try:
+                score = float(data["sentiment_score"])
+                validated["sentiment_score"] = max(-1.0, min(1.0, score))
+            except (ValueError, TypeError):
+                pass
+        
+        # Validate confidence scores
+        for field in ["news_confidence", "news_quality_score"]:
+            if field in data:
+                try:
+                    conf = float(data[field])
+                    validated[field] = max(0.0, min(1.0, conf))
+                except (ValueError, TypeError):
+                    pass
+        
+        # Validate news_volume
+        if "news_volume" in data:
+            try:
+                validated["news_volume"] = max(0, int(data["news_volume"]))
+            except (ValueError, TypeError):
+                pass
+        
+        # Validate sentiment_breakdown
+        if "sentiment_breakdown" in data and isinstance(data["sentiment_breakdown"], dict):
+            breakdown = data["sentiment_breakdown"]
+            for sentiment_type in ["positive", "neutral", "negative"]:
+                if sentiment_type in breakdown:
+                    try:
+                        validated["sentiment_breakdown"][sentiment_type] = max(0, int(breakdown[sentiment_type]))
+                    except (ValueError, TypeError):
+                        pass
+        
+        # Copy other safe fields
+        safe_fields = ["company_name", "timestamp", "source", "raw_sentiments"]
+        for field in safe_fields:
+            if field in data:
+                validated[field] = data[field]
+        
+        return validated
             
         except Exception as e:
             self.logger.error(f'"symbol": "{symbol}", "error": "{e}", "action": "sentiment_analysis_failed"')
             # Return neutral sentiment on error
-            return {
-                "symbol": symbol,
-                "sentiment_score": 0.0,
-                "news_confidence": 0.5,
-                "news_quality_score": 0.5,
-                "news_volume": 0,
-                "error": str(e),
-                "fallback": True
-            }
+            return self._get_neutral_sentiment(symbol, str(e))
     
     async def _fetch_symbol_sentiment(self, symbol: str) -> Dict[str, Any]:
         """Fetch and analyze sentiment for a specific symbol"""
@@ -173,26 +270,105 @@ class SentimentService(BaseService):
             raise Exception(f"Symbol sentiment fetch failed: {e}")
     
     async def _fetch_marketaux_news(self, company_name: str) -> List[Dict]:
-        """Fetch news from MarketAux API"""
+        """Fetch news from MarketAux API with enhanced error handling"""
+        # Input validation
+        if not company_name or not isinstance(company_name, str):
+            self.logger.error(f'"error": "invalid_company_name", "action": "marketaux_fetch_failed"')
+            return []
+        
+        # Sanitize company name
+        company_name = company_name.strip()
+        if len(company_name) > 100:  # Reasonable limit
+            company_name = company_name[:100]
+        
         try:
+            # Validate API key
+            if not self.marketaux_api_key:
+                self.logger.warning(f'"company": "{company_name}", "error": "no_api_key", "action": "marketaux_fetch_skipped"')
+                return []
+            
             params = {
                 "api_token": self.marketaux_api_key,
                 "symbols": company_name,
                 "filter_entities": "true",
                 "language": "en",
                 "countries": "au",
-                "limit": 10
+                "limit": min(10, 50)  # Cap at reasonable limit
             }
             
-            response = requests.get(self.marketaux_base_url, params=params, timeout=10)
-            response.raise_for_status()
+            # Make request with timeout and error handling
+            try:
+                response = requests.get(
+                    self.marketaux_base_url, 
+                    params=params, 
+                    timeout=15,
+                    headers={'User-Agent': 'TradingService/1.0'}
+                )
+                response.raise_for_status()
+            except requests.exceptions.Timeout:
+                self.logger.error(f'"company": "{company_name}", "error": "request_timeout", "action": "marketaux_fetch_failed"')
+                return []
+            except requests.exceptions.RequestException as e:
+                self.logger.error(f'"company": "{company_name}", "error": "{e}", "action": "marketaux_request_failed"')
+                return []
             
-            data = response.json()
-            return data.get("data", [])
+            # Parse response safely
+            try:
+                data = response.json()
+                if not isinstance(data, dict):
+                    raise ValueError("Invalid JSON response format")
+                
+                news_articles = data.get("data", [])
+                if not isinstance(news_articles, list):
+                    self.logger.warning(f'"company": "{company_name}", "error": "invalid_data_format", "action": "returning_empty_list"')
+                    return []
+                
+                # Validate and sanitize each article
+                validated_articles = []
+                for article in news_articles[:10]:  # Limit articles processed
+                    if isinstance(article, dict):
+                        validated_article = self._validate_news_article(article)
+                        if validated_article:
+                            validated_articles.append(validated_article)
+                
+                self.logger.info(f'"company": "{company_name}", "articles_found": {len(validated_articles)}, "action": "marketaux_fetch_success"')
+                return validated_articles
+                
+            except (ValueError, KeyError) as e:
+                self.logger.error(f'"company": "{company_name}", "error": "json_parse_failed", "details": "{e}", "action": "marketaux_fetch_failed"')
+                return []
             
         except Exception as e:
             self.logger.error(f'"company": "{company_name}", "error": "{e}", "action": "marketaux_fetch_failed"')
             return []
+    
+    def _validate_news_article(self, article: Dict) -> Dict[str, Any]:
+        """Validate and sanitize news article data"""
+        try:
+            validated = {}
+            
+            # Required fields with defaults
+            validated["title"] = str(article.get("title", ""))[:500]  # Limit title length
+            validated["description"] = str(article.get("description", ""))[:2000]  # Limit description
+            validated["source"] = str(article.get("source", "unknown"))[:100]
+            validated["published_at"] = article.get("published_at", datetime.now().isoformat())
+            
+            # Optional sentiment field
+            if "sentiment" in article:
+                try:
+                    sentiment = float(article["sentiment"])
+                    validated["sentiment"] = max(-1.0, min(1.0, sentiment))
+                except (ValueError, TypeError):
+                    pass
+            
+            # Validate that we have meaningful content
+            if not validated["title"] and not validated["description"]:
+                return None
+            
+            return validated
+        except Exception as e:
+            self.logger.warning(f'"error": "{e}", "action": "article_validation_failed"')
+            return None
     
     def _generate_fallback_sentiment(self, symbol: str, company_name: str) -> List[Dict]:
         """Generate simulated sentiment when API is unavailable"""
@@ -292,85 +468,199 @@ class SentimentService(BaseService):
         }
     
     def _calculate_text_sentiment(self, text: str) -> float:
-        """Simple keyword-based sentiment analysis"""
+        """Simple keyword-based sentiment analysis with enhanced validation"""
+        # Input validation
+        if not text or not isinstance(text, str):
+            return 0.0
+        
+        # Sanitize and limit text length
+        text = text.strip()[:10000]  # Reasonable text limit
         if not text:
             return 0.0
         
-        text_lower = text.lower()
-        positive_count = sum(1 for word in self.positive_keywords if word in text_lower)
-        negative_count = sum(1 for word in self.negative_keywords if word in text_lower)
-        
-        total_words = len(text.split())
-        if total_words == 0:
+        try:
+            text_lower = text.lower()
+            words = text.split()
+            total_words = len(words)
+            
+            if total_words == 0:
+                return 0.0
+            
+            # Count positive and negative keywords
+            positive_count = 0
+            negative_count = 0
+            
+            for word in self.positive_keywords:
+                if word in text_lower:
+                    positive_count += text_lower.count(word)
+            
+            for word in self.negative_keywords:
+                if word in text_lower:
+                    negative_count += text_lower.count(word)
+            
+            # Calculate sentiment score with bounds checking
+            positive_weight = min(positive_count / total_words * 10, 1.0)  # Cap at 1.0
+            negative_weight = min(negative_count / total_words * 10, 1.0)  # Cap at 1.0
+            
+            sentiment = positive_weight - negative_weight
+            
+            # Ensure result is within bounds
+            return max(-1.0, min(1.0, sentiment))
+            
+        except Exception as e:
+            self.logger.warning(f'"error": "{e}", "action": "text_sentiment_calculation_failed"')
             return 0.0
-        
-        # Calculate sentiment score
-        positive_weight = positive_count / max(1, total_words) * 10
-        negative_weight = negative_count / max(1, total_words) * 10
-        
-        sentiment = positive_weight - negative_weight
-        return max(-1.0, min(1.0, sentiment))
     
     def _calculate_article_quality(self, article: Dict) -> float:
-        """Calculate quality score for news article"""
-        quality = 0.5  # Base quality
-        
-        # Source quality (if available)
-        source = article.get("source", "").lower()
-        high_quality_sources = ["reuters", "bloomberg", "financial review", "abc", "smh"]
-        if any(hq_source in source for hq_source in high_quality_sources):
-            quality += 0.3
-        
-        # Recency bonus
-        published_str = article.get("published_at", "")
-        if published_str:
+        """Calculate quality score for news article with enhanced validation"""
+        try:
+            if not isinstance(article, dict):
+                return 0.5
+            
+            quality = 0.5  # Base quality
+            
+            # Source quality (if available)
+            source = str(article.get("source", "")).lower().strip()
+            high_quality_sources = [
+                "reuters", "bloomberg", "financial review", "abc", "smh", 
+                "afr", "australian financial review", "the australian",
+                "wall street journal", "ft", "financial times"
+            ]
+            
+            if source and any(hq_source in source for hq_source in high_quality_sources):
+                quality += 0.3
+            elif source and len(source) > 0:
+                quality += 0.1  # Some credit for having a source
+            
+            # Recency bonus with proper date handling
+            published_str = article.get("published_at", "")
+            if published_str and isinstance(published_str, str):
+                try:
+                    # Handle various datetime formats
+                    if published_str.endswith('Z'):
+                        published_str = published_str[:-1] + '+00:00'
+                    
+                    published = datetime.fromisoformat(published_str.replace('Z', '+00:00'))
+                    
+                    # Calculate hours ago, handling timezone-aware datetimes
+                    if published.tzinfo:
+                        published = published.replace(tzinfo=None)
+                    
+                    hours_ago = (datetime.now() - published).total_seconds() / 3600
+                    
+                    if 0 <= hours_ago <= 24:
+                        quality += 0.2  # Recent news is more relevant
+                    elif 24 < hours_ago <= 168:  # 1 week
+                        quality += 0.1  # Somewhat recent
+                    # No bonus for older news
+                        
+                except (ValueError, AttributeError, OverflowError) as e:
+                    self.logger.warning(f'"error": "{e}", "published_at": "{published_str}", "action": "date_parse_failed"')
+            
+            # Content length (longer articles often more comprehensive)
             try:
-                published = datetime.fromisoformat(published_str.replace('Z', '+00:00'))
-                hours_ago = (datetime.now() - published.replace(tzinfo=None)).total_seconds() / 3600
-                if hours_ago < 24:
-                    quality += 0.2  # Recent news is more relevant
-            except:
+                title_length = len(str(article.get("title", "")))
+                description_length = len(str(article.get("description", "")))
+                
+                total_content = title_length + description_length
+                
+                if total_content > 200:
+                    quality += 0.2  # Substantial content
+                elif total_content > 100:
+                    quality += 0.1  # Reasonable content
+                # No bonus for very short content
+                
+            except (TypeError, AttributeError):
                 pass
-        
-        # Content length (longer articles often more comprehensive)
-        description_length = len(article.get("description", ""))
-        if description_length > 100:
-            quality += 0.1
-        
-        return min(1.0, quality)
+            
+            # Ensure quality stays within bounds
+            return max(0.0, min(1.0, quality))
+            
+        except Exception as e:
+            self.logger.warning(f'"error": "{e}", "action": "quality_calculation_failed"')
+            return 0.5  # Default quality on error
     
     async def get_big4_sentiment(self):
-        """Get aggregated sentiment for Big 4 banks"""
+        """Get aggregated sentiment for Big 4 banks with enhanced error handling"""
         try:
             big4_sentiments = {}
             sentiment_scores = []
+            confidence_scores = []
+            error_count = 0
             
+            # Process each bank with error isolation
             for symbol in self.big4_symbols:
-                sentiment_data = await self.analyze_sentiment(symbol)
-                big4_sentiments[symbol] = sentiment_data
-                
-                if "error" not in sentiment_data:
-                    sentiment_scores.append(sentiment_data.get("sentiment_score", 0.0))
+                try:
+                    sentiment_data = await self.analyze_sentiment(symbol)
+                    big4_sentiments[symbol] = sentiment_data
+                    
+                    if "error" not in sentiment_data or not sentiment_data.get("fallback", False):
+                        sentiment_score = sentiment_data.get("sentiment_score", 0.0)
+                        confidence = sentiment_data.get("news_confidence", 0.5)
+                        
+                        # Validate scores before adding
+                        if isinstance(sentiment_score, (int, float)) and -1 <= sentiment_score <= 1:
+                            sentiment_scores.append(float(sentiment_score))
+                        if isinstance(confidence, (int, float)) and 0 <= confidence <= 1:
+                            confidence_scores.append(float(confidence))
+                    else:
+                        error_count += 1
+                        
+                except Exception as e:
+                    self.logger.error(f'"symbol": "{symbol}", "error": "{e}", "action": "big4_individual_sentiment_failed"')
+                    big4_sentiments[symbol] = self._get_neutral_sentiment(symbol, str(e))
+                    error_count += 1
             
-            # Calculate aggregated metrics
-            if sentiment_scores:
-                avg_sentiment = statistics.mean(sentiment_scores)
-                sentiment_std = statistics.stdev(sentiment_scores) if len(sentiment_scores) > 1 else 0.0
+            # Calculate aggregated metrics with proper validation
+            if sentiment_scores and len(sentiment_scores) > 0:
+                try:
+                    avg_sentiment = statistics.mean(sentiment_scores)
+                    sentiment_std = statistics.stdev(sentiment_scores) if len(sentiment_scores) > 1 else 0.0
+                    avg_confidence = statistics.mean(confidence_scores) if confidence_scores else 0.5
+                except (statistics.StatisticsError, ValueError) as e:
+                    self.logger.error(f'"error": "{e}", "action": "big4_statistics_calculation_failed"')
+                    avg_sentiment = 0.0
+                    sentiment_std = 0.0
+                    avg_confidence = 0.5
             else:
                 avg_sentiment = 0.0
                 sentiment_std = 0.0
+                avg_confidence = 0.5
+            
+            # Additional insights
+            positive_count = sum(1 for score in sentiment_scores if score > 0.1)
+            negative_count = sum(1 for score in sentiment_scores if score < -0.1)
+            neutral_count = len(sentiment_scores) - positive_count - negative_count
             
             return {
-                "big4_average_sentiment": round(avg_sentiment, 3),
-                "sentiment_volatility": round(sentiment_std, 3),
+                "big4_average_sentiment": round(float(avg_sentiment), 3),
+                "sentiment_volatility": round(float(sentiment_std), 3),
+                "average_confidence": round(float(avg_confidence), 3),
                 "individual_sentiments": big4_sentiments,
                 "consensus": self._determine_sentiment_consensus(avg_sentiment),
+                "sentiment_distribution": {
+                    "positive": positive_count,
+                    "neutral": neutral_count,
+                    "negative": negative_count
+                },
+                "data_quality": {
+                    "successful_fetches": len(sentiment_scores),
+                    "total_symbols": len(self.big4_symbols),
+                    "error_count": error_count,
+                    "reliability": (len(sentiment_scores) / len(self.big4_symbols)) if self.big4_symbols else 0
+                },
                 "timestamp": datetime.now().isoformat()
             }
             
         except Exception as e:
             self.logger.error(f'"error": "{e}", "action": "big4_sentiment_failed"')
-            return {"error": str(e)}
+            return {
+                "error": str(e),
+                "big4_average_sentiment": 0.0,
+                "sentiment_volatility": 0.0,
+                "consensus": "NEUTRAL",
+                "timestamp": datetime.now().isoformat()
+            }
     
     def _determine_sentiment_consensus(self, avg_sentiment: float) -> str:
         """Determine overall sentiment consensus"""

@@ -1,0 +1,44 @@
+[Unit]
+Description=Trading Market Data Service
+Documentation=file:///opt/trading_services/README.md
+After=network.target redis.service
+Wants=redis.service
+Requires=network.target
+
+[Service]
+Type=simple
+User=trading
+Group=trading
+WorkingDirectory=/opt/trading_services
+Environment=PYTHONPATH=/opt/trading_services
+Environment=PYTHONUNBUFFERED=1
+Environment=REDIS_URL=redis://localhost:6379
+ExecStart=/opt/trading_venv/bin/python services/market_data_service.py
+ExecStop=/bin/kill -TERM $MAINPID
+TimeoutStopSec=30
+Restart=always
+RestartSec=5
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=100%
+TasksMax=50
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=trading-market-data
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/trading /tmp/trading_sockets /opt/trading_services
+
+# Health monitoring
+WatchdogSec=60
+
+[Install]
+WantedBy=multi-user.target

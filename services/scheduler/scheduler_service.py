@@ -62,6 +62,7 @@ from typing import Dict, List, Any, Optional
 import pytz
 from dataclasses import dataclass, asdict
 import uuid
+import re
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from base.base_service import BaseService
@@ -86,17 +87,63 @@ class ScheduledTask:
     priority: int = 5  # 1=highest, 10=lowest
     timeout_seconds: int = 300
     created_at: str = None
+    failure_count: int = 0
+    success_count: int = 0
+    average_execution_time: float = 0.0
+    last_error: Optional[str] = None
+    
+    def __post_init__(self):
+        """Validate task data after initialization"""
+        if not self.task_id or not isinstance(self.task_id, str):
+            raise ValueError("task_id must be a non-empty string")
+        
+        if not self.name or not isinstance(self.name, str) or len(self.name.strip()) == 0:
+            raise ValueError("name must be a non-empty string")
+        
+        # Validate schedule_time format
+        if not re.match(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$', self.schedule_time):
+            raise ValueError("schedule_time must be in HH:MM format")
+        
+        # Validate weekdays
+        if not isinstance(self.weekdays, list) or not all(isinstance(d, int) and 0 <= d <= 6 for d in self.weekdays):
+            raise ValueError("weekdays must be a list of integers 0-6")
+        
+        # Validate market_phase
+        valid_phases = {"pre_market", "market_hours", "post_market", "off_hours"}
+        if self.market_phase not in valid_phases:
+            raise ValueError(f"market_phase must be one of {valid_phases}")
+        
+        # Validate service and method names
+        if not self.service_name or not isinstance(self.service_name, str):
+            raise ValueError("service_name must be a non-empty string")
+        
+        if not self.method_name or not isinstance(self.method_name, str):
+            raise ValueError("method_name must be a non-empty string")
+        
+        # Validate numeric constraints
+        if not isinstance(self.priority, int) or not 1 <= self.priority <= 10:
+            raise ValueError("priority must be an integer between 1 and 10")
+        
+        if not isinstance(self.timeout_seconds, int) or self.timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be a positive integer")
+        
+        if not isinstance(self.max_retries, int) or self.max_retries < 0:
+            raise ValueError("max_retries must be a non-negative integer")
 
 class SchedulerService(BaseService):
-    """Market-aware task scheduler for trading system"""
+    """Market-aware task scheduler for trading system with comprehensive error handling"""
     
     def __init__(self):
         super().__init__("scheduler")
         
-        # Australian Eastern Time
-        self.timezone = pytz.timezone('Australia/Sydney')
+        # Australian Eastern Time with validation
+        try:
+            self.timezone = pytz.timezone('Australia/Sydney')
+        except Exception as e:
+            self.logger.error(f'"error": "timezone_initialization_failed", "details": "{e}", "action": "using_utc_fallback"')
+            self.timezone = pytz.UTC
         
-        # Market schedule configuration
+        # Market schedule configuration with validation
         self.market_schedule = {
             "market_open": time(10, 0),    # 10:00 AM
             "market_close": time(16, 0),   # 4:00 PM
@@ -105,24 +152,29 @@ class SchedulerService(BaseService):
             "trading_days": [0, 1, 2, 3, 4]  # Monday-Friday
         }
         
-        # Task storage
+        # Task storage with thread-safe access patterns
         self.scheduled_tasks: Dict[str, ScheduledTask] = {}
         self.running_tasks: Dict[str, asyncio.Task] = {}
         self.task_history: List[Dict] = []
+        self.task_lock = asyncio.Lock()  # For thread-safe operations
         
-        # Market holidays (simplified - would integrate with holiday API)
-        self.market_holidays = [
-            "2024-01-01",  # New Year's Day
-            "2024-01-26",  # Australia Day
-            "2024-03-29",  # Good Friday
-            "2024-04-01",  # Easter Monday
-            "2024-04-25",  # ANZAC Day
-            "2024-06-10",  # Queen's Birthday
-            "2024-12-25",  # Christmas Day
-            "2024-12-26",  # Boxing Day
-        ]
+        # Enhanced metrics tracking
+        self.total_executions = 0
+        self.total_failures = 0
+        self.total_timeouts = 0
+        self.average_execution_time = 0.0
+        self.last_cleanup_time = datetime.now()
         
-        # Register methods
+        # Market holidays with validation and future-proofing
+        self.market_holidays = self._initialize_market_holidays()
+        
+        # Rate limiting and circuit breaker
+        self.max_concurrent_tasks = 10
+        self.circuit_breaker_threshold = 5  # failures before circuit opens
+        self.circuit_breaker_reset_time = 300  # 5 minutes
+        self.circuit_breaker_failures = {}
+        
+        # Register enhanced methods with input validation
         self.register_handler("schedule_task", self.schedule_task)
         self.register_handler("cancel_task", self.cancel_task)
         self.register_handler("list_tasks", self.list_tasks)
@@ -132,16 +184,84 @@ class SchedulerService(BaseService):
         self.register_handler("get_market_status", self.get_market_status)
         self.register_handler("pause_scheduler", self.pause_scheduler)
         self.register_handler("resume_scheduler", self.resume_scheduler)
+        self.register_handler("get_scheduler_metrics", self.get_scheduler_metrics)
+        self.register_handler("cleanup_tasks", self.cleanup_tasks)
+        self.register_handler("validate_task_config", self.validate_task_config)
         
-        # Scheduler state
+        # Scheduler state with validation
         self.scheduler_running = True
         self.scheduler_paused = False
+        self.scheduler_start_time = datetime.now()
         
-        # Create default tasks
-        asyncio.create_task(self._create_default_tasks())
+        # Initialize background tasks with error handling
+        asyncio.create_task(self._safe_create_default_tasks())
+        asyncio.create_task(self._safe_scheduler_loop())
+        asyncio.create_task(self._safe_cleanup_loop())
+        asyncio.create_task(self._safe_metrics_update_loop())
+    
+    def _initialize_market_holidays(self) -> List[str]:
+        """Initialize market holidays with current year and validation"""
+        current_year = datetime.now().year
         
-        # Start scheduler loop
-        asyncio.create_task(self._scheduler_loop())
+        # Base holidays - should be updated annually or fetched from API
+        holidays = [
+            f"{current_year}-01-01",  # New Year's Day
+            f"{current_year}-01-26",  # Australia Day
+            f"{current_year}-04-25",  # ANZAC Day
+            f"{current_year}-12-25",  # Christmas Day
+            f"{current_year}-12-26",  # Boxing Day
+        ]
+        
+        # Add next year's holidays for year-end planning
+        next_year = current_year + 1
+        holidays.extend([
+            f"{next_year}-01-01",
+            f"{next_year}-01-26",
+            f"{next_year}-04-25",
+            f"{next_year}-12-25",
+            f"{next_year}-12-26",
+        ])
+        
+        # TODO: Integrate with holiday API for dynamic holiday detection
+        # Note: Easter dates and Queen's Birthday change yearly
+        
+        return holidays
+    
+    async def _safe_create_default_tasks(self):
+        """Safely create default tasks with error handling"""
+        try:
+            await self._create_default_tasks()
+        except Exception as e:
+            self.logger.error(f'"error": "default_tasks_creation_failed", "details": "{e}", "action": "scheduler_degraded"')
+    
+    async def _safe_scheduler_loop(self):
+        """Safely run scheduler loop with error handling"""
+        try:
+            await self._scheduler_loop()
+        except Exception as e:
+            self.logger.error(f'"error": "scheduler_loop_critical_failure", "details": "{e}", "action": "scheduler_stopped"')
+            self.scheduler_running = False
+    
+    async def _safe_cleanup_loop(self):
+        """Background cleanup loop for task history and metrics"""
+        while self.scheduler_running:
+            try:
+                await self._cleanup_task_history()
+                await self._cleanup_circuit_breakers()
+                await asyncio.sleep(3600)  # Run cleanup every hour
+            except Exception as e:
+                self.logger.error(f'"error": "cleanup_loop_error", "details": "{e}", "action": "continuing"')
+                await asyncio.sleep(3600)
+    
+    async def _safe_metrics_update_loop(self):
+        """Background metrics update loop"""
+        while self.scheduler_running:
+            try:
+                await self._update_scheduler_metrics()
+                await asyncio.sleep(300)  # Update metrics every 5 minutes
+            except Exception as e:
+                self.logger.error(f'"error": "metrics_update_error", "details": "{e}", "action": "continuing"')
+                await asyncio.sleep(300)
     
     async def _create_default_tasks(self):
         """Create default trading system tasks"""
@@ -232,152 +352,360 @@ class SchedulerService(BaseService):
     async def schedule_task(self, name: str, task_type: str, schedule_time: str, 
                           weekdays: List[int], market_phase: str, service_name: str,
                           method_name: str, parameters: Dict[str, Any], **kwargs):
-        """Schedule a new task"""
-        try:
-            task_id = str(uuid.uuid4())
-            
-            task = ScheduledTask(
-                task_id=task_id,
-                name=name,
-                task_type=task_type,
-                schedule_time=schedule_time,
-                weekdays=weekdays,
-                market_phase=market_phase,
-                service_name=service_name,
-                method_name=method_name,
-                parameters=parameters,
-                created_at=datetime.now().isoformat(),
-                **kwargs
-            )
-            
-            # Calculate next run time
-            task.next_run = self._calculate_next_run(task)
-            
-            self.scheduled_tasks[task_id] = task
-            
-            # Persist to Redis if available
-            if self.redis_client:
-                try:
-                    self.redis_client.hset("scheduler:tasks", task_id, json.dumps(asdict(task)))
-                except Exception as e:
-                    self.logger.error(f'"task_id": "{task_id}", "error": "{e}", "action": "task_persist_failed"')
-            
-            self.logger.info(f'"task_id": "{task_id}", "name": "{name}", "next_run": "{task.next_run}", "action": "task_scheduled"')
-            
-            return {
-                "task_id": task_id,
-                "name": name,
-                "status": "scheduled",
-                "next_run": task.next_run
-            }
-            
-        except Exception as e:
-            self.logger.error(f'"name": "{name}", "error": "{e}", "action": "task_schedule_failed"')
-            return {"error": str(e)}
-    
-    def _calculate_next_run(self, task: ScheduledTask) -> str:
-        """Calculate next run time for a task"""
-        now = datetime.now(self.timezone)
-        
-        # Parse schedule time
-        try:
-            hour, minute = map(int, task.schedule_time.split(':'))
-            schedule_time = time(hour, minute)
-        except ValueError:
-            return None
-        
-        # Find next valid run date
-        for days_ahead in range(8):  # Check next 7 days
-            candidate_date = now.date() + timedelta(days=days_ahead)
-            candidate_weekday = candidate_date.weekday()
-            
-            # Check if day is in weekdays list
-            if candidate_weekday not in task.weekdays:
-                continue
-            
-            # Check if it's a market holiday
-            if candidate_date.strftime("%Y-%m-%d") in self.market_holidays:
-                continue
-            
-            # Create candidate datetime
-            candidate_datetime = datetime.combine(candidate_date, schedule_time)
-            candidate_datetime = self.timezone.localize(candidate_datetime)
-            
-            # If it's today, make sure time hasn't passed
-            if days_ahead == 0 and candidate_datetime <= now:
-                continue
-            
-            # Validate market phase timing
-            if self._is_valid_market_phase_time(candidate_datetime, task.market_phase):
-                return candidate_datetime.isoformat()
-        
-        return None  # No valid run time found in next 7 days
-    
-    def _is_valid_market_phase_time(self, dt: datetime, market_phase: str) -> bool:
-        """Check if datetime is valid for the specified market phase"""
-        time_of_day = dt.time()
-        
-        if market_phase == "pre_market":
-            return self.market_schedule["pre_market_start"] <= time_of_day < self.market_schedule["market_open"]
-        elif market_phase == "market_hours":
-            return self.market_schedule["market_open"] <= time_of_day < self.market_schedule["market_close"]
-        elif market_phase == "post_market":
-            return self.market_schedule["market_close"] <= time_of_day < self.market_schedule["post_market_end"]
-        elif market_phase == "off_hours":
-            return (time_of_day >= self.market_schedule["post_market_end"] or 
-                   time_of_day < self.market_schedule["pre_market_start"])
-        
-        return True  # Default allow
-    
-    async def _scheduler_loop(self):
-        """Main scheduler loop"""
-        self.logger.info(f'"action": "scheduler_loop_started"')
-        
-        while self.scheduler_running:
+        """Schedule a new task with comprehensive validation"""
+        async with self.task_lock:
             try:
-                if not self.scheduler_paused:
-                    await self._check_and_execute_tasks()
+                # Input validation
+                if not isinstance(name, str) or len(name.strip()) == 0:
+                    return {"error": "Task name must be a non-empty string"}
                 
-                # Sleep for 60 seconds before next check
-                await asyncio.sleep(60)
+                name = name.strip()
+                if len(name) > 100:
+                    return {"error": "Task name too long (max 100 characters)"}
+                
+                # Validate task_type
+                if not isinstance(task_type, str) or len(task_type.strip()) == 0:
+                    return {"error": "Task type must be a non-empty string"}
+                
+                # Validate schedule_time format
+                if not re.match(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$', schedule_time):
+                    return {"error": "schedule_time must be in HH:MM format"}
+                
+                # Validate weekdays
+                if not isinstance(weekdays, list) or not weekdays:
+                    return {"error": "weekdays must be a non-empty list"}
+                
+                for day in weekdays:
+                    if not isinstance(day, int) or not 0 <= day <= 6:
+                        return {"error": "weekdays must contain integers 0-6 (Monday=0, Sunday=6)"}
+                
+                # Validate market_phase
+                valid_phases = {"pre_market", "market_hours", "post_market", "off_hours"}
+                if market_phase not in valid_phases:
+                    return {"error": f"market_phase must be one of {valid_phases}"}
+                
+                # Validate service and method names
+                if not isinstance(service_name, str) or len(service_name.strip()) == 0:
+                    return {"error": "service_name must be a non-empty string"}
+                
+                if not isinstance(method_name, str) or len(method_name.strip()) == 0:
+                    return {"error": "method_name must be a non-empty string"}
+                
+                # Sanitize service and method names (alphanumeric, dash, underscore only)
+                if not re.match(r'^[a-zA-Z0-9_-]+$', service_name):
+                    return {"error": "service_name contains invalid characters"}
+                
+                if not re.match(r'^[a-zA-Z0-9_]+$', method_name):
+                    return {"error": "method_name contains invalid characters"}
+                
+                # Validate parameters
+                if not isinstance(parameters, dict):
+                    return {"error": "parameters must be a dictionary"}
+                
+                # Validate optional parameters
+                priority = kwargs.get('priority', 5)
+                if not isinstance(priority, int) or not 1 <= priority <= 10:
+                    return {"error": "priority must be an integer between 1 and 10"}
+                
+                timeout_seconds = kwargs.get('timeout_seconds', 300)
+                if not isinstance(timeout_seconds, int) or timeout_seconds <= 0 or timeout_seconds > 3600:
+                    return {"error": "timeout_seconds must be between 1 and 3600"}
+                
+                max_retries = kwargs.get('max_retries', 3)
+                if not isinstance(max_retries, int) or not 0 <= max_retries <= 10:
+                    return {"error": "max_retries must be between 0 and 10"}
+                
+                # Check for duplicate task names
+                existing_names = {task.name for task in self.scheduled_tasks.values()}
+                if name in existing_names:
+                    return {"error": f"Task with name '{name}' already exists"}
+                
+                # Generate task ID
+                task_id = str(uuid.uuid4())
+                
+                # Create task with validation
+                try:
+                    task = ScheduledTask(
+                        task_id=task_id,
+                        name=name,
+                        task_type=task_type.strip(),
+                        schedule_time=schedule_time,
+                        weekdays=sorted(list(set(weekdays))),  # Remove duplicates and sort
+                        market_phase=market_phase,
+                        service_name=service_name.strip(),
+                        method_name=method_name.strip(),
+                        parameters=parameters,
+                        created_at=datetime.now().isoformat(),
+                        priority=priority,
+                        timeout_seconds=timeout_seconds,
+                        max_retries=max_retries,
+                        **{k: v for k, v in kwargs.items() if k not in ['priority', 'timeout_seconds', 'max_retries']}
+                    )
+                except ValueError as e:
+                    return {"error": f"Task validation failed: {str(e)}"}
+                
+                # Calculate next run time
+                next_run = self._calculate_next_run(task)
+                if next_run is None:
+                    return {"error": "Unable to calculate next run time - check market_phase and schedule"}
+                
+                task.next_run = next_run
+                
+                # Store task
+                self.scheduled_tasks[task_id] = task
+                
+                # Persist to Redis if available
+                if self.redis_client:
+                    try:
+                        self.redis_client.hset("scheduler:tasks", task_id, json.dumps(asdict(task)))
+                    except Exception as e:
+                        self.logger.warning(f'"task_id": "{task_id}", "error": "{e}", "action": "task_persist_failed"')
+                
+                self.logger.info(f'"task_id": "{task_id}", "name": "{name}", "next_run": "{task.next_run}", "action": "task_scheduled"')
+                
+                return {
+                    "task_id": task_id,
+                    "name": name,
+                    "status": "scheduled",
+                    "next_run": task.next_run,
+                    "market_phase": market_phase,
+                    "priority": priority
+                }
                 
             except Exception as e:
-                self.logger.error(f'"error": "{e}", "action": "scheduler_loop_error"')
-                await asyncio.sleep(60)
+                self.logger.error(f'"name": "{name}", "error": "{e}", "action": "task_schedule_failed"')
+                return {"error": f"Internal error: {str(e)}"}
+    
+    def _calculate_next_run(self, task: ScheduledTask) -> Optional[str]:
+        """Calculate next run time for a task with comprehensive validation"""
+        try:
+            now = datetime.now(self.timezone)
+            
+            # Parse schedule time with validation
+            try:
+                hour, minute = map(int, task.schedule_time.split(':'))
+                if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                    self.logger.error(f'"task_id": "{task.task_id}", "error": "invalid_time_values", "action": "next_run_calculation_failed"')
+                    return None
+                schedule_time = time(hour, minute)
+            except (ValueError, AttributeError) as e:
+                self.logger.error(f'"task_id": "{task.task_id}", "error": "time_parsing_failed", "details": "{e}", "action": "next_run_calculation_failed"')
+                return None
+            
+            # Find next valid run date (check up to 14 days ahead)
+            for days_ahead in range(15):
+                try:
+                    candidate_date = now.date() + timedelta(days=days_ahead)
+                    candidate_weekday = candidate_date.weekday()
+                    
+                    # Check if day is in weekdays list
+                    if candidate_weekday not in task.weekdays:
+                        continue
+                    
+                    # Check if it's a market holiday
+                    date_str = candidate_date.strftime("%Y-%m-%d")
+                    if date_str in self.market_holidays:
+                        self.logger.debug(f'"task_id": "{task.task_id}", "date": "{date_str}", "action": "skipping_market_holiday"')
+                        continue
+                    
+                    # Create candidate datetime with timezone awareness
+                    try:
+                        candidate_datetime = datetime.combine(candidate_date, schedule_time)
+                        candidate_datetime = self.timezone.localize(candidate_datetime)
+                    except Exception as e:
+                        self.logger.error(f'"task_id": "{task.task_id}", "error": "datetime_localization_failed", "details": "{e}"')
+                        continue
+                    
+                    # If it's today, make sure time hasn't passed
+                    if days_ahead == 0 and candidate_datetime <= now:
+                        continue
+                    
+                    # Validate market phase timing
+                    if self._is_valid_market_phase_time(candidate_datetime, task.market_phase):
+                        return candidate_datetime.isoformat()
+                    else:
+                        self.logger.debug(f'"task_id": "{task.task_id}", "datetime": "{candidate_datetime}", "market_phase": "{task.market_phase}", "action": "invalid_market_phase_time"')
+                
+                except Exception as e:
+                    self.logger.error(f'"task_id": "{task.task_id}", "days_ahead": {days_ahead}, "error": "{e}", "action": "candidate_date_calculation_error"')
+                    continue
+            
+            self.logger.warning(f'"task_id": "{task.task_id}", "action": "no_valid_run_time_found_in_14_days"')
+            return None  # No valid run time found in next 14 days
+            
+        except Exception as e:
+            self.logger.error(f'"task_id": "{task.task_id}", "error": "{e}", "action": "next_run_calculation_critical_error"')
+            return None
+    
+    def _is_valid_market_phase_time(self, dt: datetime, market_phase: str) -> bool:
+        """Check if datetime is valid for the specified market phase with validation"""
+        try:
+            time_of_day = dt.time()
+            
+            if market_phase == "pre_market":
+                return (self.market_schedule["pre_market_start"] <= time_of_day < 
+                       self.market_schedule["market_open"])
+            elif market_phase == "market_hours":
+                return (self.market_schedule["market_open"] <= time_of_day < 
+                       self.market_schedule["market_close"])
+            elif market_phase == "post_market":
+                return (self.market_schedule["market_close"] <= time_of_day < 
+                       self.market_schedule["post_market_end"])
+            elif market_phase == "off_hours":
+                return (time_of_day >= self.market_schedule["post_market_end"] or 
+                       time_of_day < self.market_schedule["pre_market_start"])
+            else:
+                self.logger.warning(f'"market_phase": "{market_phase}", "action": "unknown_market_phase"')
+                return True  # Default allow for unknown phases
+                
+        except Exception as e:
+            self.logger.error(f'"datetime": "{dt}", "market_phase": "{market_phase}", "error": "{e}", "action": "market_phase_validation_error"')
+            return False
+    
+    async def _scheduler_loop(self):
+        """Main scheduler loop with enhanced error handling and circuit breaker"""
+        self.logger.info(f'"action": "scheduler_loop_started"')
+        
+        consecutive_errors = 0
+        max_consecutive_errors = 5
+        
+        while self.scheduler_running:
+            loop_start_time = datetime.now()
+            
+            try:
+                if not self.scheduler_paused:
+                    # Check if we're not hitting the concurrent task limit
+                    if len(self.running_tasks) >= self.max_concurrent_tasks:
+                        self.logger.warning(f'"running_tasks": {len(self.running_tasks)}, "max_concurrent": {self.max_concurrent_tasks}, "action": "task_limit_reached"')
+                    else:
+                        await self._check_and_execute_tasks()
+                
+                consecutive_errors = 0  # Reset error counter on success
+                
+                # Variable sleep based on market phase
+                sleep_duration = self._get_optimal_sleep_duration()
+                await asyncio.sleep(sleep_duration)
+                
+            except Exception as e:
+                consecutive_errors += 1
+                self.logger.error(f'"error": "{e}", "consecutive_errors": {consecutive_errors}, "action": "scheduler_loop_error"')
+                
+                if consecutive_errors >= max_consecutive_errors:
+                    self.logger.critical(f'"consecutive_errors": {consecutive_errors}, "action": "scheduler_loop_paused_due_to_errors"')
+                    self.scheduler_paused = True
+                    
+                    # Publish critical alert
+                    self.publish_event("scheduler_critical_error", {
+                        "consecutive_errors": consecutive_errors,
+                        "last_error": str(e),
+                        "scheduler_paused": True
+                    }, priority="urgent")
+                
+                # Exponential backoff for errors
+                error_sleep = min(300, 30 * (2 ** min(consecutive_errors - 1, 3)))
+                await asyncio.sleep(error_sleep)
+    
+    def _get_optimal_sleep_duration(self) -> int:
+        """Get optimal sleep duration based on current market phase"""
+        try:
+            now = datetime.now(self.timezone)
+            current_time = now.time()
+            
+            # More frequent checks during market hours
+            if (self.market_schedule["market_open"] <= current_time <= 
+                self.market_schedule["market_close"]):
+                return 30  # 30 seconds during market hours
+            elif (self.market_schedule["pre_market_start"] <= current_time < 
+                  self.market_schedule["market_open"]):
+                return 45  # 45 seconds pre-market
+            elif (self.market_schedule["market_close"] < current_time <= 
+                  self.market_schedule["post_market_end"]):
+                return 45  # 45 seconds post-market
+            else:
+                return 60  # 60 seconds off-hours
+                
+        except Exception:
+            return 60  # Default fallback
     
     async def _check_and_execute_tasks(self):
-        """Check for tasks that need to be executed"""
+        """Check for tasks that need to be executed with enhanced safety"""
         now = datetime.now(self.timezone)
-        current_time_str = now.isoformat()
-        
         tasks_to_execute = []
         
-        for task_id, task in self.scheduled_tasks.items():
-            if not task.enabled:
-                continue
-            
-            if not task.next_run:
-                continue
-            
-            # Check if task is due
-            try:
-                next_run_dt = datetime.fromisoformat(task.next_run)
-                if next_run_dt <= now:
-                    tasks_to_execute.append((task_id, task))
-            except ValueError:
-                self.logger.error(f'"task_id": "{task_id}", "error": "invalid_next_run_time", "action": "task_skip"')
+        async with self.task_lock:
+            for task_id, task in self.scheduled_tasks.items():
+                if not task.enabled:
+                    continue
+                
+                if not task.next_run:
+                    continue
+                
+                # Skip tasks in circuit breaker state
+                if self._is_circuit_breaker_open(task.service_name):
+                    continue
+                
+                # Check if task is due
+                try:
+                    next_run_dt = datetime.fromisoformat(task.next_run)
+                    # Add small buffer (30 seconds) to account for scheduling precision
+                    if next_run_dt <= now + timedelta(seconds=30):
+                        tasks_to_execute.append((task_id, task))
+                except (ValueError, TypeError) as e:
+                    self.logger.error(f'"task_id": "{task_id}", "error": "invalid_next_run_time", "details": "{e}", "action": "task_skip"')
+                    # Try to recalculate next run time
+                    task.next_run = self._calculate_next_run(task)
         
         # Sort by priority (lower number = higher priority)
-        tasks_to_execute.sort(key=lambda x: x[1].priority)
+        tasks_to_execute.sort(key=lambda x: (x[1].priority, x[1].next_run))
         
-        # Execute tasks
+        # Execute tasks with concurrency control
         for task_id, task in tasks_to_execute:
+            if len(self.running_tasks) >= self.max_concurrent_tasks:
+                self.logger.warning(f'"task_id": "{task_id}", "action": "task_delayed_due_to_concurrency_limit"')
+                break
+            
             if task_id not in self.running_tasks:
-                self.logger.info(f'"task_id": "{task_id}", "name": "{task.name}", "action": "task_execution_started"')
+                self.logger.info(f'"task_id": "{task_id}", "name": "{task.name}", "priority": {task.priority}, "action": "task_execution_started"')
                 
                 # Create async task for execution
                 execution_task = asyncio.create_task(self._execute_task_async(task_id, task))
                 self.running_tasks[task_id] = execution_task
+    
+    def _is_circuit_breaker_open(self, service_name: str) -> bool:
+        """Check if circuit breaker is open for a service"""
+        if service_name not in self.circuit_breaker_failures:
+            return False
+        
+        failure_data = self.circuit_breaker_failures[service_name]
+        
+        # Check if circuit breaker should reset
+        if (datetime.now().timestamp() - failure_data["last_failure"] > 
+            self.circuit_breaker_reset_time):
+            del self.circuit_breaker_failures[service_name]
+            return False
+        
+        return failure_data["failure_count"] >= self.circuit_breaker_threshold
+    
+    def _record_service_failure(self, service_name: str):
+        """Record a service failure for circuit breaker logic"""
+        now = datetime.now().timestamp()
+        
+        if service_name in self.circuit_breaker_failures:
+            self.circuit_breaker_failures[service_name]["failure_count"] += 1
+            self.circuit_breaker_failures[service_name]["last_failure"] = now
+        else:
+            self.circuit_breaker_failures[service_name] = {
+                "failure_count": 1,
+                "last_failure": now
+            }
+        
+        if self.circuit_breaker_failures[service_name]["failure_count"] >= self.circuit_breaker_threshold:
+            self.logger.warning(f'"service": "{service_name}", "failure_count": {self.circuit_breaker_failures[service_name]["failure_count"]}, "action": "circuit_breaker_opened"')
+            
+            self.publish_event("circuit_breaker_opened", {
+                "service_name": service_name,
+                "failure_count": self.circuit_breaker_failures[service_name]["failure_count"]
+            }, priority="high")
     
     async def _execute_task_async(self, task_id: str, task: ScheduledTask):
         """Execute a task asynchronously"""
@@ -698,6 +1026,214 @@ class SchedulerService(BaseService):
             scheduler_health["warning"] = f"High failure rate: {len(recent_failures)} failures in last 10 executions"
         
         return scheduler_health
+    
+    async def get_scheduler_metrics(self):
+        """Get comprehensive scheduler performance metrics"""
+        uptime = (datetime.now() - self.scheduler_start_time).total_seconds()
+        
+        # Calculate success rate
+        success_rate = 0
+        if self.total_executions > 0:
+            success_rate = ((self.total_executions - self.total_failures) / self.total_executions) * 100
+        
+        # Task distribution by market phase
+        phase_distribution = {"pre_market": 0, "market_hours": 0, "post_market": 0, "off_hours": 0}
+        for task in self.scheduled_tasks.values():
+            if task.market_phase in phase_distribution:
+                phase_distribution[task.market_phase] += 1
+        
+        # Service distribution
+        service_distribution = {}
+        for task in self.scheduled_tasks.values():
+            service_distribution[task.service_name] = service_distribution.get(task.service_name, 0) + 1
+        
+        return {
+            "uptime_seconds": round(uptime, 2),
+            "total_scheduled_tasks": len(self.scheduled_tasks),
+            "running_tasks": len(self.running_tasks),
+            "enabled_tasks": sum(1 for t in self.scheduled_tasks.values() if t.enabled),
+            "total_executions": self.total_executions,
+            "total_failures": self.total_failures,
+            "total_timeouts": self.total_timeouts,
+            "success_rate": round(success_rate, 2),
+            "average_execution_time": round(self.average_execution_time, 2),
+            "task_history_size": len(self.task_history),
+            "scheduler_paused": self.scheduler_paused,
+            "circuit_breaker_active_services": list(self.circuit_breaker_failures.keys()),
+            "phase_distribution": phase_distribution,
+            "service_distribution": service_distribution,
+            "last_cleanup": self.last_cleanup_time.isoformat()
+        }
+    
+    async def cleanup_tasks(self, older_than_hours: int = 168):  # Default 7 days
+        """Clean up old task history and completed tasks"""
+        if not isinstance(older_than_hours, int) or older_than_hours <= 0:
+            return {"error": "older_than_hours must be a positive integer"}
+        
+        cutoff_time = datetime.now() - timedelta(hours=older_than_hours)
+        
+        # Clean up task history
+        original_history_size = len(self.task_history)
+        self.task_history = [
+            h for h in self.task_history
+            if datetime.fromisoformat(h["executed_at"]) > cutoff_time
+        ]
+        
+        cleaned_history = original_history_size - len(self.task_history)
+        
+        # Clean up disabled tasks that haven't run recently
+        disabled_tasks_removed = 0
+        tasks_to_remove = []
+        
+        for task_id, task in self.scheduled_tasks.items():
+            if (not task.enabled and 
+                task.last_run and 
+                datetime.fromisoformat(task.last_run) < cutoff_time):
+                tasks_to_remove.append(task_id)
+        
+        for task_id in tasks_to_remove:
+            del self.scheduled_tasks[task_id]
+            disabled_tasks_removed += 1
+            
+            # Remove from Redis
+            if self.redis_client:
+                try:
+                    self.redis_client.hdel("scheduler:tasks", task_id)
+                except Exception:
+                    pass
+        
+        self.last_cleanup_time = datetime.now()
+        
+        self.logger.info(f'"cleaned_history": {cleaned_history}, "removed_disabled_tasks": {disabled_tasks_removed}, "action": "cleanup_completed"')
+        
+        return {
+            "cleaned_history_entries": cleaned_history,
+            "removed_disabled_tasks": disabled_tasks_removed,
+            "current_history_size": len(self.task_history),
+            "current_task_count": len(self.scheduled_tasks)
+        }
+    
+    async def validate_task_config(self, task_config: dict):
+        """Validate a task configuration without scheduling it"""
+        required_fields = ["name", "task_type", "schedule_time", "weekdays", "market_phase", "service_name", "method_name", "parameters"]
+        
+        validation_results = {
+            "valid": True,
+            "errors": [],
+            "warnings": []
+        }
+        
+        # Check required fields
+        for field in required_fields:
+            if field not in task_config:
+                validation_results["errors"].append(f"Missing required field: {field}")
+                validation_results["valid"] = False
+        
+        if not validation_results["valid"]:
+            return validation_results
+        
+        # Validate individual fields
+        try:
+            # Name validation
+            name = task_config["name"]
+            if not isinstance(name, str) or len(name.strip()) == 0:
+                validation_results["errors"].append("name must be a non-empty string")
+            elif len(name) > 100:
+                validation_results["errors"].append("name too long (max 100 characters)")
+            
+            # Schedule time validation
+            schedule_time = task_config["schedule_time"]
+            if not re.match(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$', schedule_time):
+                validation_results["errors"].append("schedule_time must be in HH:MM format")
+            
+            # Weekdays validation
+            weekdays = task_config["weekdays"]
+            if not isinstance(weekdays, list) or not weekdays:
+                validation_results["errors"].append("weekdays must be a non-empty list")
+            else:
+                for day in weekdays:
+                    if not isinstance(day, int) or not 0 <= day <= 6:
+                        validation_results["errors"].append("weekdays must contain integers 0-6")
+                        break
+            
+            # Market phase validation
+            market_phase = task_config["market_phase"]
+            valid_phases = {"pre_market", "market_hours", "post_market", "off_hours"}
+            if market_phase not in valid_phases:
+                validation_results["errors"].append(f"market_phase must be one of {valid_phases}")
+            
+            # Service name validation
+            service_name = task_config["service_name"]
+            if not re.match(r'^[a-zA-Z0-9_-]+$', service_name):
+                validation_results["errors"].append("service_name contains invalid characters")
+            
+            # Method name validation
+            method_name = task_config["method_name"]
+            if not re.match(r'^[a-zA-Z0-9_]+$', method_name):
+                validation_results["errors"].append("method_name contains invalid characters")
+            
+            # Parameters validation
+            parameters = task_config["parameters"]
+            if not isinstance(parameters, dict):
+                validation_results["errors"].append("parameters must be a dictionary")
+            
+            # Optional field validations
+            if "priority" in task_config:
+                priority = task_config["priority"]
+                if not isinstance(priority, int) or not 1 <= priority <= 10:
+                    validation_results["errors"].append("priority must be an integer between 1 and 10")
+            
+            if "timeout_seconds" in task_config:
+                timeout = task_config["timeout_seconds"]
+                if not isinstance(timeout, int) or timeout <= 0 or timeout > 3600:
+                    validation_results["errors"].append("timeout_seconds must be between 1 and 3600")
+            
+        except Exception as e:
+            validation_results["errors"].append(f"Validation error: {str(e)}")
+        
+        # Add warnings for potential issues
+        if validation_results["valid"]:
+            # Check for potentially problematic configurations
+            if task_config.get("timeout_seconds", 300) > 1800:  # 30 minutes
+                validation_results["warnings"].append("Long timeout may block other tasks")
+            
+            if len(task_config.get("weekdays", [])) == 7:
+                validation_results["warnings"].append("Task scheduled for all days including weekends")
+        
+        validation_results["valid"] = len(validation_results["errors"]) == 0
+        
+        return validation_results
+    
+    async def _cleanup_task_history(self):
+        """Internal cleanup for task history"""
+        if len(self.task_history) > 10000:  # Keep last 10,000 entries
+            self.task_history = self.task_history[-10000:]
+            self.logger.info(f'"action": "task_history_trimmed", "remaining_entries": {len(self.task_history)}')
+    
+    async def _cleanup_circuit_breakers(self):
+        """Clean up expired circuit breaker entries"""
+        now = datetime.now().timestamp()
+        expired_services = []
+        
+        for service_name, failure_data in self.circuit_breaker_failures.items():
+            if now - failure_data["last_failure"] > self.circuit_breaker_reset_time:
+                expired_services.append(service_name)
+        
+        for service_name in expired_services:
+            del self.circuit_breaker_failures[service_name]
+            self.logger.info(f'"service": "{service_name}", "action": "circuit_breaker_reset"')
+    
+    async def _update_scheduler_metrics(self):
+        """Update scheduler performance metrics"""
+        # Calculate average execution time from recent history
+        recent_executions = [
+            h for h in self.task_history[-100:]  # Last 100 executions
+            if h.get("execution_time") and h.get("result") == "success"
+        ]
+        
+        if recent_executions:
+            total_time = sum(h["execution_time"] for h in recent_executions)
+            self.average_execution_time = total_time / len(recent_executions)
 
 async def main():
     service = SchedulerService()

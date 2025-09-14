@@ -1,0 +1,77 @@
+{
+  "alerts": {
+    "email": {
+      "enabled": false,
+      "smtp_server": "smtp.gmail.com",
+      "smtp_port": 587,
+      "from_email": "trading-system@example.com",
+      "to_emails": [
+        "admin@example.com",
+        "ops@example.com"
+      ],
+      "username": "",
+      "password": ""
+    },
+    "webhook": {
+      "enabled": false,
+      "url": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    "console": {
+      "enabled": true
+    }
+  },
+  "metrics": {
+    "retention_days": 7,
+    "aggregation_intervals": [300, 3600, 86400],
+    "collection_intervals": {
+      "health_check": 30,
+      "business_metrics": 60,
+      "system_metrics": 30
+    }
+  },
+  "thresholds": {
+    "response_time": {
+      "warning": 5.0,
+      "critical": 10.0
+    },
+    "error_rate": {
+      "warning": 1.0,
+      "critical": 5.0
+    },
+    "sla_compliance": {
+      "warning": 95.0,
+      "critical": 90.0
+    },
+    "system_cpu": {
+      "warning": 80.0,
+      "critical": 95.0
+    },
+    "system_memory": {
+      "warning": 85.0,
+      "critical": 95.0
+    },
+    "disk_usage": {
+      "warning": 85.0,
+      "critical": 95.0
+    }
+  },
+  "sla_targets": {
+    "uptime": 99.9,
+    "response_time": 5.0,
+    "error_rate": 1.0
+  },
+  "dashboard": {
+    "auto_refresh_interval": 30,
+    "cache_duration": 10,
+    "chart_data_points": 100
+  },
+  "logging": {
+    "level": "INFO",
+    "file_path": "/var/log/trading/monitoring.log",
+    "max_file_size": "10MB",
+    "backup_count": 5
+  }
+}

@@ -1,0 +1,41 @@
+[Unit]
+Description=Trading Monitoring Dashboard Web Server
+Documentation=file:///opt/trading_services/services/monitoring_dashboard.py
+After=network.target trading-monitoring.service
+Wants=trading-monitoring.service
+Requires=network.target
+
+[Service]
+Type=simple
+User=trading
+Group=trading
+WorkingDirectory=/opt/trading_services
+Environment=PYTHONPATH=/opt/trading_services
+Environment=PYTHONUNBUFFERED=1
+Environment=FLASK_ENV=production
+ExecStart=/opt/trading_venv/bin/python services/monitoring_dashboard.py --host 0.0.0.0 --port 5000
+ExecStop=/bin/kill -TERM $MAINPID
+TimeoutStopSec=15
+Restart=always
+RestartSec=3
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=50%
+TasksMax=50
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=trading-monitoring-dashboard
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/trading /tmp/trading_sockets /opt/trading_services/templates
+
+[Install]
+WantedBy=multi-user.target
