@@ -5,7 +5,7 @@
 This document outlines the **4-month roadmap** for stabilizing the current trading system and migrating to a microservices architecture. The plan prioritizes system stability first, then progressive modernization and decomposition.
 
 **Timeline**: September 2025 - January 2026  
-**Objective**: Transform monolithic trading system into stable, scalable microservices  
+**Objective**: Transform monolithic trading system into stable, scalable microservices
 
 ---
 
@@ -14,12 +14,15 @@ This document outlines the **4-month roadmap** for stabilizing the current tradi
 ### Week 1-2: Critical System Stabilization
 
 #### **Immediate Actions**
+
 1. **Fix Active Issues** ✅ COMPLETED
+
    - ✅ Timezone bug in outcome evaluator (fixed Sept 10)
    - ✅ ML HOLD bias issues (resolved)
    - ✅ YFinance timing optimization (completed)
 
 2. **System Health Monitoring**
+
    - Implement comprehensive logging across all components
    - Add health check endpoints to critical services
    - Create system status dashboard
@@ -32,10 +35,11 @@ This document outlines the **4-month roadmap** for stabilizing the current tradi
 #### **File Structure Analysis & Cleanup**
 
 **Current Active Files (Keep & Stabilize):**
+
 ```
 🟢 CORE PRODUCTION FILES (High Priority)
 ├── enhanced_efficient_system_news_volume_clean.py    # Main prediction engine
-├── production/cron/fixed_price_mapping_system.py     # Scheduled predictions  
+├── production/cron/fixed_price_mapping_system.py     # Scheduled predictions
 ├── fixed_outcome_evaluator.py                        # Outcome evaluation
 ├── enhanced_evening_analyzer_with_ml.py              # ML training
 ├── enhanced_morning_analyzer_with_ml.py              # Morning analysis
@@ -52,12 +56,13 @@ This document outlines the **4-month roadmap** for stabilizing the current tradi
 
 🟠 UTILITY FILES (Low Priority - Review)
 ├── analyze_*.py files                                # Analysis tools
-├── ml_*.py files                                     # ML utilities  
+├── ml_*.py files                                     # ML utilities
 ├── verify_*.py files                                 # Verification tools
 └── helpers/ directory                                # Helper scripts
 ```
 
 **Legacy/Redundant Files (Archive/Remove):**
+
 ```
 🔴 LEGACY FILES (Archive Immediately)
 ├── backup_broken_local_20250909_165625/             # Empty backup
@@ -78,6 +83,7 @@ This document outlines the **4-month roadmap** for stabilizing the current tradi
 ### Week 3-4: File Organization & Legacy Cleanup
 
 #### **Proposed New Structure**
+
 ```
 trading_system/
 ├── core/                          # Core business logic
@@ -123,6 +129,7 @@ trading_system/
 ```
 
 #### **Migration Actions**
+
 1. **Create new directory structure**
 2. **Move active files to appropriate locations**
 3. **Archive legacy files with clear naming**
@@ -132,6 +139,7 @@ trading_system/
 ### Week 5-6: Configuration Management
 
 #### **Centralized Configuration**
+
 ```python
 # config/settings.py
 from dataclasses import dataclass
@@ -143,25 +151,25 @@ class TradingConfig:
     prediction_interval_minutes: int = 30
     market_hours_start_utc: int = 0  # 10 AM AEST
     market_hours_end_utc: int = 5    # 4 PM AEST
-    
+
     # Evaluation settings
     evaluation_delay_hours: int = 4
     evaluation_interval_minutes: int = 60
-    
+
     # ML settings
     model_retrain_interval_days: int = 1
     confidence_threshold: float = 0.65
-    
+
     # Database settings
     database_path: str = "data/trading_predictions.db"
     backup_retention_days: int = 30
-    
+
     # Symbols to trade
     symbols: List[str] = None
-    
+
     def __post_init__(self):
         if self.symbols is None:
-            self.symbols = ['CBA.AX', 'WBC.AX', 'ANZ.AX', 'NAB.AX', 
+            self.symbols = ['CBA.AX', 'WBC.AX', 'ANZ.AX', 'NAB.AX',
                            'MQG.AX', 'QBE.AX', 'SUN.AX']
 
 # config/environment.py
@@ -179,7 +187,7 @@ def get_environment() -> Environment:
 
 def load_config() -> TradingConfig:
     env = get_environment()
-    
+
     if env == Environment.DEVELOPMENT:
         return TradingConfig(
             prediction_interval_minutes=60,  # Slower for dev
@@ -196,33 +204,34 @@ def load_config() -> TradingConfig:
 ### Week 7-8: Monitoring & Health Checks
 
 #### **System Health Dashboard**
+
 ```python
 # infrastructure/monitoring/health_monitor.py
 class SystemHealthMonitor:
     def __init__(self):
         self.components = [
             'prediction_engine',
-            'outcome_evaluator', 
+            'outcome_evaluator',
             'ml_trainer',
             'dashboard',
             'database'
         ]
-    
+
     def check_all_components(self) -> Dict[str, bool]:
         health_status = {}
-        
+
         for component in self.components:
             health_status[component] = self._check_component(component)
-            
+
         return health_status
-    
+
     def _check_component(self, component: str) -> bool:
         # Implement specific health checks
         pass
-    
+
     def get_system_status(self) -> str:
         statuses = self.check_all_components()
-        
+
         if all(statuses.values()):
             return "HEALTHY"
         elif any(statuses.values()):
@@ -240,14 +249,16 @@ class SystemHealthMonitor:
 #### **Microservice Decomposition Strategy**
 
 **1. Prediction Service**
+
 - **Responsibility**: Generate trading predictions
 - **Current Files**: `enhanced_efficient_system_news_volume_clean.py`, prediction logic from `app/`
-- **API**: 
+- **API**:
   - `POST /predictions/generate` - Generate predictions for symbols
   - `GET /predictions/latest` - Get latest predictions
   - `GET /predictions/health` - Service health check
 
-**2. Evaluation Service**  
+**2. Evaluation Service**
+
 - **Responsibility**: Evaluate prediction outcomes
 - **Current Files**: `fixed_outcome_evaluator.py`, evaluation logic
 - **API**:
@@ -256,6 +267,7 @@ class SystemHealthMonitor:
   - `GET /evaluations/health` - Service health check
 
 **3. ML Service**
+
 - **Responsibility**: Train and serve ML models
 - **Current Files**: `enhanced_evening_analyzer_with_ml.py`, `app/core/ml/`
 - **API**:
@@ -265,6 +277,7 @@ class SystemHealthMonitor:
   - `GET /ml/health` - Service health check
 
 **4. Data Service**
+
 - **Responsibility**: Data collection, storage, validation
 - **Current Files**: Data collection logic, database management
 - **API**:
@@ -274,6 +287,7 @@ class SystemHealthMonitor:
   - `GET /data/health` - Service health check
 
 **5. Dashboard Service**
+
 - **Responsibility**: Web UI and visualization
 - **Current Files**: `comprehensive_table_dashboard.py`, `independent_ml_dashboard.py`
 - **API**:
@@ -285,6 +299,7 @@ class SystemHealthMonitor:
 ### Week 11-12: Interface Design
 
 #### **Common Patterns**
+
 ```python
 # shared/interfaces.py
 from abc import ABC, abstractmethod
@@ -318,7 +333,7 @@ class PredictionService(ABC):
     @abstractmethod
     def generate_predictions(self, symbols: List[str]) -> List[Prediction]:
         pass
-    
+
     @abstractmethod
     def get_latest_predictions(self, symbols: Optional[List[str]] = None) -> List[Prediction]:
         pass
@@ -327,7 +342,7 @@ class EvaluationService(ABC):
     @abstractmethod
     def evaluate_predictions(self, prediction_ids: List[str]) -> List[Outcome]:
         pass
-    
+
     @abstractmethod
     def get_performance_metrics(self, days: int = 30) -> Dict:
         pass
@@ -343,7 +358,7 @@ class Event:
 class EventBus:
     def publish(self, event: Event) -> None:
         pass
-    
+
     def subscribe(self, event_type: str, handler) -> None:
         pass
 ```
@@ -355,6 +370,7 @@ class EventBus:
 ### Week 13-14: Docker Implementation
 
 #### **Service Containerization**
+
 ```dockerfile
 # prediction-service/Dockerfile
 FROM python:3.11-slim
@@ -377,7 +393,7 @@ CMD ["python", "-m", "src.main"]
 
 ```yaml
 # docker-compose.yml
-version: '3.8'
+version: "3.8"
 
 services:
   prediction-service:
@@ -449,6 +465,7 @@ volumes:
 ### Week 15-16: CI/CD Pipeline
 
 #### **GitHub Actions Workflow**
+
 ```yaml
 # .github/workflows/deploy.yml
 name: Deploy Trading System
@@ -464,21 +481,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
-          
+          python-version: "3.11"
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
-          
+
       - name: Run tests
         run: |
           pytest tests/ -v --cov=src/
-          
+
       - name: Run linting
         run: |
           flake8 src/
@@ -489,14 +506,14 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Build Docker images
         run: |
           docker-compose build
-          
+
       - name: Run integration tests
         run: |
           docker-compose up -d
@@ -508,7 +525,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
       - name: Deploy to production
         run: |
@@ -527,12 +544,15 @@ jobs:
 ### Week 17-18: Production Migration
 
 #### **Migration Strategy**
+
 1. **Blue-Green Deployment**
+
    - Deploy new microservices alongside existing system
    - Gradually redirect traffic to new services
    - Maintain rollback capability
 
 2. **Data Migration**
+
    - Migrate from SQLite to PostgreSQL
    - Implement data consistency checks
    - Backup and recovery procedures
@@ -543,6 +563,7 @@ jobs:
    - Implement distributed tracing
 
 #### **Production Architecture**
+
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Load Balancer │    │  API Gateway    │    │   Monitoring    │
@@ -573,9 +594,10 @@ jobs:
 ### Week 19-20: Monitoring & Observability
 
 #### **Comprehensive Monitoring Stack**
+
 ```yaml
 # monitoring/docker-compose.monitoring.yml
-version: '3.8'
+version: "3.8"
 
 services:
   prometheus:
@@ -622,6 +644,7 @@ volumes:
 ## 📊 STABILIZATION METRICS & SUCCESS CRITERIA
 
 ### System Stability Targets
+
 - **Uptime**: >99.5% per month
 - **Prediction Generation**: 0 missed cycles per week
 - **Outcome Evaluation**: <1 hour delay maximum
@@ -629,6 +652,7 @@ volumes:
 - **Data Quality**: <5% invalid data points
 
 ### Performance Metrics
+
 - **API Response Times**: <200ms average
 - **Prediction Accuracy**: Maintain current 65%+ success rate
 - **Memory Usage**: <2GB per service
@@ -636,6 +660,7 @@ volumes:
 - **Database Performance**: <100ms query average
 
 ### Migration Success Criteria
+
 - **Zero Downtime**: During service migration
 - **Data Integrity**: 100% data preservation
 - **Feature Parity**: All current functionality maintained
@@ -647,6 +672,7 @@ volumes:
 ## 🗂️ FILE MANAGEMENT STRATEGY
 
 ### Immediate Actions (Week 1)
+
 ```bash
 # Create archive structure
 mkdir -p legacy/{deprecated,archive,docs_historical}
@@ -671,6 +697,7 @@ mv docs/grade_f_investigation_summary.md docs/historical/
 ```
 
 ### Progressive Migration (Weeks 2-4)
+
 ```bash
 # Week 2: Core structure
 mkdir -p core/{prediction,evaluation,ml,data}
@@ -689,6 +716,7 @@ python -m pytest tests/ -v
 ```
 
 ### File Status Tracking
+
 ```python
 # scripts/file_status_tracker.py
 from enum import Enum
@@ -714,13 +742,13 @@ class FileInfo:
 class FileManager:
     def __init__(self):
         self.files: Dict[str, FileInfo] = {}
-    
+
     def track_file(self, path: str, status: FileStatus, **kwargs):
         self.files[path] = FileInfo(path, status, **kwargs)
-    
+
     def generate_report(self) -> str:
         report = "# File Status Report\n\n"
-        
+
         for status in FileStatus:
             files = [f for f in self.files.values() if f.status == status]
             if files:
@@ -733,7 +761,7 @@ class FileManager:
                         report += f" - {file.notes}"
                     report += "\n"
                 report += "\n"
-        
+
         return report
 ```
 
@@ -742,6 +770,7 @@ class FileManager:
 ## 🔧 AUTOMATION SCRIPTS
 
 ### Migration Automation
+
 ```python
 # scripts/migration_automation.py
 #!/usr/bin/env python3
@@ -755,23 +784,23 @@ class MigrationAutomator:
     def __init__(self, workspace_root: str):
         self.root = Path(workspace_root)
         self.backup_dir = self.root / "migration_backup"
-        
+
     def create_backup(self):
         """Create full backup before migration"""
         if self.backup_dir.exists():
             shutil.rmtree(self.backup_dir)
-        
+
         # Backup critical files
         critical_files = [
             "enhanced_efficient_system_news_volume_clean.py",
-            "fixed_outcome_evaluator.py", 
+            "fixed_outcome_evaluator.py",
             "enhanced_evening_analyzer_with_ml.py",
             "comprehensive_table_dashboard.py",
             "app/",
             "data/",
             "models/"
         ]
-        
+
         for file in critical_files:
             src = self.root / file
             dst = self.backup_dir / file
@@ -781,62 +810,62 @@ class MigrationAutomator:
                 else:
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(src, dst)
-    
+
     def migrate_file_structure(self):
         """Execute the file structure migration"""
         migrations = [
             # Core files
-            ("enhanced_efficient_system_news_volume_clean.py", 
+            ("enhanced_efficient_system_news_volume_clean.py",
              "core/prediction/enhanced_engine.py"),
-            ("fixed_outcome_evaluator.py", 
+            ("fixed_outcome_evaluator.py",
              "core/evaluation/evaluator.py"),
-            ("enhanced_evening_analyzer_with_ml.py", 
+            ("enhanced_evening_analyzer_with_ml.py",
              "core/ml/training/evening_analyzer.py"),
-            
+
             # Dashboard files
-            ("comprehensive_table_dashboard.py", 
+            ("comprehensive_table_dashboard.py",
              "dashboards/main_dashboard.py"),
-            ("independent_ml_dashboard.py", 
+            ("independent_ml_dashboard.py",
              "dashboards/ml_dashboard.py"),
         ]
-        
+
         for src, dst in migrations:
             self._move_file(src, dst)
-    
+
     def _move_file(self, src: str, dst: str):
         """Move file with directory creation"""
         src_path = self.root / src
         dst_path = self.root / dst
-        
+
         if src_path.exists():
             dst_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(src_path), str(dst_path))
             print(f"Moved: {src} → {dst}")
-    
+
     def update_imports(self):
         """Update import statements in Python files"""
         # This would implement automated import updating
         pass
-    
+
     def validate_migration(self):
         """Validate that migration was successful"""
         # Run tests, check file existence, etc.
-        result = subprocess.run(["python", "-m", "pytest", "tests/"], 
+        result = subprocess.run(["python", "-m", "pytest", "tests/"],
                               capture_output=True, text=True)
         return result.returncode == 0
 
 if __name__ == "__main__":
     migrator = MigrationAutomator("/path/to/trading_feature")
-    
+
     print("Creating backup...")
     migrator.create_backup()
-    
+
     print("Migrating file structure...")
     migrator.migrate_file_structure()
-    
+
     print("Updating imports...")
     migrator.update_imports()
-    
+
     print("Validating migration...")
     if migrator.validate_migration():
         print("✅ Migration successful!")
@@ -849,30 +878,35 @@ if __name__ == "__main__":
 ## 📋 WEEKLY CHECKPOINTS
 
 ### September 2025
+
 - **Week 1**: System stabilization, critical bug fixes ✅
 - **Week 2**: Health monitoring implementation, error handling
 - **Week 3**: File structure analysis, legacy identification
 - **Week 4**: Begin file reorganization, archive legacy files
 
-### October 2025  
+### October 2025
+
 - **Week 5**: Complete file migration, update imports
 - **Week 6**: Configuration management, environment separation
 - **Week 7**: System monitoring dashboard, alerting
 - **Week 8**: Performance optimization, memory management
 
 ### November 2025
+
 - **Week 9**: Service boundary definition, API design
 - **Week 10**: Interface implementation, event system
 - **Week 11**: Service extraction, modular testing
 - **Week 12**: Inter-service communication, data contracts
 
 ### December 2025
-- **Week 13**: Docker containerization, compose setup  
+
+- **Week 13**: Docker containerization, compose setup
 - **Week 14**: Container orchestration, health checks
 - **Week 15**: CI/CD pipeline, automated testing
 - **Week 16**: Staging environment, integration testing
 
 ### January 2026
+
 - **Week 17**: Production deployment, blue-green migration
 - **Week 18**: Traffic routing, performance validation
 - **Week 19**: Monitoring setup, observability stack
@@ -883,24 +917,28 @@ if __name__ == "__main__":
 ## 🎯 SUCCESS METRICS
 
 ### Stabilization Phase (Sep-Oct)
+
 - ✅ Zero critical system failures for 2 weeks
-- ✅ 100% automated backup and recovery 
+- ✅ 100% automated backup and recovery
 - ✅ Complete file organization and legacy cleanup
 - ✅ Comprehensive monitoring and alerting
 
 ### Modularization Phase (Nov)
+
 - ✅ All services extracted and independently testable
 - ✅ API contracts defined and documented
 - ✅ Event-driven communication implemented
 - ✅ Data consistency maintained across services
 
 ### Containerization Phase (Dec)
+
 - ✅ All services containerized and deployable
 - ✅ Automated CI/CD pipeline functional
 - ✅ Staging environment matches production
 - ✅ Integration tests passing consistently
 
 ### Microservices Phase (Jan)
+
 - ✅ Production deployment successful with zero downtime
 - ✅ All services independently scalable
 - ✅ Monitoring and observability fully operational
