@@ -1,5 +1,7 @@
+#!/usr/bin/env python3
 """
-Paper Trading Service - Live Trading Simulation and IG Markets Integration
+Paper Trading Service with comprehensive IG Markets integration and settings.py configuration
+Integrates with paper-trading-app and ig_markets_paper_trading directories
 
 Purpose:
 This service manages paper trading operations, integrating with IG Markets API
@@ -15,10 +17,232 @@ Key Features:
 - Performance analytics and reporting
 - Trade history and audit trail
 - Position sizing and risk management rules
+- Settings.py configuration integration
+- Enhanced database schema compatibility
 
 Trading Operations:
 - Execute BUY/SELL signals from prediction service
 - Market order simulation with real spreads
+- Stop loss and take profit management
+- Risk-based position sizing
+- Portfolio performance tracking
+"""
+import asyncio
+import sys
+import os
+import json
+import sqlite3
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass, asdict
+import uuid
+import time
+
+# Add project paths
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "paper-trading-app"))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ig_markets_paper_trading"))
+
+from services.base_service import BaseService
+
+# Import settings with fallback
+try:
+    sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "config"))
+    from settings import Settings
+except ImportError:
+    # Fallback settings class
+    class Settings:
+        BANK_SYMBOLS = ['CBA.AX', 'ANZ.AX', 'NAB.AX', 'WBC.AX', 'MQG.AX']
+        MARKET_DATA_CONFIG = {'market_hours': {'open': '10:00', 'close': '16:00', 'timezone': 'Australia/Sydney'}}
+
+@dataclass
+class Position:
+    """Paper trading position structure"""
+    position_id: str
+    symbol: str
+    side: str  # BUY or SELL
+    quantity: int
+    entry_price: float
+    current_price: float
+    entry_time: str
+    position_value: float
+    pnl: float
+    pnl_percentage: float
+    status: str  # OPEN, CLOSED, PARTIAL
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    ig_order_id: Optional[str] = None
+    prediction_confidence: Optional[float] = None
+    prediction_id: Optional[str] = None
+
+@dataclass
+class Trade:
+    """Individual trade record"""
+    trade_id: str
+    position_id: str
+    symbol: str
+    action: str  # BUY, SELL
+    quantity: int
+    price: float
+    timestamp: str
+    fees: float
+    trade_value: float
+    order_type: str
+    ig_order_id: Optional[str] = None
+    execution_status: str = "FILLED"
+
+@dataclass
+class Portfolio:
+    """Portfolio summary"""
+    total_value: float
+    cash_balance: float
+    positions_value: float
+    total_pnl: float
+    total_pnl_percentage: float
+    open_positions: int
+    total_trades: int
+    winning_trades: int
+    losing_trades: int
+    win_rate: float
+    largest_gain: float
+    largest_loss: float
+    average_trade: float
+
+class PaperTradingService(BaseService):
+    """Comprehensive paper trading service with IG Markets integration and settings.py configuration"""
+
+    def __init__(self):
+        super().__init__("paper-trading")
+        
+        # Load settings configuration
+        self._load_paper_trading_settings()
+        
+        # Initialize data storage
+        self.positions: Dict[str, Position] = {}
+        self.trades: Dict[str, Trade] = {}
+        self.portfolio_history: List[Dict] = []
+        
+        # IG Markets integration
+        self.ig_client = None
+        self.ig_integration_enabled = False
+        
+        # Performance tracking
+        self.trade_count = 0
+        self.total_pnl = 0.0
+        self.win_count = 0
+        self.loss_count = 0
+        
+        # Initialize databases
+        self._initialize_databases()
+        
+        # Load existing data
+        self._load_existing_positions()
+        self._load_existing_trades()
+        
+        # Register service methods
+        self._register_methods()
+        
+        # Initialize IG Markets if configured
+        asyncio.create_task(self._initialize_ig_markets())
+    
+    def _load_paper_trading_settings(self):
+        """Load paper trading configuration from settings with comprehensive fallbacks"""
+        try:
+            # Paper trading specific settings
+            self.paper_trading_config = getattr(Settings, 'PAPER_TRADING_CONFIG', {
+                'initial_balance': 100000.0,
+                'commission_rate': 0.001,  # 0.1%
+                'min_commission': 9.50,
+                'max_position_size': 0.1,  # 10% of portfolio
+                'stop_loss_default': 0.05,  # 5%
+                'take_profit_default': 0.15,  # 15%
+                'max_daily_trades': 20,
+                'risk_management_enabled': True,
+                'auto_execute_predictions': True,
+                'min_confidence_threshold': 0.65
+            })
+            
+            # Database configuration with comprehensive compatibility
+            self.database_config = {
+                'paper_trading_db': getattr(Settings, 'PAPER_TRADING_DB', 'paper_trading.db'),
+                'outcomes_db': getattr(Settings, 'ENHANCED_OUTCOMES_DB', 'data/enhanced_outcomes.db'),
+                'ig_markets_db': getattr(Settings, 'IG_MARKETS_DB', 'data/ig_markets_paper_trades.db'),
+                'predictions_db': getattr(Settings, 'PREDICTIONS_DB', 'predictions.db'),
+                'trading_predictions_db': getattr(Settings, 'TRADING_PREDICTIONS_DB', 'trading_predictions.db')
+            }
+            
+            # Trading symbols from settings
+            self.trading_symbols = getattr(Settings, 'BANK_SYMBOLS', [
+                'CBA.AX', 'ANZ.AX', 'NAB.AX', 'WBC.AX', 'MQG.AX', 'COL.AX', 'BHP.AX'
+            ])
+            
+            # IG Markets configuration
+            self.ig_config = getattr(Settings, 'IG_MARKETS_CONFIG', {
+                'enabled': False,
+                'api_key': '',
+                'username': '',
+                'password': '',
+                'demo_mode': True,
+                'max_order_value': 10000.0,
+                'spread_adjustment': 0.001  # 0.1% spread simulation
+            })
+            
+            # Enhanced risk management settings
+            self.risk_config = {
+                'max_portfolio_risk': getattr(Settings, 'MAX_PORTFOLIO_RISK', 0.02),  # 2%
+                'max_position_risk': getattr(Settings, 'MAX_POSITION_RISK', 0.005),  # 0.5%
+                'correlation_limit': getattr(Settings, 'CORRELATION_LIMIT', 0.7),
+                'sector_concentration_limit': getattr(Settings, 'SECTOR_CONCENTRATION_LIMIT', 0.4),
+                'daily_loss_limit': getattr(Settings, 'DAILY_LOSS_LIMIT', 0.05),  # 5% daily loss limit
+                'position_hold_limit_days': getattr(Settings, 'POSITION_HOLD_LIMIT', 30)
+            }
+            
+            # Market timing settings from settings
+            self.market_timing = getattr(Settings, 'MARKET_DATA_CONFIG', {}).get('market_hours', {
+                'open': '10:00',
+                'close': '16:00',
+                'timezone': 'Australia/Sydney',
+                'trading_days': [0, 1, 2, 3, 4]  # Monday-Friday
+            })
+            
+            # Performance tracking settings
+            self.performance_config = {
+                'benchmark_symbol': getattr(Settings, 'BENCHMARK_SYMBOL', 'XJO.AX'),  # ASX 200
+                'track_sector_performance': getattr(Settings, 'TRACK_SECTOR_PERFORMANCE', True),
+                'performance_update_interval': getattr(Settings, 'PERFORMANCE_UPDATE_INTERVAL', 300),  # 5 minutes
+                'max_history_days': getattr(Settings, 'MAX_HISTORY_DAYS', 365)
+            }
+            
+            self.settings_loaded = True
+            self.logger.info(f'"action": "paper_trading_settings_loaded", "initial_balance": {self.paper_trading_config["initial_balance"]}, "trading_symbols": {len(self.trading_symbols)}')
+            
+        except Exception as e:
+            self.logger.error(f'"error": "settings_load_failed", "details": "{e}", "action": "using_defaults"')
+            self.settings_loaded = False
+            # Use comprehensive defaults
+            self.paper_trading_config = {
+                'initial_balance': 100000.0,
+                'commission_rate': 0.001,
+                'min_commission': 9.50,
+                'max_position_size': 0.1,
+                'risk_management_enabled': True,
+                'auto_execute_predictions': True,
+                'min_confidence_threshold': 0.65
+            }
+            self.database_config = {
+                'paper_trading_db': 'paper_trading.db',
+                'outcomes_db': 'data/enhanced_outcomes.db',
+                'ig_markets_db': 'data/ig_markets_paper_trades.db',
+                'predictions_db': 'predictions.db',
+                'trading_predictions_db': 'trading_predictions.db'
+            }
+            self.trading_symbols = ['CBA.AX', 'ANZ.AX', 'NAB.AX', 'WBC.AX']
+            self.risk_config = {
+                'max_portfolio_risk': 0.02,
+                'max_position_risk': 0.005,
+                'correlation_limit': 0.7,
+                'sector_concentration_limit': 0.4
+            }
 - Position management (open, close, modify)
 - Stop-loss and take-profit automation
 - Portfolio rebalancing based on signals

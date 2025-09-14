@@ -66,28 +66,82 @@ import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from base.base_service import BaseService
 
+# Settings.py integration for configuration management
+SETTINGS_AVAILABLE = False
+try:
+    sys.path.append("app/config")
+    import settings as Settings
+    SETTINGS_AVAILABLE = True
+except ImportError:
+    try:
+        sys.path.append("paper-trading-app/app/config")
+        import settings as Settings
+        SETTINGS_AVAILABLE = True
+    except ImportError:
+        Settings = None
+        print("Warning: settings.py not found - using fallback configuration")
+
 class MLModelService(BaseService):
-    """Machine Learning model management and prediction service"""
+    """Machine Learning model management and prediction service with settings.py integration"""
     
     def __init__(self):
         super().__init__("ml-model")
+        
+        # Load configuration from settings.py or use fallbacks
+        if SETTINGS_AVAILABLE and hasattr(Settings, 'ML_CONFIG'):
+            self.ml_config = Settings.ML_CONFIG
+            self.models_dir = Settings.MODELS_DIR if hasattr(Settings, 'MODELS_DIR') else Path("models")
+            self.bank_symbols = Settings.BANK_SYMBOLS if hasattr(Settings, 'BANK_SYMBOLS') else ["CBA.AX", "ANZ.AX", "NAB.AX", "WBC.AX"]
+            self.bank_names = Settings.BANK_NAMES if hasattr(Settings, 'BANK_NAMES') else {}
+            
+            # Training configuration from settings
+            self.training_config = self.ml_config.get('training', {
+                'min_samples': 100,
+                'validation_split': 0.2,
+                'retrain_frequency_days': 7,
+                'auto_retrain': True
+            })
+            
+            # Model configuration
+            self.model_config = self.ml_config.get('models', {})
+            
+            self.logger.info("Loaded ML configuration from settings.py")
+        else:
+            # Fallback configuration
+            self.models_dir = Path("models")
+            self.bank_symbols = ["CBA.AX", "ANZ.AX", "NAB.AX", "WBC.AX", "MQG.AX"]
+            self.bank_names = {
+                'CBA.AX': 'Commonwealth Bank',
+                'WBC.AX': 'Westpac',
+                'ANZ.AX': 'ANZ',
+                'NAB.AX': 'National Australia Bank',
+                'MQG.AX': 'Macquarie Group'
+            }
+            self.training_config = {
+                'min_samples': 100,
+                'validation_split': 0.2,
+                'retrain_frequency_days': 7,
+                'auto_retrain': True
+            }
+            self.model_config = {
+                'sentiment_ensemble': {'enabled': True, 'models': ['transformers', 'statistical', 'lexicon']},
+                'price_prediction': {'enabled': True, 'lookback_periods': [5, 10, 20]},
+                'risk_assessment': {'enabled': True, 'volatility_window': 20}
+            }
+            self.logger.warning("Settings.py not available - using fallback ML configuration")
         
         # Model management
         self.loaded_models = {}
         self.model_metadata = {}
         self.model_performance = {}
         
-        # Model directories
-        self.models_dir = Path("models")
+        # Bank-specific model directories based on settings
         self.bank_models_dir = {
-            "CBA.AX": Path("models/CBA.AX"),
-            "ANZ.AX": Path("models/ANZ.AX"), 
-            "NAB.AX": Path("models/NAB.AX"),
-            "WBC.AX": Path("models/WBC.AX")
+            symbol: self.models_dir / symbol for symbol in self.bank_symbols
         }
         
-        # Supported model types
-        self.model_types = [
+        # Supported model types from configuration
+        self.model_types = list(self.model_config.keys()) + [
             "ensemble_predictor",
             "technical_analyzer", 
             "sentiment_model",
@@ -95,15 +149,16 @@ class MLModelService(BaseService):
             "risk_model"
         ]
         
-        # Feature definitions for different model types
+        # Enhanced feature definitions based on settings configuration
         self.feature_schemas = {
-            "technical": ["price", "rsi", "macd", "bollinger_upper", "bollinger_lower", "volume"],
-            "sentiment": ["sentiment_score", "news_confidence", "news_volume"],
-            "volume": ["volume_ratio", "volume_trend", "volume_ma"],
-            "market": ["market_sentiment", "sector_performance", "volatility_index"]
+            "technical": ["price", "rsi", "macd", "bollinger_upper", "bollinger_lower", "volume", "sma_20", "sma_50"],
+            "sentiment": ["sentiment_score", "news_confidence", "news_volume", "sentiment_trend"],
+            "volume": ["volume_ratio", "volume_trend", "volume_ma", "volume_breakout"],
+            "market": ["market_sentiment", "sector_performance", "volatility_index", "market_correlation"],
+            "ensemble": ["price", "rsi", "macd", "sentiment_score", "volume_ratio", "market_sentiment"]
         }
         
-        # Register methods
+        # Register enhanced methods with settings integration
         self.register_handler("load_model", self.load_model)
         self.register_handler("predict", self.predict)
         self.register_handler("get_ensemble_prediction", self.get_ensemble_prediction)
@@ -112,9 +167,154 @@ class MLModelService(BaseService):
         self.register_handler("unload_model", self.unload_model)
         self.register_handler("get_feature_importance", self.get_feature_importance)
         self.register_handler("validate_features", self.validate_features)
+        self.register_handler("get_ml_config", self.get_ml_config)
+        self.register_handler("get_training_status", self.get_training_status)
+        self.register_handler("get_model_recommendations", self.get_model_recommendations)
+        self.register_handler("check_retrain_schedule", self.check_retrain_schedule)
         
         # Initialize model discovery
         asyncio.create_task(self._discover_available_models())
+    
+    async def get_ml_config(self):
+        """Get current ML configuration"""
+        return {
+            "ml_config": self.ml_config if hasattr(self, 'ml_config') else {},
+            "training_config": self.training_config,
+            "model_config": self.model_config,
+            "bank_symbols": self.bank_symbols,
+            "bank_names": self.bank_names,
+            "models_directory": str(self.models_dir),
+            "supported_model_types": self.model_types,
+            "feature_schemas": self.feature_schemas,
+            "settings_integration": SETTINGS_AVAILABLE
+        }
+    
+    async def get_training_status(self):
+        """Get training configuration and status"""
+        return {
+            "training_config": self.training_config,
+            "auto_retrain_enabled": self.training_config.get('auto_retrain', False),
+            "retrain_frequency_days": self.training_config.get('retrain_frequency_days', 7),
+            "min_samples_required": self.training_config.get('min_samples', 100),
+            "validation_split": self.training_config.get('validation_split', 0.2),
+            "last_training_check": getattr(self, 'last_training_check', None),
+            "models_requiring_retrain": await self._check_models_for_retraining()
+        }
+    
+    async def _check_models_for_retraining(self):
+        """Check which models might need retraining based on configuration"""
+        retrain_candidates = []
+        
+        if not self.training_config.get('auto_retrain', False):
+            return retrain_candidates
+        
+        retrain_frequency = self.training_config.get('retrain_frequency_days', 7)
+        cutoff_date = datetime.now() - timedelta(days=retrain_frequency)
+        
+        for model_name, metadata in self.model_metadata.items():
+            try:
+                model_modified = datetime.fromisoformat(metadata['modified'].replace('Z', '+00:00'))
+                if model_modified < cutoff_date:
+                    retrain_candidates.append({
+                        'model_name': model_name,
+                        'last_modified': metadata['modified'],
+                        'days_since_update': (datetime.now() - model_modified).days,
+                        'symbol': metadata.get('symbol')
+                    })
+            except Exception as e:
+                self.logger.warning(f"Could not parse modification date for {model_name}: {e}")
+        
+        return retrain_candidates
+    
+    async def get_model_recommendations(self, symbol: str = None, use_case: str = "general"):
+        """Get model recommendations based on symbol and use case"""
+        recommendations = {
+            "symbol": symbol,
+            "use_case": use_case,
+            "recommended_models": [],
+            "reasoning": []
+        }
+        
+        # Bank-specific recommendations
+        if symbol and symbol in self.bank_symbols:
+            bank_name = self.bank_names.get(symbol, symbol)
+            
+            # Check if bank-specific models exist
+            bank_models = [name for name, meta in self.model_metadata.items() 
+                          if meta.get('symbol') == symbol]
+            
+            if bank_models:
+                recommendations["recommended_models"].extend(bank_models)
+                recommendations["reasoning"].append(f"Bank-specific models available for {bank_name}")
+            else:
+                recommendations["reasoning"].append(f"No bank-specific models found for {bank_name}, falling back to general models")
+        
+        # Use case specific recommendations
+        if use_case == "sentiment":
+            if "sentiment_ensemble" in self.model_config and self.model_config["sentiment_ensemble"].get("enabled"):
+                recommendations["recommended_models"].append("sentiment_ensemble")
+                recommendations["reasoning"].append("Sentiment ensemble model is enabled and configured")
+        
+        elif use_case == "price_prediction":
+            if "price_prediction" in self.model_config and self.model_config["price_prediction"].get("enabled"):
+                recommendations["recommended_models"].append("price_prediction")
+                recommendations["reasoning"].append("Price prediction model is enabled with configured lookback periods")
+        
+        elif use_case == "risk_assessment":
+            if "risk_assessment" in self.model_config and self.model_config["risk_assessment"].get("enabled"):
+                recommendations["recommended_models"].append("risk_assessment")
+                recommendations["reasoning"].append("Risk assessment model is enabled with volatility analysis")
+        
+        # General model recommendations
+        general_models = [name for name, meta in self.model_metadata.items() 
+                         if meta.get('type') == 'general']
+        
+        if not recommendations["recommended_models"] and general_models:
+            recommendations["recommended_models"].extend(general_models[:3])  # Top 3 general models
+            recommendations["reasoning"].append("Using general models as fallback")
+        
+        # Add confidence scoring
+        recommendations["confidence_score"] = self._calculate_recommendation_confidence(recommendations)
+        
+        return recommendations
+    
+    def _calculate_recommendation_confidence(self, recommendations):
+        """Calculate confidence score for model recommendations"""
+        score = 0.5  # Base score
+        
+        # Boost for bank-specific models
+        if any("bank-specific" in str(reason) for reason in recommendations["reasoning"]):
+            score += 0.3
+        
+        # Boost for enabled models in config
+        enabled_models = sum(1 for model_type, config in self.model_config.items() 
+                           if config.get("enabled", False))
+        score += min(0.2, enabled_models * 0.05)
+        
+        # Boost for multiple model options
+        if len(recommendations["recommended_models"]) > 1:
+            score += 0.1
+        
+        return min(1.0, score)
+    
+    async def check_retrain_schedule(self):
+        """Check retrain schedule and provide recommendations"""
+        if not self.training_config.get('auto_retrain', False):
+            return {
+                "auto_retrain_enabled": False,
+                "message": "Auto-retrain is disabled in configuration"
+            }
+        
+        retrain_candidates = await self._check_models_for_retraining()
+        
+        return {
+            "auto_retrain_enabled": True,
+            "retrain_frequency_days": self.training_config.get('retrain_frequency_days', 7),
+            "models_needing_retrain": len(retrain_candidates),
+            "retrain_candidates": retrain_candidates,
+            "next_check": datetime.now() + timedelta(days=1),
+            "recommendation": "Schedule retraining" if retrain_candidates else "Models are up to date"
+        }
     
     async def _discover_available_models(self):
         """Discover available models in the models directory"""
@@ -968,7 +1168,7 @@ class MLModelService(BaseService):
             return {"error": str(e), "valid": False}
     
     async def health_check(self):
-        """Enhanced health check with ML model service metrics"""
+        """Enhanced health check with ML model service metrics and configuration validation"""
         base_health = await super().health_check()
         
         # Add service-specific health metrics
@@ -977,8 +1177,42 @@ class MLModelService(BaseService):
             "loaded_models": len(self.loaded_models),
             "available_models": len(self.model_metadata),
             "total_predictions": sum(perf["predictions_made"] for perf in self.model_performance.values()),
-            "model_directories_accessible": all(d.exists() for d in self.bank_models_dir.values() if d.exists()) and self.models_dir.exists()
+            "model_directories_accessible": self._check_model_directories(),
+            "settings_integration": SETTINGS_AVAILABLE,
+            "bank_symbols_count": len(self.bank_symbols),
+            "supported_model_types": len(self.model_types),
+            "training_config": {
+                "auto_retrain": self.training_config.get('auto_retrain', False),
+                "retrain_frequency_days": self.training_config.get('retrain_frequency_days', 7),
+                "min_samples": self.training_config.get('min_samples', 100)
+            }
         }
+        
+        # Validate configuration integrity
+        config_issues = []
+        
+        # Check model configuration
+        for model_type, config in self.model_config.items():
+            if not isinstance(config, dict):
+                config_issues.append(f"Invalid config for {model_type}")
+            elif config.get('enabled') and not self._validate_model_config(model_type, config):
+                config_issues.append(f"Configuration validation failed for {model_type}")
+        
+        # Check model directories
+        missing_dirs = []
+        for symbol, model_dir in self.bank_models_dir.items():
+            if not model_dir.exists():
+                missing_dirs.append(f"{symbol}: {model_dir}")
+        
+        if missing_dirs:
+            config_issues.append(f"Missing model directories: {missing_dirs}")
+        
+        # Check models directory accessibility
+        if not self.models_dir.exists():
+            config_issues.append(f"Main models directory not accessible: {self.models_dir}")
+        
+        ml_health["configuration_issues"] = config_issues
+        ml_health["configuration_valid"] = len(config_issues) == 0
         
         # Check model loading capability
         try:
@@ -987,12 +1221,97 @@ class MLModelService(BaseService):
                 ml_health["model_discovery"] = "ok"
             else:
                 ml_health["model_discovery"] = "no_models_found"
-                ml_health["status"] = "degraded"
-        except:
-            ml_health["model_discovery"] = "failed"
+                if ml_health["status"] == "healthy":
+                    ml_health["status"] = "degraded"
+        except Exception as e:
+            ml_health["model_discovery"] = f"failed: {e}"
             ml_health["status"] = "unhealthy"
         
+        # Performance metrics
+        if self.model_performance:
+            total_predictions = sum(perf["predictions_made"] for perf in self.model_performance.values())
+            total_errors = sum(perf.get("error_count", 0) for perf in self.model_performance.values())
+            
+            if total_predictions > 0:
+                error_rate = (total_errors / total_predictions) * 100
+                ml_health["error_rate_percent"] = round(error_rate, 2)
+                
+                if error_rate > 20:  # 20% error rate threshold
+                    ml_health["status"] = "degraded"
+                    ml_health["warning"] = f"High error rate: {error_rate:.1f}%"
+        
+        # Check retrain schedule
+        if self.training_config.get('auto_retrain', False):
+            try:
+                retrain_candidates = await self._check_models_for_retraining()
+                ml_health["models_needing_retrain"] = len(retrain_candidates)
+                
+                if len(retrain_candidates) > len(self.model_metadata) * 0.5:  # More than 50% need retraining
+                    ml_health["warning"] = f"{len(retrain_candidates)} models may need retraining"
+            except Exception as e:
+                ml_health["retrain_check_error"] = str(e)
+        
         return ml_health
+    
+    def _check_model_directories(self):
+        """Check if model directories are accessible"""
+        try:
+            if not self.models_dir.exists():
+                return False
+            
+            accessible_dirs = 0
+            total_dirs = len(self.bank_models_dir)
+            
+            for model_dir in self.bank_models_dir.values():
+                if model_dir.exists() and os.access(model_dir, os.R_OK):
+                    accessible_dirs += 1
+            
+            # Return True if main dir exists and at least 70% of bank dirs are accessible
+            return accessible_dirs >= (total_dirs * 0.7)
+            
+        except Exception:
+            return False
+    
+    def _validate_model_config(self, model_type: str, config: Dict) -> bool:
+        """Validate model configuration parameters"""
+        try:
+            if model_type == "sentiment_ensemble":
+                required_fields = ['models', 'weights']
+                if not all(field in config for field in required_fields):
+                    return False
+                
+                models = config.get('models', [])
+                weights = config.get('weights', [])
+                
+                if len(models) != len(weights):
+                    return False
+                
+                if abs(sum(weights) - 1.0) > 0.01:  # Weights should sum to 1
+                    return False
+            
+            elif model_type == "price_prediction":
+                required_fields = ['lookback_periods', 'prediction_horizon']
+                if not all(field in config for field in required_fields):
+                    return False
+                
+                lookback_periods = config.get('lookback_periods', [])
+                if not isinstance(lookback_periods, list) or not lookback_periods:
+                    return False
+            
+            elif model_type == "risk_assessment":
+                required_fields = ['volatility_window']
+                if not all(field in config for field in required_fields):
+                    return False
+                
+                volatility_window = config.get('volatility_window', 0)
+                if not isinstance(volatility_window, int) or volatility_window <= 0:
+                    return False
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Model config validation error for {model_type}: {e}")
+            return False
 
 async def main():
     service = MLModelService()

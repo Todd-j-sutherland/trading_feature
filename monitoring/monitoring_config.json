@@ -1,0 +1,52 @@
+{
+  "log_level": "INFO",
+  "log_file": "monitoring.log",
+  "system_check_interval": 30,
+  "service_check_interval": 60,
+  "database_check_interval": 300,
+  "alert_channels": ["log", "email"],
+  "email": {
+    "smtp_server": "smtp.gmail.com",
+    "smtp_port": 587,
+    "username": "",
+    "password": "",
+    "recipients": []
+  },
+  "webhooks": {
+    "slack": "",
+    "discord": "",
+    "teams": ""
+  },
+  "thresholds": {
+    "cpu_usage": 80.0,
+    "memory_usage": 85.0,
+    "disk_usage": 90.0,
+    "response_time": 5.0,
+    "error_rate": 5.0,
+    "service_downtime": 60.0
+  },
+  "retention_days": 30,
+  "redis_host": "localhost",
+  "redis_port": 6379,
+  "metrics_db": "monitoring_metrics.db",
+  "regions": ["ASX", "USA", "UK", "EU"],
+  "services": [
+    "market-data",
+    "sentiment", 
+    "prediction",
+    "paper-trading",
+    "ml-model",
+    "scheduler",
+    "database"
+  ],
+  "alert_escalation": {
+    "critical_escalation_minutes": 15,
+    "high_escalation_minutes": 60,
+    "auto_resolve_minutes": 30
+  },
+  "dashboard": {
+    "refresh_interval": 30,
+    "chart_history_hours": 24,
+    "alert_history_days": 7
+  }
+}

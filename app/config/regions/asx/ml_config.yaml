@@ -1,0 +1,337 @@
+# ASX (Australian) Machine Learning Configuration
+# Regional ML settings specific to Australian financial markets
+
+# Data Sources Configuration
+data_sources:
+  primary_source: "yahoo_finance"
+  backup_sources: ["alpha_vantage", "marketaux"]
+  symbol_suffix: ".AX"
+  
+  # ASX-specific data requirements
+  minimum_data_points: 252  # 1 trading year
+  lookback_period_days: 1260  # 5 years
+  validation_split: 0.2
+  test_split: 0.1
+
+# Feature Engineering for ASX Markets
+feature_engineering:
+  # Technical indicators optimized for ASX volatility
+  technical_indicators:
+    # Trend indicators
+    sma_periods: [5, 10, 20, 50, 200]
+    ema_periods: [12, 26, 50]
+    macd:
+      fast_period: 12
+      slow_period: 26
+      signal_period: 9
+    
+    # Momentum indicators  
+    rsi:
+      period: 14
+      overbought: 70
+      oversold: 30
+    
+    # Volatility indicators
+    bollinger_bands:
+      period: 20
+      std_dev: 2
+    atr_period: 14
+    
+    # Volume indicators
+    volume_sma_periods: [10, 20]
+    volume_ratio_period: 20
+    
+  # ASX-specific market features
+  market_features:
+    # Market cap considerations
+    market_cap_buckets: ["large", "medium", "small"]
+    
+    # Sector relationships (ASX financial focus)
+    sector_correlation: true
+    financial_sector_weight: 0.8
+    
+    # Currency impact (AUD strength)
+    aud_usd_correlation: true
+    commodity_correlation: true  # ASX is commodity-heavy
+    
+    # Interest rate sensitivity (RBA cash rate)
+    interest_rate_sensitivity: true
+    rba_policy_impact: true
+
+  # News sentiment features
+  sentiment_features:
+    sentiment_window_hours: 24
+    news_quality_weight: true
+    source_tier_importance: [1.0, 0.8, 0.6, 0.4]  # 4-tier system
+    
+    # ASX-specific sentiment factors
+    asx_announcement_weight: 1.5
+    earnings_season_boost: 1.3
+    regulatory_news_weight: 1.2
+
+# Model Configurations
+models:
+  # Random Forest (Primary Model)
+  random_forest:
+    enabled: true
+    n_estimators: 200
+    max_depth: 15
+    min_samples_split: 5
+    min_samples_leaf: 2
+    max_features: "sqrt"
+    bootstrap: true
+    
+    # ASX-specific parameters
+    class_weight: "balanced"  # Handle imbalanced buy/sell signals
+    oob_score: true
+    n_jobs: -1
+    
+  # Gradient Boosting (Secondary Model)
+  gradient_boosting:
+    enabled: true
+    n_estimators: 150
+    learning_rate: 0.1
+    max_depth: 8
+    subsample: 0.8
+    
+    # Early stopping for ASX volatility
+    validation_fraction: 0.1
+    n_iter_no_change: 10
+    
+  # LSTM (Advanced Model)
+  lstm:
+    enabled: false  # Disabled initially due to complexity
+    sequence_length: 30
+    hidden_units: [128, 64, 32]
+    dropout_rate: 0.3
+    learning_rate: 0.001
+    batch_size: 32
+    epochs: 100
+    
+  # Ensemble Configuration
+  ensemble:
+    enabled: true
+    voting_method: "soft"  # Probability-based voting
+    weights:
+      random_forest: 0.6
+      gradient_boosting: 0.4
+      lstm: 0.0  # Disabled initially
+
+# Training Configuration
+training:
+  # Cross-validation strategy
+  cross_validation:
+    method: "time_series_split"
+    n_splits: 5
+    test_size_ratio: 0.2
+    
+  # Hyperparameter tuning
+  hyperparameter_tuning:
+    enabled: true
+    method: "grid_search"  # or "random_search"
+    cv_folds: 3
+    scoring: "f1_weighted"
+    
+    # Grid search parameters
+    param_grids:
+      random_forest:
+        n_estimators: [100, 200, 300]
+        max_depth: [10, 15, 20]
+        min_samples_split: [2, 5, 10]
+        
+      gradient_boosting:
+        n_estimators: [100, 150, 200]
+        learning_rate: [0.05, 0.1, 0.15]
+        max_depth: [6, 8, 10]
+
+  # Feature selection
+  feature_selection:
+    enabled: true
+    method: "recursive_feature_elimination"
+    n_features_to_select: 20
+    step: 1
+    
+  # Model persistence
+  model_persistence:
+    save_models: true
+    model_versioning: true
+    backup_models: true
+    compression: true
+
+# Prediction Configuration
+prediction:
+  # Classification targets
+  targets:
+    primary: "action"  # BUY, SELL, HOLD
+    secondary: "confidence"  # Confidence score
+    
+  # Class definitions
+  classes:
+    BUY: 
+      threshold: 0.7
+      description: "Strong buy signal"
+    STRONG_BUY:
+      threshold: 0.85
+      description: "Very strong buy signal"
+    HOLD:
+      threshold: [0.3, 0.7]
+      description: "Hold/neutral position"
+    SELL:
+      threshold: 0.3
+      description: "Sell signal"
+      
+  # Confidence scoring
+  confidence_calculation:
+    method: "probability_margin"
+    min_confidence: 0.1
+    max_confidence: 1.0
+    
+  # Risk adjustment for ASX
+  risk_adjustment:
+    volatility_penalty: 0.1
+    liquidity_boost: 0.05
+    market_cap_factor: true
+
+# Evaluation Metrics
+evaluation:
+  # Primary metrics
+  primary_metrics:
+    - "accuracy"
+    - "precision"
+    - "recall"
+    - "f1_score"
+    
+  # Financial metrics
+  financial_metrics:
+    - "sharpe_ratio"
+    - "max_drawdown"
+    - "win_rate"
+    - "profit_factor"
+    
+  # ASX-specific evaluation
+  asx_metrics:
+    - "sector_performance"
+    - "market_correlation"
+    - "aud_correlation"
+    
+  # Backtesting configuration
+  backtesting:
+    start_date: "2019-01-01"  # 5 years of backtesting
+    end_date: "2024-01-01"
+    initial_capital: 100000  # AUD $100K
+    transaction_costs: 0.001  # 0.1% per trade
+    max_positions: 5
+    rebalance_frequency: "weekly"
+
+# Data Quality Standards
+data_quality:
+  # Missing data handling
+  missing_data:
+    max_missing_percentage: 0.05  # 5%
+    imputation_method: "forward_fill"
+    consecutive_missing_limit: 5
+    
+  # Outlier detection
+  outlier_detection:
+    method: "isolation_forest"
+    contamination: 0.1
+    
+  # Data validation
+  validation_rules:
+    price_change_limit: 0.2  # 20% daily change limit
+    volume_spike_threshold: 5.0  # 5x average volume
+    
+# Performance Optimization
+performance:
+  # Memory management
+  memory_optimization:
+    chunk_size: 1000
+    lazy_loading: true
+    garbage_collection: true
+    
+  # Parallel processing
+  parallel_processing:
+    n_jobs: -1  # Use all CPU cores
+    backend: "loky"
+    
+  # Caching
+  caching:
+    feature_cache: true
+    model_cache: true
+    prediction_cache: true
+    cache_ttl_hours: 24
+
+# Regional Specific Settings
+regional_settings:
+  timezone: "Australia/Sydney"
+  currency: "AUD"
+  
+  # ASX trading calendar
+  trading_calendar:
+    market_open: "10:00"
+    market_close: "16:00"
+    early_close_time: "14:00"  # Some holidays
+    
+  # Regulatory considerations
+  regulatory:
+    continuous_disclosure: true
+    price_sensitive_announcements: true
+    trading_halts: true
+    
+  # Market microstructure
+  market_structure:
+    tick_size: 0.001  # Minimum price increment
+    lot_size: 1  # Minimum trading unit
+    settlement_cycle: "T+2"  # 2 business days
+
+# Logging and Monitoring
+logging:
+  level: "INFO"
+  format: "json"
+  
+  # Model performance monitoring
+  model_monitoring:
+    track_drift: true
+    performance_degradation_threshold: 0.05
+    retrain_threshold: 0.1
+    
+  # Feature monitoring
+  feature_monitoring:
+    track_importance: true
+    stability_threshold: 0.1
+    
+# Model Deployment
+deployment:
+  # Model serving
+  model_serving:
+    batch_prediction: true
+    real_time_prediction: false  # Not implemented yet
+    
+  # Model updates
+  model_updates:
+    retrain_frequency: "monthly"
+    auto_retrain: false  # Manual approval required
+    
+  # A/B testing
+  ab_testing:
+    enabled: false
+    traffic_split: 0.1
+    
+# Integration Settings
+integration:
+  # Database connections
+  database:
+    primary: "sqlite"
+    backup: "postgresql"  # Future enhancement
+    
+  # External APIs
+  external_apis:
+    yahoo_finance: true
+    alpha_vantage: true
+    marketaux: true
+    
+  # Microservices
+  microservices:
+    prediction_service: true
+    market_data_service: true
+    sentiment_service: true

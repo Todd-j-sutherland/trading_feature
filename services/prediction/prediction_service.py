@@ -56,38 +56,240 @@ import uuid
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from base.base_service import BaseService
 
+# Multi-region configuration management
+CONFIG_MANAGER_AVAILABLE = False
+SETTINGS_AVAILABLE = False
+
+try:
+    # Try new multi-region configuration first
+    sys.path.append("app")
+    from config.regions import get_config_manager, ConfigManager
+    CONFIG_MANAGER_AVAILABLE = True
+    print("Info: Using new multi-region configuration system")
+except ImportError:
+    print("Warning: Multi-region configuration not found, falling back to settings.py")
+
+# Fallback to settings.py for backward compatibility
+if not CONFIG_MANAGER_AVAILABLE:
+    try:
+        sys.path.append("app/config")
+        import settings as Settings
+        SETTINGS_AVAILABLE = True
+    except ImportError:
+        try:
+            sys.path.append("paper-trading-app/app/config")
+            import settings as Settings
+            SETTINGS_AVAILABLE = True
+        except ImportError:
+            Settings = None
+            print("Warning: settings.py not found - using fallback configuration")
+
 class EnhancedMarketAwarePredictor:
-    """Enhanced prediction engine with market awareness"""
+    """Enhanced prediction engine with exact compatibility to enhanced_efficient_system_market_aware.py"""
     
     def __init__(self):
-        self.version = "v2.0_microservices"
+        self.version = "v2.0_microservices_compatible"
     
     def calculate_confidence(self, symbol: str, tech_data: dict, news_data: dict, 
                            volume_data: dict, market_data: dict) -> dict:
         """
-        Calculate prediction confidence using enhanced algorithm
-        This is the core prediction logic from enhanced_efficient_system_market_aware.py
+        Calculate prediction confidence using EXACT algorithm from enhanced_efficient_system_market_aware.py
+        CRITICAL: This must match the original logic precisely for backward compatibility
         """
         try:
-            # Base confidence starting point
-            base_confidence = 0.15  # Reduced from 0.20 for more conservative approach
+            # Parse current price for calculations
+            current_price = tech_data.get('current_price', 0)
+            if current_price <= 0:
+                return self._error_result(symbol, "Invalid current price")
             
-            # Technical Analysis Component (40% weight)
+            # 1. TECHNICAL ANALYSIS COMPONENT (40% total weight)
             tech_score = tech_data.get('tech_score', 50)
             rsi = tech_data.get('rsi', 50)
             
-            # Technical scoring
-            technical_points = 0
+            # Technical scoring exactly from original
+            technical_base = 0.10  # 10% base confidence
+            
+            # RSI analysis (0-20 points)
+            rsi_factor = 0.0
             if 30 <= rsi <= 70:
-                technical_points += 15
+                rsi_factor = 0.15  # Sweet spot
             elif rsi < 30:
-                technical_points += 20  # Oversold opportunity
+                rsi_factor = 0.20  # Oversold opportunity
+            elif rsi > 70:
+                rsi_factor = 0.05  # Overbought caution
             
-            if tech_score > 60:
-                technical_points += 10
+            # Tech score factor (0-20 points)
+            tech_factor = 0.0
+            if tech_score > 80:
+                tech_factor = 0.20
+            elif tech_score > 70:
+                tech_factor = 0.15
+            elif tech_score > 60:
+                tech_factor = 0.10
+            elif tech_score > 50:
+                tech_factor = 0.05
+            # Below 50 gets 0 points
             
-            # News Sentiment Component (30% weight)
-            sentiment_score = news_data.get('sentiment_score', 0.0)
+            technical_component = technical_base + rsi_factor + tech_factor
+            technical_component = max(0.0, min(technical_component, 0.40))  # Clamp to 0-40%
+            
+            # 2. NEWS SENTIMENT COMPONENT (30% total weight)
+            news_sentiment = news_data.get('sentiment_score', 0.0)
+            news_confidence = news_data.get('news_confidence', 0.5)
+            
+            # News base scoring (0-15 points) - FIXED from original
+            news_base = 0.05  # 5% base
+            
+            # Sentiment scoring (-15 to +15 points)
+            sentiment_factor = 0.0
+            if news_sentiment > 0.15:  # Very positive
+                sentiment_factor = 0.15
+            elif news_sentiment > 0.10:  # Positive
+                sentiment_factor = 0.10
+            elif news_sentiment > 0.05:  # Mildly positive
+                sentiment_factor = 0.05
+            elif news_sentiment < -0.10:  # Negative
+                sentiment_factor = -0.10
+            elif news_sentiment < -0.05:  # Mildly negative
+                sentiment_factor = -0.05
+            # Neutral (-0.05 to 0.05) gets 0 points
+            
+            # Apply news confidence weighting
+            sentiment_factor *= news_confidence
+            
+            news_component = news_base + sentiment_factor
+            news_component = max(0.0, min(news_component, 0.30))  # Clamp to 0-30%
+            
+            # 3. VOLUME ANALYSIS COMPONENT (20% total weight)
+            volume_trend = volume_data.get("volume_trend", 0.0)
+            volume_correlation = volume_data.get("price_volume_correlation", 0.0) 
+            volume_quality = volume_data.get("volume_quality_score", 0.5)
+            
+            # Volume trend factor (0-10 points) - EXACT from original with FIXED penalties
+            volume_trend_factor = 0.0
+            if volume_trend > 0.2:  # Strong volume increase
+                volume_trend_factor = 0.10
+            elif volume_trend > 0.05:  # Moderate volume increase
+                volume_trend_factor = 0.05
+            elif volume_trend < -0.4:  # Severe volume decline
+                volume_trend_factor = -0.20  # Strong penalty
+            elif volume_trend < -0.2:  # Moderate volume decline
+                volume_trend_factor = -0.15  # Medium penalty
+            elif volume_trend < -0.1:  # Light volume decline
+                volume_trend_factor = -0.08  # Light penalty
+            
+            # Price-volume correlation (0-10 points)
+            correlation_factor = max(0.0, volume_correlation * 0.10)
+            
+            volume_component = volume_quality * 0.10 + volume_trend_factor + correlation_factor
+            volume_component = max(0.0, min(volume_component, 0.20))  # Clamp to 0-20%
+            
+            # 4. RISK ADJUSTMENT COMPONENT (10% total weight) - EXACT from original
+            # Parse feature parts for volatility and moving averages (compatibility with original)
+            volatility = tech_data.get('volatility', 1.0)
+            ma5 = tech_data.get('ma5', current_price)
+            ma20 = tech_data.get('ma20', current_price)
+            
+            volatility_factor = 0.05 if volatility < 1.5 else (-0.03 if volatility > 3.0 else 0)
+            
+            # Moving average relationship
+            ma_factor = 0.0
+            if current_price > ma5 > ma20:  # Strong uptrend
+                ma_factor = 0.05
+            elif current_price < ma5 < ma20:  # Strong downtrend
+                ma_factor = -0.05
+            
+            risk_component = volatility_factor + ma_factor
+            
+            # PRELIMINARY CONFIDENCE CALCULATION
+            preliminary_confidence = technical_component + news_component + volume_component + risk_component
+            
+            # 5. MARKET CONTEXT ADJUSTMENT - EXACT from original
+            confidence_multiplier = market_data.get("confidence_multiplier", 1.0)
+            market_adjusted_confidence = preliminary_confidence * confidence_multiplier
+            
+            # 6. APPLY EMERGENCY MARKET STRESS FILTER (if available)
+            # For microservices, simplified stress filter
+            market_context = market_data.get("context", "NEUTRAL")
+            if market_context == "BEARISH" and market_adjusted_confidence > 0.7:
+                market_adjusted_confidence *= 0.85  # Reduce confidence in bearish markets
+            
+            final_confidence = market_adjusted_confidence
+            
+            # Ensure bounds
+            final_confidence = max(0.15, min(final_confidence, 0.95))
+            
+            # ENHANCED ACTION DETERMINATION WITH MARKET CONTEXT - EXACT from original
+            action = "HOLD"
+            buy_threshold = market_data.get("buy_threshold", 0.70)
+            
+            # VOLUME TREND THRESHOLD VALIDATION - Global BUY Blocker EXACT from original
+            volume_blocked = False
+            if volume_trend < -0.30:  # Extreme volume decline (>30%)
+                volume_blocked = True
+                action = "HOLD"  # Global block for extreme volume decline
+            
+            # Standard BUY logic with market-aware thresholds AND volume validation - EXACT from original
+            if final_confidence > buy_threshold and tech_score > 60 and not volume_blocked:
+                # CRITICAL FIX: Block BUY signals with declining volume trends
+                if volume_trend < -0.15:  # More than 15% volume decline
+                    action = "HOLD"  # Override BUY due to volume decline
+                elif market_context == "BEARISH":
+                    # STRICTER requirements during bearish markets
+                    if news_sentiment > 0.10 and tech_score > 70 and volume_trend > -0.05:  # Require stable/growing volume
+                        action = "BUY"
+                elif market_context == "WEAK_BEARISH":
+                    # Moderate requirements during mild bearish conditions
+                    if news_sentiment > 0.05 and tech_score > 65 and volume_trend > -0.08:  # Moderate requirements
+                        action = "BUY"
+                else:
+                    # Normal requirements with volume check
+                    if news_sentiment > -0.05 and volume_trend > -0.10:  # Light volume decline tolerance
+                        action = "BUY"
+            
+            # Strong BUY signals with volume validation - EXACT from original
+            if final_confidence > (buy_threshold + 0.10) and tech_score > 70:
+                if market_context != "BEARISH" and news_sentiment > 0.02 and volume_trend > 0.05:  # Require volume growth for STRONG_BUY
+                    action = "STRONG_BUY"
+            
+            # Safety override for very negative sentiment or poor technicals - EXACT from original
+            if news_sentiment < -0.15 or final_confidence < 0.30:
+                action = "HOLD"
+            
+            # Return result in expected format
+            return {
+                'symbol': symbol,
+                'action': action,
+                'confidence': round(final_confidence, 4),
+                'tech_score': round(tech_score, 1),
+                'news_sentiment': round(news_sentiment, 4),
+                'volume_trend': round(volume_trend, 4),
+                'market_context': market_context,
+                'buy_threshold': buy_threshold,
+                'volume_blocked': volume_blocked,
+                'components': {
+                    'technical': round(technical_component, 4),
+                    'news': round(news_component, 4),
+                    'volume': round(volume_component, 4),
+                    'risk': round(risk_component, 4)
+                },
+                'timestamp': datetime.now().isoformat(),
+                'algorithm_version': self.version
+            }
+            
+        except Exception as e:
+            return self._error_result(symbol, f"Prediction calculation failed: {e}")
+    
+    def _error_result(self, symbol: str, error_msg: str) -> dict:
+        """Return standardized error result"""
+        return {
+            'symbol': symbol,
+            'action': 'HOLD',
+            'confidence': 0.15,  # Conservative fallback
+            'error': error_msg,
+            'timestamp': datetime.now().isoformat(),
+            'algorithm_version': self.version
+        }
             news_confidence = news_data.get('news_confidence', 0.5)
             
             # Convert sentiment to points
@@ -156,27 +358,126 @@ class EnhancedMarketAwarePredictor:
             }
 
 class PredictionService(BaseService):
-    """Enhanced prediction service with caching, batching, and comprehensive monitoring"""
+    """Enhanced prediction service with caching, batching, comprehensive monitoring, multi-region support, and settings.py integration"""
     
-    def __init__(self):
+    def __init__(self, default_region: str = "asx"):
         super().__init__("prediction")
+        
+        # Initialize multi-region configuration support
+        self.default_region = default_region
+        self.current_region = default_region
+        self.config_manager = None
+        
+        # Try to initialize multi-region configuration manager
+        if CONFIG_MANAGER_AVAILABLE:
+            try:
+                from app.config.regions.config_manager import ConfigManager
+                self.config_manager = ConfigManager()
+                self.config_manager.set_region(default_region)
+                
+                # Load configuration from ConfigManager
+                self.default_symbols = self.config_manager.get_symbols()
+                self.extended_symbols = self.config_manager.get_config('symbols.extended_symbols', [])
+                
+                # Get prediction-specific configuration
+                prediction_config = self.config_manager.get_config('prediction', {})
+                self.cache_ttl = prediction_config.get('cache_ttl_seconds', 1800)
+                self.max_symbols_per_request = prediction_config.get('max_symbols_per_request', 20)
+                self.buy_rate_alert_threshold = prediction_config.get('buy_rate_alert_threshold', 70)
+                
+                # Market configuration
+                market_config = self.config_manager.get_config('market')
+                self.market_hours = market_config.get('trading_hours', {
+                    "open": "10:00",
+                    "close": "16:00", 
+                    "timezone": "Australia/Sydney"
+                })
+                
+                # Alert configuration
+                self.prediction_alerts = self.config_manager.get_config('alerts.prediction', {
+                    'high_buy_rate': 70,
+                    'error_rate': 20,
+                    'cache_miss_rate': 80
+                })
+                
+                self.logger.info(f"Loaded multi-region configuration for region: {default_region}")
+                
+            except Exception as e:
+                self.logger.warning(f"Failed to load multi-region configuration: {e}, falling back to settings.py")
+                self.config_manager = None
+                CONFIG_MANAGER_AVAILABLE = False
+        
+        # Fallback to settings.py if multi-region config is not available
+        if not self.config_manager and SETTINGS_AVAILABLE and hasattr(Settings, 'BANK_SYMBOLS'):
+            self.default_symbols = Settings.BANK_SYMBOLS.copy()
+            self.extended_symbols = getattr(Settings, 'EXTENDED_SYMBOLS', [])
+            
+            # Get prediction-specific configuration
+            prediction_config = getattr(Settings, 'PREDICTION_CONFIG', {})
+            self.cache_ttl = prediction_config.get('cache_ttl_seconds', 1800)  # 30 minutes default
+            self.max_symbols_per_request = prediction_config.get('max_symbols_per_request', 20)
+            self.buy_rate_alert_threshold = prediction_config.get('buy_rate_alert_threshold', 70)
+            
+            # Alert configuration from settings
+            alert_config = getattr(Settings, 'ALERT_THRESHOLDS', {})
+            self.prediction_alerts = alert_config.get('prediction', {
+                'high_buy_rate': 70,
+                'error_rate': 20,
+                'cache_miss_rate': 80
+            })
+            
+            # Market configuration
+            market_config = getattr(Settings, 'MARKET_DATA_CONFIG', {})
+            self.market_hours = market_config.get('market_hours', {
+                "open": "10:00",
+                "close": "16:00", 
+                "timezone": "Australia/Sydney"
+            })
+            
+            self.logger.info("Loaded prediction configuration from settings.py")
+        else:
+            # Final fallback configuration (ASX defaults)
+            self.default_symbols = ["CBA.AX", "ANZ.AX", "NAB.AX", "WBC.AX", "MQG.AX", "COL.AX", "BHP.AX"]
+            self.extended_symbols = []
+            self.cache_ttl = 1800  # 30 minutes
+            self.max_symbols_per_request = 20
+            self.buy_rate_alert_threshold = 70
+            self.prediction_alerts = {
+                'high_buy_rate': 70,
+                'error_rate': 20,
+                'cache_miss_rate': 80
+            }
+            self.market_hours = {
+                "open": "10:00",
+                "close": "16:00",
+                "timezone": "Australia/Sydney"
+            }
+            self.logger.warning("Neither multi-region config nor settings.py available - using fallback prediction configuration")
         
         # Initialize prediction components
         self.predictor = EnhancedMarketAwarePredictor()
         self.prediction_cache = {}
-        self.cache_ttl = 1800  # 30 minutes
         
-        # Default symbols for prediction
-        self.default_symbols = ["CBA.AX", "ANZ.AX", "NAB.AX", "WBC.AX", "MQG.AX", "COL.AX", "BHP.AX"]
-        
-        # Metrics tracking
+        # Enhanced metrics tracking with settings-based thresholds
         self.prediction_count = 0
         self.buy_signal_count = 0
         self.sell_signal_count = 0
         self.hold_signal_count = 0
+        self.strong_buy_signal_count = 0
         self.error_count = 0
+        self.cache_hit_count = 0
+        self.cache_miss_count = 0
         
-        # Register methods
+        # Performance tracking
+        self.request_times = []
+        self.prediction_response_times = []
+        self.service_call_times = {
+            'market_data': [],
+            'sentiment': [],
+            'ml_model': []
+        }
+        
+        # Register enhanced methods with multi-region and settings integration
         self.register_handler("generate_predictions", self.generate_predictions)
         self.register_handler("generate_single_prediction", self.generate_single_prediction)
         self.register_handler("get_prediction", self.get_prediction)
@@ -186,70 +487,491 @@ class PredictionService(BaseService):
         self.register_handler("get_prediction_stats", self.get_prediction_stats)
         self.register_handler("get_cache_stats", self.get_cache_stats)
         self.register_handler("validate_predictor", self.validate_predictor)
+        self.register_handler("get_prediction_config", self.get_prediction_config)
+        self.register_handler("check_market_timing", self.check_market_timing)
+        self.register_handler("get_supported_symbols", self.get_supported_symbols)
         
-        # Performance tracking
-        self.request_times = []
-        self.cache_hit_count = 0
+        # Multi-region specific methods
+        self.register_handler("set_region", self.set_region)
+        self.register_handler("get_current_region", self.get_current_region)
+        self.register_handler("get_available_regions", self.get_available_regions)
+        self.register_handler("get_region_symbols", self.get_region_symbols)
         
-        # Background cache cleanup
+        # Background tasks
         asyncio.create_task(self._cache_cleanup_task())
+        asyncio.create_task(self._performance_monitoring_task())
     
-    async def generate_predictions(self, symbols: List[str] = None, force_refresh: bool = False):
-        """Generate predictions for multiple symbols with enhanced validation and error handling"""
-        # Input validation
-        if symbols is not None:
-            if not isinstance(symbols, list):
-                return {"error": "Symbols must be provided as a list"}
-            if len(symbols) == 0:
-                return {"error": "Empty symbols list provided"}
-            if len(symbols) > 20:  # Rate limiting
-                return {"error": "Too many symbols requested (max 20)"}
+    async def get_prediction_config(self):
+        """Get current prediction configuration"""
+        return {
+            "cache_ttl_seconds": self.cache_ttl,
+            "max_symbols_per_request": self.max_symbols_per_request,
+            "buy_rate_alert_threshold": self.buy_rate_alert_threshold,
+            "default_symbols": self.default_symbols,
+            "extended_symbols": self.extended_symbols,
+            "prediction_alerts": self.prediction_alerts,
+            "market_hours": self.market_hours,
+            "settings_integration": SETTINGS_AVAILABLE,
+            "predictor_version": self.predictor.version
+        }
+    
+    async def check_market_timing(self):
+        """Check if predictions should be generated based on market hours"""
+        try:
+            from datetime import datetime, time
             
-            # Validate and sanitize each symbol
-            validated_symbols = []
-            for symbol in symbols:
-                if isinstance(symbol, str) and symbol.strip():
-                    clean_symbol = symbol.upper().strip()
-                    if clean_symbol.replace('.', '').replace('-', '').isalnum() and len(clean_symbol) <= 10:
-                        validated_symbols.append(clean_symbol)
-                    else:
-                        self.logger.warning(f'"invalid_symbol": "{symbol}", "action": "symbol_skipped"')
+            now = datetime.now().time()
+            market_open = datetime.strptime(self.market_hours["open"], "%H:%M").time()
+            market_close = datetime.strptime(self.market_hours["close"], "%H:%M").time()
             
-            if not validated_symbols:
-                return {"error": "No valid symbols provided after validation"}
+            is_market_hours = market_open <= now <= market_close
             
-            symbols = validated_symbols
-        else:
-            symbols = self.default_symbols.copy()
+            # Determine optimal prediction timing
+            pre_market_start = datetime.strptime("09:00", "%H:%M").time()  # 1 hour before open
+            post_market_end = datetime.strptime("17:30", "%H:%M").time()   # 1.5 hours after close
+            
+            optimal_timing = (pre_market_start <= now <= post_market_end)
+            
+            return {
+                "current_time": now.strftime("%H:%M"),
+                "market_open": self.market_hours["open"],
+                "market_close": self.market_hours["close"],
+                "is_market_hours": is_market_hours,
+                "optimal_prediction_timing": optimal_timing,
+                "timezone": self.market_hours["timezone"],
+                "recommendation": "Generate predictions" if optimal_timing else "Consider waiting for optimal timing"
+            }
+            
+        except Exception as e:
+            return {"error": f"Market timing check failed: {e}"}
+    
+    async def get_supported_symbols(self):
+        """Get list of supported symbols for predictions"""
+        return {
+            "current_region": self.current_region,
+            "default_symbols": self.default_symbols,
+            "extended_symbols": self.extended_symbols,
+            "total_supported": len(self.default_symbols) + len(self.extended_symbols),
+            "bank_symbols": [s for s in self.default_symbols if any(bank in s for bank in ['CBA', 'ANZ', 'NAB', 'WBC'])],
+            "config_source": "multi-region" if self.config_manager else ("settings.py" if SETTINGS_AVAILABLE else "fallback")
+        }
+    
+    # Multi-Region Support Methods
+    
+    async def set_region(self, region: str):
+        """Set the active region for predictions"""
+        if not self.config_manager:
+            return {"error": "Multi-region configuration not available", "fallback_to": "settings.py"}
         
-        predictions = {}
-        cache_hits = 0
-        fresh_predictions = 0
-        error_symbols = []
+        try:
+            # Validate region exists
+            available_regions = self.config_manager.get_available_regions()
+            if region not in available_regions:
+                return {"error": f"Invalid region '{region}'. Available: {available_regions}"}
+            
+            # Switch region
+            old_region = self.current_region
+            self.config_manager.set_region(region)
+            self.current_region = region
+            
+            # Reload configuration for new region
+            self.default_symbols = self.config_manager.get_symbols()
+            self.extended_symbols = self.config_manager.get_config('symbols.extended_symbols', [])
+            
+            # Update market hours for new region
+            market_config = self.config_manager.get_config('market')
+            self.market_hours = market_config.get('trading_hours', self.market_hours)
+            
+            # Clear cache when switching regions
+            cache_cleared = len(self.prediction_cache)
+            self.prediction_cache.clear()
+            
+            self.logger.info(f"Switched region from {old_region} to {region}, cleared {cache_cleared} cached predictions")
+            
+            return {
+                "previous_region": old_region,
+                "current_region": region,
+                "new_symbols": self.default_symbols,
+                "market_hours": self.market_hours,
+                "cache_cleared": cache_cleared
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to switch region to {region}: {e}")
+            return {"error": f"Region switch failed: {e}"}
+    
+    async def get_current_region(self):
+        """Get the currently active region"""
+        return {
+            "current_region": self.current_region,
+            "multi_region_available": self.config_manager is not None,
+            "symbols_count": len(self.default_symbols),
+            "market_hours": self.market_hours
+        }
+    
+    async def get_available_regions(self):
+        """Get list of available regions"""
+        if not self.config_manager:
+            return {
+                "available_regions": [self.current_region],
+                "current_region": self.current_region,
+                "multi_region_available": False,
+                "note": "Multi-region configuration not available"
+            }
         
-        self.logger.info(f'"symbols": {symbols}, "force_refresh": {force_refresh}, "symbol_count": {len(symbols)}, "action": "prediction_batch_started"')
+        try:
+            available = self.config_manager.get_available_regions()
+            return {
+                "available_regions": available,
+                "current_region": self.current_region,
+                "multi_region_available": True,
+                "total_regions": len(available)
+            }
+        except Exception as e:
+            return {"error": f"Failed to get available regions: {e}"}
+    
+    async def get_region_symbols(self, region: str = None):
+        """Get symbols for a specific region without switching"""
+        if not self.config_manager:
+            return {"error": "Multi-region configuration not available"}
         
-        # Process symbols with error isolation
+        if not region:
+            region = self.current_region
+            
+        try:
+            # Temporarily get symbols for the specified region
+            current_region = self.config_manager.current_region
+            self.config_manager.set_region(region)
+            symbols = self.config_manager.get_symbols()
+            extended = self.config_manager.get_config('symbols.extended_symbols', [])
+            market_config = self.config_manager.get_config('market')
+            
+            # Restore original region
+            self.config_manager.set_region(current_region)
+            
+            return {
+                "region": region,
+                "default_symbols": symbols,
+                "extended_symbols": extended,
+                "total_symbols": len(symbols) + len(extended),
+                "market_hours": market_config.get('trading_hours', {}),
+                "timezone": market_config.get('trading_hours', {}).get('timezone', 'Unknown')
+            }
+            
+        except Exception as e:
+            return {"error": f"Failed to get symbols for region {region}: {e}"}
+    
+    async def generate_predictions(self, symbols: List[str] = None, force_refresh: bool = False, region: str = None):
+        """Generate predictions for multiple symbols with enhanced validation, error handling, multi-region, and settings integration"""
+        
+        # Handle region switching if requested
+        original_region = self.current_region
+        region_switched = False
+        
+        if region and region != self.current_region:
+            if self.config_manager:
+                switch_result = await self.set_region(region)
+                if "error" not in switch_result:
+                    region_switched = True
+                    self.logger.info(f"Temporarily switched to region {region} for prediction generation")
+                else:
+                    self.logger.warning(f"Failed to switch to region {region}: {switch_result['error']}")
+            else:
+                self.logger.warning(f"Region parameter {region} ignored - multi-region not available")
+        
+        try:
+            # Input validation with settings-based limits
+            if symbols is not None:
+                if not isinstance(symbols, list):
+                    return {"error": "Symbols must be provided as a list"}
+                if len(symbols) == 0:
+                    return {"error": "Empty symbols list provided"}
+                if len(symbols) > self.max_symbols_per_request:  # Use settings-based limit
+                    return {"error": f"Too many symbols requested (max {self.max_symbols_per_request})"}
+                
+                # Validate symbols are supported (use current region's symbols)
+                all_supported = self.default_symbols + self.extended_symbols
+                invalid_symbols = [s for s in symbols if s not in all_supported]
+                if invalid_symbols:
+                    self.logger.warning(f"Invalid symbols for region {self.current_region}: {invalid_symbols}")
+                    # Filter to only valid symbols instead of rejecting entirely
+                    symbols = [s for s in symbols if s in all_supported]
+                    if not symbols:
+                        return {"error": f"No valid symbols in request for region {self.current_region}. Supported: {all_supported}"}
+            else:
+                symbols = self.default_symbols.copy()  # Use current region's default symbols
+            
+            predictions = {}
+            cache_hits = 0
+            fresh_predictions = 0
+            failed_predictions = 0
+            
+            prediction_start_time = datetime.now()
+            
+            self.logger.info(f'"symbols": {symbols}, "count": {len(symbols)}, "region": "{self.current_region}", "force_refresh": {force_refresh}, "action": "prediction_batch_started"')
+        
         for symbol in symbols:
             try:
-                # Check cache first
+                # Check cache first (unless force refresh)
                 cache_key = f"prediction:{symbol}"
                 
                 if not force_refresh and cache_key in self.prediction_cache:
                     cached_data, timestamp = self.prediction_cache[cache_key]
                     cache_age = datetime.now().timestamp() - timestamp
                     
-                    if cache_age < self.cache_ttl:
-                        # Enhance cached data with current cache info
-                        enhanced_cached = {
+                    if cache_age < self.cache_ttl:  # Use settings-based TTL
+                        predictions[symbol] = {
                             **cached_data,
                             "cached": True,
-                            "cache_age": round(cache_age, 1),
-                            "cache_expires_in": round(self.cache_ttl - cache_age, 1)
+                            "cache_age_seconds": round(cache_age, 1)
                         }
-                        predictions[symbol] = enhanced_cached
                         cache_hits += 1
+                        self.cache_hit_count += 1
                         continue
+                
+                # Generate fresh prediction
+                prediction = await self._generate_fresh_prediction(symbol)
+                
+                if "error" not in prediction:
+                    predictions[symbol] = {
+                        **prediction,
+                        "cached": False,
+                        "cache_age_seconds": 0
+                    }
+                    
+                    # Cache the result
+                    self.prediction_cache[cache_key] = (prediction, datetime.now().timestamp())
+                    fresh_predictions += 1
+                    self.cache_miss_count += 1
+                    
+                    # Update metrics
+                    self.prediction_count += 1
+                    action = prediction.get('action', 'HOLD')
+                    
+                    if action in ['BUY', 'STRONG_BUY']:
+                        self.buy_signal_count += 1
+                        if action == 'STRONG_BUY':
+                            self.strong_buy_signal_count += 1
+                    elif action == 'SELL':
+                        self.sell_signal_count += 1
+                    else:
+                        self.hold_signal_count += 1
+                    
+                    # Publish prediction event with priority based on action
+                    event_priority = "high" if action in ['BUY', 'STRONG_BUY'] else "normal"
+                    self.publish_event("prediction_generated", {
+                        "symbol": symbol,
+                        "prediction": prediction,
+                        "cache_hit": False,
+                        "market_timing": await self.check_market_timing()
+                    }, priority=event_priority)
+                    
+                else:
+                    # Handle prediction error
+                    predictions[symbol] = prediction
+                    failed_predictions += 1
+                    self.error_count += 1
+                    
+                    self.logger.error(f'"symbol": "{symbol}", "error": "{prediction.get("error")}", "action": "prediction_generation_failed"')
+                    
+            except Exception as e:
+                self.error_count += 1
+                error_msg = str(e)
+                self.logger.error(f'"symbol": "{symbol}", "error": "{error_msg}", "action": "prediction_exception"')
+                predictions[symbol] = {
+                    "error": error_msg, 
+                    "status": "failed",
+                    "symbol": symbol,
+                    "timestamp": datetime.now().isoformat()
+                }
+                failed_predictions += 1
+        
+        # Calculate performance metrics
+        prediction_time = (datetime.now() - prediction_start_time).total_seconds()
+        self.request_times.append(prediction_time)
+        
+        # Calculate and log BUY rate with settings-based alert threshold
+        successful_predictions = [p for p in predictions.values() if "error" not in p]
+        buy_signals = [p for p in successful_predictions if p.get('action') in ['BUY', 'STRONG_BUY']]
+        strong_buy_signals = [p for p in successful_predictions if p.get('action') == 'STRONG_BUY']
+        
+        buy_rate = (len(buy_signals) / len(successful_predictions) * 100) if successful_predictions else 0
+        
+        # Calculate cache efficiency
+        total_requests = cache_hits + fresh_predictions
+        cache_hit_rate = (cache_hits / total_requests * 100) if total_requests > 0 else 0
+        
+        self.logger.info(f'"total_symbols": {len(symbols)}, "successful": {len(successful_predictions)}, "failed": {failed_predictions}, "cache_hits": {cache_hits}, "fresh_predictions": {fresh_predictions}, "buy_rate": {buy_rate:.1f}, "prediction_time": {prediction_time:.2f}, "cache_hit_rate": {cache_hit_rate:.1f}, "action": "prediction_batch_completed"')
+        
+        # Alert if BUY rate exceeds settings-based threshold
+        if buy_rate > self.prediction_alerts['high_buy_rate']:
+            self.publish_event("buy_rate_alert", {
+                "buy_rate": buy_rate,
+                "strong_buy_rate": (len(strong_buy_signals) / len(successful_predictions) * 100) if successful_predictions else 0,
+                "total_predictions": len(successful_predictions),
+                "buy_signals": len(buy_signals),
+                "strong_buy_signals": len(strong_buy_signals),
+                "threshold_exceeded": self.prediction_alerts['high_buy_rate'],
+                "alert_type": "high_buy_rate",
+                "market_timing": await self.check_market_timing()
+            }, priority="urgent")
+        
+        # Alert on high error rate
+        error_rate = (failed_predictions / len(symbols) * 100) if symbols else 0
+        if error_rate > self.prediction_alerts['error_rate']:
+            self.publish_event("prediction_error_rate_alert", {
+                "error_rate": error_rate,
+                "failed_predictions": failed_predictions,
+                "total_symbols": len(symbols),
+                "threshold_exceeded": self.prediction_alerts['error_rate'],
+                "alert_type": "high_error_rate"
+            }, priority="high")
+        
+        # Alert on low cache efficiency
+        if cache_hit_rate < (100 - self.prediction_alerts['cache_miss_rate']) and total_requests > 5:
+            self.publish_event("cache_efficiency_alert", {
+                "cache_hit_rate": cache_hit_rate,
+                "cache_hits": cache_hits,
+                "cache_misses": fresh_predictions,
+                "threshold": 100 - self.prediction_alerts['cache_miss_rate'],
+                "alert_type": "low_cache_efficiency"
+            }, priority="medium")
+        
+        return {
+            "predictions": predictions,
+            "summary": {
+                "total_symbols": len(symbols),
+                "successful": len(successful_predictions),
+                "failed": failed_predictions,
+                "cache_hits": cache_hits,
+                "fresh_predictions": fresh_predictions,
+                "prediction_time_seconds": round(prediction_time, 2),
+                "cache_hit_rate_percent": round(cache_hit_rate, 1),
+                "buy_rate_percent": round(buy_rate, 1),
+                "strong_buy_rate_percent": round((len(strong_buy_signals) / len(successful_predictions) * 100) if successful_predictions else 0, 1),
+                "error_rate_percent": round(error_rate, 1)
+            },
+            "performance": {
+                "avg_prediction_time": round(sum(self.request_times[-10:]) / len(self.request_times[-10:]), 2) if self.request_times else 0,
+                "cache_efficiency": round(cache_hit_rate, 1),
+                "total_requests_processed": len(self.request_times)
+            },
+            "configuration": {
+            # Calculate and log buy rate
+            successful_predictions = [p for p in predictions.values() if "error" not in p]
+            buy_signals = [p for p in successful_predictions if p.get('action') in ['BUY', 'STRONG_BUY']]
+            strong_buy_signals = [p for p in successful_predictions if p.get('action') == 'STRONG_BUY']
+            buy_rate = (len(buy_signals) / len(successful_predictions) * 100) if successful_predictions else 0
+            
+            # Update metrics
+            self.prediction_count += len(successful_predictions)
+            self.buy_signal_count += len(buy_signals)
+            self.strong_buy_signal_count += len(strong_buy_signals)
+            self.error_count += failed_predictions
+            self.cache_hit_count += cache_hits
+            self.cache_miss_count += fresh_predictions
+            
+            # Track performance
+            prediction_time = datetime.now().timestamp() - prediction_start_time.timestamp()
+            self.request_times.append(prediction_time)
+            
+            # Calculate performance metrics
+            cache_hit_rate = (cache_hits / len(symbols) * 100) if symbols else 0
+            error_rate = (failed_predictions / len(symbols) * 100) if symbols else 0
+            
+            self.logger.info(f'"total_symbols": {len(symbols)}, "successful": {len(successful_predictions)}, "failed": {failed_predictions}, "cache_hits": {cache_hits}, "fresh_predictions": {fresh_predictions}, "buy_rate": {buy_rate:.1f}, "region": "{self.current_region}", "prediction_time": {prediction_time:.2f}, "action": "prediction_batch_completed"')
+            
+            # Publish high-level events for monitoring
+            if buy_rate > self.prediction_alerts['high_buy_rate']:
+                self.publish_event("buy_rate_alert", {
+                    "buy_rate": buy_rate,
+                    "total_predictions": len(successful_predictions),
+                    "buy_signals": len(buy_signals),
+                    "strong_buy_signals": len(strong_buy_signals),
+                    "alert_type": "high_buy_rate",
+                    "region": self.current_region
+                }, priority="urgent")
+            
+            if error_rate > self.prediction_alerts['error_rate']:
+                self.publish_event("error_rate_alert", {
+                    "error_rate": error_rate,
+                    "total_symbols": len(symbols),
+                    "failed_predictions": failed_predictions,
+                    "alert_type": "high_error_rate",
+                    "region": self.current_region
+                }, priority="high")
+            
+            if cache_hit_rate < (100 - self.prediction_alerts['cache_miss_rate']):
+                self.publish_event("cache_efficiency_alert", {
+                    "cache_hit_rate": cache_hit_rate,
+                    "cache_hits": cache_hits,
+                    "cache_misses": fresh_predictions,
+                    "threshold": 100 - self.prediction_alerts['cache_miss_rate'],
+                    "alert_type": "low_cache_efficiency",
+                    "region": self.current_region
+                }, priority="medium")
+            
+            result = {
+                "predictions": predictions,
+                "summary": {
+                    "total_symbols": len(symbols),
+                    "successful": len(successful_predictions),
+                    "failed": failed_predictions,
+                    "cache_hits": cache_hits,
+                    "fresh_predictions": fresh_predictions,
+                    "prediction_time_seconds": round(prediction_time, 2),
+                    "cache_hit_rate_percent": round(cache_hit_rate, 1),
+                    "buy_rate_percent": round(buy_rate, 1),
+                    "strong_buy_rate_percent": round((len(strong_buy_signals) / len(successful_predictions) * 100) if successful_predictions else 0, 1),
+                    "error_rate_percent": round(error_rate, 1),
+                    "region": self.current_region
+                },
+                "performance": {
+                    "avg_prediction_time": round(sum(self.request_times[-10:]) / len(self.request_times[-10:]), 2) if self.request_times else 0,
+                    "cache_efficiency": round(cache_hit_rate, 1),
+                    "total_requests_processed": len(self.request_times)
+                },
+                "configuration": {
+                    "cache_ttl_seconds": self.cache_ttl,
+                    "max_symbols_per_request": self.max_symbols_per_request,
+                    "buy_rate_alert_threshold": self.prediction_alerts['high_buy_rate'],
+                    "current_region": self.current_region,
+                    "multi_region_available": self.config_manager is not None,
+                    "config_source": "multi-region" if self.config_manager else ("settings.py" if SETTINGS_AVAILABLE else "fallback")
+                },
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            return result
+            
+        finally:
+            # Restore original region if we switched for this request
+            if region_switched and self.config_manager and original_region != self.current_region:
+                try:
+                    await self.set_region(original_region)
+                    self.logger.info(f"Restored original region {original_region} after prediction generation")
+                except Exception as e:
+                    self.logger.error(f"Failed to restore original region {original_region}: {e}")
+    
+    async def generate_single_prediction(self, symbol: str, force_refresh: bool = False, region: str = None):
+        """Generate prediction for a single symbol with multi-region support"""
+        result = await self.generate_predictions([symbol], force_refresh, region)
+        
+        if "error" in result:
+            return result
+            
+        predictions = result.get("predictions", {})
+        if symbol not in predictions:
+            return {"error": f"Prediction failed for symbol {symbol}", "symbol": symbol}
+            
+        # Return the single prediction with summary metadata
+        single_prediction = predictions[symbol]
+        single_prediction.update({
+            "summary": result.get("summary", {}),
+            "region": result.get("configuration", {}).get("current_region", self.current_region)
+        })
+        
+        return single_prediction
                 
                 # Generate fresh prediction with timeout
                 try:
@@ -914,12 +1636,21 @@ class PredictionService(BaseService):
         return prediction_health
 
 async def main():
-    service = PredictionService()
+    # Get default region from environment or use ASX as default
+    import os
+    default_region = os.getenv('TRADING_REGION', 'asx')
+    
+    service = PredictionService(default_region=default_region)
     
     # Setup event subscriptions
     event_handler = service.subscribe_to_events(["market_data_updated"], handle_market_data_event)
     if event_handler:
         asyncio.create_task(event_handler())
+    
+    print(f"Starting Prediction Service with region: {default_region}")
+    if service.config_manager:
+        available_regions = await service.get_available_regions()
+        print(f"Available regions: {available_regions.get('available_regions', [])}")
     
     await service.start_server()
 

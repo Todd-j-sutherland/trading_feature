@@ -67,6 +67,21 @@ import re
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from base.base_service import BaseService
 
+# Settings.py integration for configuration management
+SETTINGS_AVAILABLE = False
+try:
+    sys.path.append("app/config")
+    import settings as Settings
+    SETTINGS_AVAILABLE = True
+except ImportError:
+    try:
+        sys.path.append("paper-trading-app/app/config")
+        import settings as Settings
+        SETTINGS_AVAILABLE = True
+    except ImportError:
+        Settings = None
+        print("Warning: settings.py not found - using fallback configuration")
+
 @dataclass
 class ScheduledTask:
     task_id: str
@@ -131,26 +146,85 @@ class ScheduledTask:
             raise ValueError("max_retries must be a non-negative integer")
 
 class SchedulerService(BaseService):
-    """Market-aware task scheduler for trading system with comprehensive error handling"""
+    """Market-aware task scheduler with settings.py integration and comprehensive error handling"""
     
     def __init__(self):
         super().__init__("scheduler")
         
+        # Load configuration from settings.py or use fallbacks
+        if SETTINGS_AVAILABLE and hasattr(Settings, 'MARKET_DATA_CONFIG'):
+            market_config = Settings.MARKET_DATA_CONFIG
+            self.market_hours_config = market_config.get('market_hours', {
+                "open": "10:00",
+                "close": "16:00",
+                "timezone": "Australia/Sydney"
+            })
+            
+            # Get scheduler-specific configuration
+            scheduler_config = getattr(Settings, 'SCHEDULER_CONFIG', {})
+            self.max_concurrent_tasks = scheduler_config.get('max_concurrent_tasks', 10)
+            self.circuit_breaker_threshold = scheduler_config.get('circuit_breaker_threshold', 5)
+            self.circuit_breaker_reset_time = scheduler_config.get('circuit_breaker_reset_time', 300)
+            self.task_history_limit = scheduler_config.get('task_history_limit', 10000)
+            
+            # Default symbols for tasks
+            self.default_symbols = getattr(Settings, 'BANK_SYMBOLS', ["CBA.AX", "ANZ.AX", "NAB.AX", "WBC.AX"])
+            
+            # Task timeout configurations
+            task_timeouts = scheduler_config.get('task_timeouts', {})
+            self.default_timeout = task_timeouts.get('default', 300)
+            self.prediction_timeout = task_timeouts.get('prediction', 600)
+            self.market_data_timeout = task_timeouts.get('market_data', 180)
+            self.backup_timeout = task_timeouts.get('backup', 1800)
+            
+            self.logger.info("Loaded scheduler configuration from settings.py")
+        else:
+            # Fallback configuration
+            self.market_hours_config = {
+                "open": "10:00",
+                "close": "16:00",
+                "timezone": "Australia/Sydney"
+            }
+            self.max_concurrent_tasks = 10
+            self.circuit_breaker_threshold = 5
+            self.circuit_breaker_reset_time = 300
+            self.task_history_limit = 10000
+            self.default_symbols = ["CBA.AX", "ANZ.AX", "NAB.AX", "WBC.AX"]
+            self.default_timeout = 300
+            self.prediction_timeout = 600
+            self.market_data_timeout = 180
+            self.backup_timeout = 1800
+            self.logger.warning("Settings.py not available - using fallback scheduler configuration")
+        
         # Australian Eastern Time with validation
         try:
-            self.timezone = pytz.timezone('Australia/Sydney')
+            timezone_name = self.market_hours_config.get("timezone", "Australia/Sydney")
+            self.timezone = pytz.timezone(timezone_name)
         except Exception as e:
             self.logger.error(f'"error": "timezone_initialization_failed", "details": "{e}", "action": "using_utc_fallback"')
             self.timezone = pytz.UTC
         
-        # Market schedule configuration with validation
-        self.market_schedule = {
-            "market_open": time(10, 0),    # 10:00 AM
-            "market_close": time(16, 0),   # 4:00 PM
-            "pre_market_start": time(8, 0), # 8:00 AM
-            "post_market_end": time(18, 0), # 6:00 PM
-            "trading_days": [0, 1, 2, 3, 4]  # Monday-Friday
-        }
+        # Market schedule configuration with settings integration
+        try:
+            open_time = datetime.strptime(self.market_hours_config["open"], "%H:%M").time()
+            close_time = datetime.strptime(self.market_hours_config["close"], "%H:%M").time()
+            
+            self.market_schedule = {
+                "market_open": open_time,
+                "market_close": close_time,
+                "pre_market_start": time(max(0, open_time.hour - 2), 0),  # 2 hours before open
+                "post_market_end": time(min(23, close_time.hour + 2), 0),  # 2 hours after close
+                "trading_days": [0, 1, 2, 3, 4]  # Monday-Friday
+            }
+        except Exception as e:
+            self.logger.error(f'"error": "market_schedule_parsing_failed", "details": "{e}", "action": "using_default_schedule"')
+            self.market_schedule = {
+                "market_open": time(10, 0),
+                "market_close": time(16, 0),
+                "pre_market_start": time(8, 0),
+                "post_market_end": time(18, 0),
+                "trading_days": [0, 1, 2, 3, 4]
+            }
         
         # Task storage with thread-safe access patterns
         self.scheduled_tasks: Dict[str, ScheduledTask] = {}
@@ -168,13 +242,10 @@ class SchedulerService(BaseService):
         # Market holidays with validation and future-proofing
         self.market_holidays = self._initialize_market_holidays()
         
-        # Rate limiting and circuit breaker
-        self.max_concurrent_tasks = 10
-        self.circuit_breaker_threshold = 5  # failures before circuit opens
-        self.circuit_breaker_reset_time = 300  # 5 minutes
+        # Rate limiting and circuit breaker (now configurable from settings)
         self.circuit_breaker_failures = {}
         
-        # Register enhanced methods with input validation
+        # Register enhanced methods with input validation and settings integration
         self.register_handler("schedule_task", self.schedule_task)
         self.register_handler("cancel_task", self.cancel_task)
         self.register_handler("list_tasks", self.list_tasks)
@@ -187,6 +258,9 @@ class SchedulerService(BaseService):
         self.register_handler("get_scheduler_metrics", self.get_scheduler_metrics)
         self.register_handler("cleanup_tasks", self.cleanup_tasks)
         self.register_handler("validate_task_config", self.validate_task_config)
+        self.register_handler("get_scheduler_config", self.get_scheduler_config)
+        self.register_handler("migrate_from_cron", self.migrate_from_cron)
+        self.register_handler("export_to_cron", self.export_to_cron)
         
         # Scheduler state with validation
         self.scheduler_running = True
@@ -198,6 +272,259 @@ class SchedulerService(BaseService):
         asyncio.create_task(self._safe_scheduler_loop())
         asyncio.create_task(self._safe_cleanup_loop())
         asyncio.create_task(self._safe_metrics_update_loop())
+    
+    async def get_scheduler_config(self):
+        """Get current scheduler configuration"""
+        return {
+            "market_hours": {
+                "open": self.market_schedule["market_open"].strftime("%H:%M"),
+                "close": self.market_schedule["market_close"].strftime("%H:%M"),
+                "pre_market_start": self.market_schedule["pre_market_start"].strftime("%H:%M"),
+                "post_market_end": self.market_schedule["post_market_end"].strftime("%H:%M"),
+                "timezone": str(self.timezone),
+                "trading_days": self.market_schedule["trading_days"]
+            },
+            "concurrency": {
+                "max_concurrent_tasks": self.max_concurrent_tasks,
+                "circuit_breaker_threshold": self.circuit_breaker_threshold,
+                "circuit_breaker_reset_time": self.circuit_breaker_reset_time
+            },
+            "timeouts": {
+                "default_timeout": self.default_timeout,
+                "prediction_timeout": self.prediction_timeout,
+                "market_data_timeout": self.market_data_timeout,
+                "backup_timeout": self.backup_timeout
+            },
+            "default_symbols": self.default_symbols,
+            "task_history_limit": self.task_history_limit,
+            "settings_integration": SETTINGS_AVAILABLE,
+            "market_holidays_count": len(self.market_holidays)
+        }
+    
+    async def migrate_from_cron(self, cron_config: Dict[str, Any] = None):
+        """Migrate existing cron jobs to microservices scheduler"""
+        if cron_config is None:
+            # Default migration based on current_crontab.txt
+            cron_config = self._parse_existing_cron_jobs()
+        
+        migrated_tasks = []
+        failed_migrations = []
+        
+        for cron_job in cron_config:
+            try:
+                # Convert cron schedule to task configuration
+                task_config = self._convert_cron_to_task(cron_job)
+                
+                if task_config:
+                    result = await self.schedule_task(**task_config)
+                    if "error" not in result:
+                        migrated_tasks.append({
+                            "original_cron": cron_job,
+                            "task_id": result["task_id"],
+                            "name": result["name"]
+                        })
+                    else:
+                        failed_migrations.append({
+                            "cron_job": cron_job,
+                            "error": result["error"]
+                        })
+                else:
+                    failed_migrations.append({
+                        "cron_job": cron_job,
+                        "error": "Could not convert cron job to task configuration"
+                    })
+                    
+            except Exception as e:
+                failed_migrations.append({
+                    "cron_job": cron_job,
+                    "error": f"Migration failed: {str(e)}"
+                })
+        
+        self.logger.info(f'"migrated_tasks": {len(migrated_tasks)}, "failed_migrations": {len(failed_migrations)}, "action": "cron_migration_completed"')
+        
+        return {
+            "migrated_tasks": migrated_tasks,
+            "failed_migrations": failed_migrations,
+            "total_attempted": len(cron_config),
+            "success_rate": len(migrated_tasks) / len(cron_config) * 100 if cron_config else 0
+        }
+    
+    def _parse_existing_cron_jobs(self):
+        """Parse existing cron jobs from current configuration"""
+        # Based on current_crontab.txt content
+        return [
+            {
+                "schedule": "0 7 * * 1-5",
+                "command": "enhanced_morning_analyzer_with_ml.py",
+                "description": "Morning analysis",
+                "log_file": "logs/market_aware_morning.log"
+            },
+            {
+                "schedule": "0 8 * * *",
+                "command": "enhanced_evening_analyzer_with_ml.py", 
+                "description": "Daily ML training",
+                "log_file": "logs/evening_ml_training.log"
+            },
+            {
+                "schedule": "15 7 * * 1-5",
+                "command": "scripts/run_paper_trader.py",
+                "description": "Paper trading",
+                "log_file": "logs/paper_trading_execution.log"
+            },
+            {
+                "schedule": "*/30 10-16 * * 1-5",
+                "command": "app.main_enhanced market-status",
+                "description": "Market context monitoring",
+                "log_file": "logs/market_context.log"
+            },
+            {
+                "schedule": "0 */4 * * *",
+                "command": "comprehensive_table_dashboard.py",
+                "description": "Dashboard updates",
+                "log_file": "logs/dashboard_updates.log"
+            }
+        ]
+    
+    def _convert_cron_to_task(self, cron_job: Dict) -> Dict:
+        """Convert cron job configuration to scheduler task configuration"""
+        try:
+            schedule = cron_job["schedule"]
+            command = cron_job["command"]
+            description = cron_job.get("description", "Migrated cron job")
+            
+            # Parse cron schedule (simplified parser for common patterns)
+            parts = schedule.split()
+            if len(parts) != 5:
+                return None
+            
+            minute, hour, day, month, weekday = parts
+            
+            # Determine schedule time from hour/minute
+            if hour.isdigit() and minute.isdigit():
+                schedule_time = f"{hour.zfill(2)}:{minute.zfill(2)}"
+            else:
+                return None  # Complex hour/minute patterns not supported yet
+            
+            # Parse weekdays
+            if weekday == "*":
+                weekdays = [0, 1, 2, 3, 4, 5, 6]  # All days
+            elif weekday == "1-5":
+                weekdays = [0, 1, 2, 3, 4]  # Monday-Friday
+            elif "-" in weekday:
+                start, end = map(int, weekday.split("-"))
+                weekdays = list(range(start % 7, (end % 7) + 1))
+            else:
+                return None  # Complex weekday patterns not supported yet
+            
+            # Determine market phase and map to service
+            market_phase = "off_hours"
+            service_name = "prediction"
+            method_name = "generate_predictions"
+            parameters = {"symbols": self.default_symbols}
+            
+            # Map based on command
+            if "morning" in command.lower():
+                market_phase = "pre_market"
+                service_name = "prediction"
+                method_name = "generate_predictions"
+                parameters = {"symbols": self.default_symbols, "force_refresh": True}
+            elif "evening" in command.lower() or "ml" in command.lower():
+                market_phase = "post_market"
+                service_name = "ml-model"
+                method_name = "get_training_status"
+                parameters = {}
+            elif "paper" in command.lower():
+                market_phase = "post_market"
+                service_name = "paper-trading"
+                method_name = "sync_positions"
+                parameters = {}
+            elif "market" in command.lower() or "context" in command.lower():
+                market_phase = "market_hours"
+                service_name = "market-data"
+                method_name = "get_market_status"
+                parameters = {}
+            elif "dashboard" in command.lower():
+                market_phase = "off_hours"
+                service_name = "monitoring"
+                method_name = "get_system_metrics"
+                parameters = {}
+            
+            return {
+                "name": description,
+                "task_type": f"migrated_{command.replace('.py', '').replace('/', '_')}",
+                "schedule_time": schedule_time,
+                "weekdays": weekdays,
+                "market_phase": market_phase,
+                "service_name": service_name,
+                "method_name": method_name,
+                "parameters": parameters,
+                "timeout_seconds": self._get_timeout_for_task(command)
+            }
+            
+        except Exception as e:
+            self.logger.error(f'"cron_job": {cron_job}, "error": "{e}", "action": "cron_conversion_failed"')
+            return None
+    
+    def _get_timeout_for_task(self, command: str) -> int:
+        """Get appropriate timeout based on task type"""
+        if "prediction" in command.lower() or "morning" in command.lower():
+            return self.prediction_timeout
+        elif "market" in command.lower():
+            return self.market_data_timeout
+        elif "backup" in command.lower():
+            return self.backup_timeout
+        else:
+            return self.default_timeout
+    
+    async def export_to_cron(self, include_disabled: bool = False):
+        """Export current scheduled tasks to cron format for backup/migration"""
+        cron_entries = []
+        
+        for task_id, task in self.scheduled_tasks.items():
+            if not task.enabled and not include_disabled:
+                continue
+            
+            try:
+                # Convert task to cron format
+                cron_schedule = self._task_to_cron_schedule(task)
+                if cron_schedule:
+                    cron_entries.append({
+                        "task_id": task_id,
+                        "name": task.name,
+                        "schedule": cron_schedule,
+                        "enabled": task.enabled,
+                        "market_phase": task.market_phase,
+                        "service_call": f"{task.service_name}.{task.method_name}",
+                        "converted_from_microservice": True
+                    })
+            except Exception as e:
+                self.logger.warning(f'"task_id": "{task_id}", "error": "{e}", "action": "cron_export_skip"')
+        
+        return {
+            "cron_entries": cron_entries,
+            "total_tasks": len(cron_entries),
+            "include_disabled": include_disabled,
+            "export_timestamp": datetime.now().isoformat()
+        }
+    
+    def _task_to_cron_schedule(self, task: ScheduledTask) -> str:
+        """Convert task to cron schedule format"""
+        try:
+            # Parse schedule time
+            hour, minute = task.schedule_time.split(":")
+            
+            # Convert weekdays (scheduler uses 0=Monday, cron uses 0=Sunday)
+            cron_weekdays = []
+            for day in task.weekdays:
+                cron_day = (day + 1) % 7  # Convert Monday=0 to Sunday=0 format
+                cron_weekdays.append(str(cron_day))
+            
+            weekday_str = ",".join(cron_weekdays) if len(cron_weekdays) < 7 else "*"
+            
+            return f"{minute} {hour} * * {weekday_str}"
+            
+        except Exception:
+            return None
     
     def _initialize_market_holidays(self) -> List[str]:
         """Initialize market holidays with current year and validation"""
@@ -264,7 +591,11 @@ class SchedulerService(BaseService):
                 await asyncio.sleep(300)
     
     async def _create_default_tasks(self):
-        """Create default trading system tasks"""
+        """Create default trading system tasks with settings integration"""
+        # Use settings-based symbols and configuration
+        primary_symbols = self.default_symbols[:4]  # First 4 symbols for primary analysis
+        extended_symbols = self.default_symbols  # All symbols for comprehensive analysis
+        
         default_tasks = [
             {
                 "name": "Morning Market Analysis",
@@ -274,8 +605,9 @@ class SchedulerService(BaseService):
                 "market_phase": "pre_market",
                 "service_name": "prediction",
                 "method_name": "generate_predictions",
-                "parameters": {"symbols": ["CBA.AX", "ANZ.AX", "NAB.AX", "WBC.AX"], "force_refresh": True},
-                "priority": 1
+                "parameters": {"symbols": primary_symbols, "force_refresh": True},
+                "priority": 1,
+                "timeout_seconds": self.prediction_timeout
             },
             {
                 "name": "Market Data Refresh",
@@ -284,9 +616,10 @@ class SchedulerService(BaseService):
                 "weekdays": [0, 1, 2, 3, 4],
                 "market_phase": "pre_market",
                 "service_name": "market-data",
-                "method_name": "refresh_all_data",
+                "method_name": "clear_cache",
                 "parameters": {},
-                "priority": 2
+                "priority": 2,
+                "timeout_seconds": self.market_data_timeout
             },
             {
                 "name": "Big 4 Sentiment Analysis",
@@ -297,18 +630,20 @@ class SchedulerService(BaseService):
                 "service_name": "sentiment",
                 "method_name": "get_big4_sentiment",
                 "parameters": {},
-                "priority": 3
+                "priority": 3,
+                "timeout_seconds": self.default_timeout
             },
             {
-                "name": "Evening Analysis",
+                "name": "Comprehensive Evening Analysis",
                 "task_type": "evening_analysis",
                 "schedule_time": "17:00",
                 "weekdays": [0, 1, 2, 3, 4],
                 "market_phase": "post_market",
                 "service_name": "prediction",
                 "method_name": "generate_predictions",
-                "parameters": {"symbols": ["CBA.AX", "ANZ.AX", "NAB.AX", "WBC.AX", "MQG.AX"], "force_refresh": True},
-                "priority": 2
+                "parameters": {"symbols": extended_symbols, "force_refresh": True},
+                "priority": 2,
+                "timeout_seconds": self.prediction_timeout
             },
             {
                 "name": "Paper Trading Sync",
@@ -319,7 +654,8 @@ class SchedulerService(BaseService):
                 "service_name": "paper-trading",
                 "method_name": "sync_positions",
                 "parameters": {},
-                "priority": 4
+                "priority": 4,
+                "timeout_seconds": self.default_timeout
             },
             {
                 "name": "Daily System Backup",
@@ -330,24 +666,77 @@ class SchedulerService(BaseService):
                 "service_name": "backup",
                 "method_name": "create_backup",
                 "parameters": {"backup_type": "daily"},
-                "priority": 7
+                "priority": 7,
+                "timeout_seconds": self.backup_timeout
             },
             {
-                "name": "Market Monitoring",
+                "name": "Market Monitoring Start",
                 "task_type": "market_monitoring",
                 "schedule_time": "10:15",  # First monitoring after market open
                 "weekdays": [0, 1, 2, 3, 4],
                 "market_phase": "market_hours",
                 "service_name": "market-data",
-                "method_name": "get_market_data",
-                "parameters": {"symbols": ["CBA.AX", "ANZ.AX", "NAB.AX", "WBC.AX"]},
+                "method_name": "get_batch_data",
+                "parameters": {"symbols": primary_symbols},
                 "priority": 3,
+                "timeout_seconds": self.market_data_timeout,
                 "recurring_interval": 15  # Repeat every 15 minutes during market hours
+            },
+            {
+                "name": "ML Model Health Check",
+                "task_type": "ml_health_check",
+                "schedule_time": "18:00",
+                "weekdays": [0, 1, 2, 3, 4],
+                "market_phase": "post_market",
+                "service_name": "ml-model",
+                "method_name": "check_retrain_schedule",
+                "parameters": {},
+                "priority": 5,
+                "timeout_seconds": self.default_timeout
+            },
+            {
+                "name": "News Sentiment Update",
+                "task_type": "news_sentiment_update",
+                "schedule_time": "09:00",
+                "weekdays": [0, 1, 2, 3, 4],
+                "market_phase": "pre_market",
+                "service_name": "sentiment",
+                "method_name": "refresh_news_cache",
+                "parameters": {},
+                "priority": 4,
+                "timeout_seconds": self.default_timeout
+            },
+            {
+                "name": "System Health Check",
+                "task_type": "system_health_check",
+                "schedule_time": "12:00",
+                "weekdays": [0, 1, 2, 3, 4, 5, 6],  # Every day
+                "market_phase": "market_hours",
+                "service_name": "monitoring",
+                "method_name": "collect_system_metrics",
+                "parameters": {},
+                "priority": 6,
+                "timeout_seconds": self.default_timeout
             }
         ]
         
+        created_count = 0
+        failed_count = 0
+        
         for task_config in default_tasks:
-            await self.schedule_task(**task_config)
+            try:
+                result = await self.schedule_task(**task_config)
+                if "error" not in result:
+                    created_count += 1
+                    self.logger.info(f'"task_name": "{task_config["name"]}", "task_id": "{result["task_id"]}", "action": "default_task_created"')
+                else:
+                    failed_count += 1
+                    self.logger.error(f'"task_name": "{task_config["name"]}", "error": "{result["error"]}", "action": "default_task_creation_failed"')
+            except Exception as e:
+                failed_count += 1
+                self.logger.error(f'"task_name": "{task_config["name"]}", "error": "{e}", "action": "default_task_creation_exception"')
+        
+        self.logger.info(f'"created_tasks": {created_count}, "failed_tasks": {failed_count}, "action": "default_tasks_initialization_completed"')
     
     async def schedule_task(self, name: str, task_type: str, schedule_time: str, 
                           weekdays: List[int], market_phase: str, service_name: str,
