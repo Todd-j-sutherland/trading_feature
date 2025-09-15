@@ -1,8 +1,8 @@
 {
-  "training_date": "2025-09-11T08:51:30.988885",
-  "samples_used": 1004,
-  "direction_accuracy": 0.8706467661691543,
-  "magnitude_mae": 0.9250589395224695,
+  "training_date": "2025-09-14T08:00:10.614691",
+  "samples_used": 1109,
+  "direction_accuracy": 0.8738738738738738,
+  "magnitude_mae": 0.6480949841542744,
   "feature_names": [
     "confidence",
     "buy_signal",
