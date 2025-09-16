@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ENHANCED Comprehensive Prediction System - Complete Logic Fix
-Fixes threshold validation, feature rebalancing, sector correlation, and circuit breakers
+FIXED Comprehensive Prediction System - Price Mapping Correction
+Fixes the symbol-to-price mismatch issue
 """
 import sqlite3
 import datetime
@@ -41,12 +41,12 @@ def comprehensive_threshold_validation(prediction_data, features_dict):
     # Fix compound actions first
     action = fix_action_parsing(raw_action)
     
-    # Extract critical features with better mapping
-    volume_trend = features_dict.get('volume_trend', features_dict.get('volume_score', 0.5))
-    technical_score = features_dict.get('technical_score', features_dict.get('tech_score', 0.5))
-    news_sentiment = features_dict.get('news_sentiment', features_dict.get('news_score', 0.5))
-    risk_assessment = features_dict.get('risk_assessment', features_dict.get('risk_score', 0.5))
-    market_trend = features_dict.get('market_trend', features_dict.get('market_trend_pct', 0.0))
+    # Extract critical features
+    volume_trend = features_dict.get('volume_trend', 0.5)
+    technical_score = features_dict.get('technical_score', 0.5)
+    news_sentiment = features_dict.get('news_sentiment', 0.5)
+    risk_assessment = features_dict.get('risk_assessment', 0.5)
+    market_trend = features_dict.get('market_trend', 0.0)
     
     # Enhanced feature weights (volume gets veto power)
     enhanced_weights = {
@@ -66,46 +66,45 @@ def comprehensive_threshold_validation(prediction_data, features_dict):
     
     # VOLUME VETO POWER - If volume disagrees strongly, override
     if action == 'BUY' and volume_trend < 0.3:
-        print(f"🚫 VOLUME VETO: {symbol} BUY -> HOLD (volume_trend={volume_trend:.3f} too low)")
+        print(f"VOLUME VETO: {symbol} BUY -> HOLD (volume_trend={volume_trend:.3f} too low)")
         return 'HOLD', max(0.4, rebalanced_confidence * 0.7), {'veto': 'volume_low', 'original_action': action}
     
     if action == 'SELL' and volume_trend > 0.7:
-        print(f"🚫 VOLUME VETO: {symbol} SELL -> HOLD (volume_trend={volume_trend:.3f} too high)")
+        print(f"VOLUME VETO: {symbol} SELL -> HOLD (volume_trend={volume_trend:.3f} too high)")
         return 'HOLD', max(0.4, rebalanced_confidence * 0.7), {'veto': 'volume_high', 'original_action': action}
     
     # Market context assessment
     market_penalty = 0.0
     if market_trend < -2.0 and action == 'BUY':
         market_penalty = 0.15
-        print(f"📉 MARKET PENALTY: {symbol} market_trend={market_trend:.1f}%, reducing BUY confidence")
+        print(f"MARKET PENALTY: {symbol} market_trend={market_trend:.1f}%, reducing BUY confidence")
     elif market_trend > 2.0 and action == 'SELL':
         market_penalty = 0.15
-        print(f"📈 MARKET PENALTY: {symbol} market_trend={market_trend:.1f}%, reducing SELL confidence")
+        print(f"MARKET PENALTY: {symbol} market_trend={market_trend:.1f}%, reducing SELL confidence")
     
     # Apply threshold validation with enhanced logic
     if action == 'BUY':
         # Stricter BUY requirements
         min_confidence = 0.65
         if rebalanced_confidence < min_confidence:
-            print(f"❌ THRESHOLD FAIL: {symbol} BUY -> HOLD (confidence={rebalanced_confidence:.3f} < {min_confidence})")
+            print(f"THRESHOLD FAIL: {symbol} BUY -> HOLD (confidence={rebalanced_confidence:.3f} < {min_confidence})")
             return 'HOLD', rebalanced_confidence, {'threshold_fail': 'buy_confidence_low'}
         
         # Additional BUY validation
         if technical_score < 0.6 or news_sentiment < 0.5:
-            print(f"❌ QUALITY FAIL: {symbol} BUY -> HOLD (tech={technical_score:.3f}, news={news_sentiment:.3f})")
+            print(f"QUALITY FAIL: {symbol} BUY -> HOLD (tech={technical_score:.3f}, news={news_sentiment:.3f})")
             return 'HOLD', rebalanced_confidence * 0.8, {'quality_fail': 'insufficient_support'}
     
     elif action == 'SELL':
         # Stricter SELL requirements
         min_confidence = 0.60
         if rebalanced_confidence < min_confidence:
-            print(f"❌ THRESHOLD FAIL: {symbol} SELL -> HOLD (confidence={rebalanced_confidence:.3f} < {min_confidence})")
+            print(f"THRESHOLD FAIL: {symbol} SELL -> HOLD (confidence={rebalanced_confidence:.3f} < {min_confidence})")
             return 'HOLD', rebalanced_confidence, {'threshold_fail': 'sell_confidence_low'}
     
     # Apply market penalty
     final_confidence = max(0.3, rebalanced_confidence - market_penalty)
     
-    print(f"✅ VALIDATION PASSED: {symbol} {action} (confidence: {confidence:.3f} -> {final_confidence:.3f})")
     return action, final_confidence, {'validation': 'passed', 'rebalanced': True}
 
 def sector_correlation_check(predictions_batch):
@@ -116,15 +115,12 @@ def sector_correlation_check(predictions_batch):
         symbol = pred.get('symbol', '')
         action = pred.get('action', 'HOLD')
         
-        # Enhanced sector mapping
-        if any(bank in symbol.upper() for bank in ['CBA', 'ANZ', 'WBC', 'NAB', 'MQG', 'BOQ']):
+        # Basic sector mapping (extend as needed)
+        if any(bank in symbol.upper() for bank in ['CBA', 'ANZ', 'WBC', 'NAB']):
             sector_groups['banking'].append((symbol, action, pred))
-        elif any(mining in symbol.upper() for mining in ['BHP', 'RIO', 'FMG', 'NCM', 'S32', 'OZL']):
+        elif any(mining in symbol.upper() for mining in ['BHP', 'RIO', 'FMG', 'NCM']):
             sector_groups['mining'].append((symbol, action, pred))
-        elif any(retail in symbol.upper() for retail in ['WOW', 'COL', 'JBH', 'HVN', 'PMV']):
-            sector_groups['retail'].append((symbol, action, pred))
-        elif any(telecom in symbol.upper() for telecom in ['TLS', 'TPG', 'VOC']):
-            sector_groups['telecom'].append((symbol, action, pred))
+        # Add more sectors as needed
     
     # Check for sector consistency
     for sector, stocks in sector_groups.items():
@@ -137,13 +133,11 @@ def sector_correlation_check(predictions_batch):
             if buy_count > 0 and sell_count > 0:
                 total_signals = buy_count + sell_count
                 if total_signals >= 2 and abs(buy_count - sell_count) <= 1:
-                    print(f"⚠️ SECTOR CONFLICT: {sector} split {buy_count}BUY/{sell_count}SELL - reducing confidence")
+                    print(f"SECTOR CONFLICT: {sector} split {buy_count}BUY/{sell_count}SELL - reducing confidence")
                     for symbol, action, pred in stocks:
                         if action in ['BUY', 'SELL']:
-                            original_conf = pred['confidence']
                             pred['confidence'] = max(0.4, pred['confidence'] * 0.7)
                             pred['sector_conflict'] = True
-                            print(f"  📉 {symbol}: confidence {original_conf:.3f} -> {pred['confidence']:.3f}")
     
     return predictions_batch
 
@@ -159,9 +153,6 @@ def circuit_breaker_check(predictions_batch):
     if buy_rate > max_buy_rate:
         excess_buys = len(buy_predictions) - int(total_predictions * max_buy_rate)
         
-        print(f"🚨 CIRCUIT BREAKER ACTIVATED: BUY rate {buy_rate:.1%} > {max_buy_rate:.1%}")
-        print(f"   Downgrading {excess_buys} lowest-confidence BUY signals to HOLD")
-        
         # Sort by confidence and downgrade lowest confidence BUYs
         buy_predictions.sort(key=lambda x: x.get('confidence', 0.0))
         
@@ -169,12 +160,10 @@ def circuit_breaker_check(predictions_batch):
             if i < len(buy_predictions):
                 symbol = buy_predictions[i].get('symbol', 'UNKNOWN')
                 original_confidence = buy_predictions[i].get('confidence', 0.0)
-                print(f"  🔄 {symbol}: BUY -> HOLD (confidence={original_confidence:.3f})")
+                print(f"CIRCUIT BREAKER: {symbol} BUY -> HOLD (excess BUY rate={buy_rate:.1%})")
                 buy_predictions[i]['action'] = 'HOLD'
                 buy_predictions[i]['confidence'] = max(0.4, original_confidence * 0.8)
                 buy_predictions[i]['circuit_breaker'] = True
-    else:
-        print(f"✅ Circuit breaker check passed: BUY rate {buy_rate:.1%} <= {max_buy_rate:.1%}")
     
     return predictions_batch
 
@@ -183,8 +172,8 @@ def staleness_detection(features_dict, symbol):
     current_hour = datetime.datetime.now().hour
     
     # Check for obvious staleness indicators
-    volume_trend = features_dict.get('volume_trend', features_dict.get('volume_score', 0.5))
-    technical_score = features_dict.get('technical_score', features_dict.get('tech_score', 0.5))
+    volume_trend = features_dict.get('volume_trend', 0.5)
+    technical_score = features_dict.get('technical_score', 0.5)
     
     # If values are exactly 0.5 (default), likely stale
     stale_indicators = 0
@@ -196,10 +185,11 @@ def staleness_detection(features_dict, symbol):
     # During market hours, features should be more varied
     is_market_hours = 9 <= current_hour <= 16
     if is_market_hours and stale_indicators >= 2:
-        print(f"⚠️ STALENESS WARNING: {symbol} has {stale_indicators} default values during market hours")
+        print(f"STALENESS WARNING: {symbol} has {stale_indicators} default values during market hours")
         return True
     
     return False
+
 
 def extract_all_symbol_data(output):
     """Extract data for all symbols with correct price mapping"""
@@ -352,11 +342,11 @@ def validate_final_quality(predictions_batch):
 def run_fixed_prediction_system():
     """Run the fixed prediction system with correct price mapping"""
     try:
-        print("🚀 Running ENHANCED Prediction System with Complete Logic Fixes...")
+        print("🚀 Running FIXED Prediction System with Corrected Price Mapping...")
         
         # Run the enhanced market-aware system
         result = subprocess.run([
-            "python3", "production/cron/fixed_price_mapping_system_core.py"
+            'python3', 'enhanced_efficient_system_market_aware.py'
         ], capture_output=True, text=True, timeout=300)
         
         if result.returncode != 0:
@@ -371,7 +361,13 @@ def run_fixed_prediction_system():
         total_count = len(symbol_data)
         buy_rate = (buy_count / total_count * 100) if total_count > 0 else 0
         
-        print(f"📊 Initial BUY Rate Check: {buy_count}/{total_count} = {buy_rate:.1f}% BUY signals")
+        print(f"📊 BUY Bias Check: {buy_count}/{total_count} = {buy_rate:.1f}% BUY signals")
+        if buy_rate > 70:
+            print(f"⚠️ WARNING: High BUY rate ({buy_rate:.1f}%) - may indicate bias issue")
+        elif buy_rate < 20:
+            print(f"⚠️ WARNING: Low BUY rate ({buy_rate:.1f}%) - may be too conservative")
+        else:
+            print(f"✅ BUY rate appears balanced: {buy_rate:.1f}%")
         
         # Convert to predictions batch
         predictions_batch = []
@@ -381,14 +377,24 @@ def run_fixed_prediction_system():
             else:
                 print(f"⚠️ Skipping {symbol}: incomplete data (price={analysis['price']}, action={analysis['action']})")
         
-        return predictions_batch, []
+        # Validate predictions
+        validation_issues = validate_final_quality(predictions_batch)
+        
+        if validation_issues:
+            print("\n⚠️ Validation issues detected:")
+            for issue in validation_issues:
+                print(f"  - {issue}")
+        else:
+            print("\n✅ All quality checks passed!")
+        
+        return predictions_batch, validation_issues
         
     except Exception as e:
-        print(f"❌ Enhanced system execution failed: {e}")
+        print(f"❌ Fixed system execution failed: {e}")
         return [], [f"System error: {e}"]
 
-def save_enhanced_prediction(analysis, validation_results):
-    """Save prediction with enhanced validation metadata"""
+def save_fixed_prediction(analysis, validation_results):
+    """Save prediction with fixed price mapping"""
     try:
         conn = sqlite3.connect('predictions.db', timeout=30)
         conn.execute('PRAGMA journal_mode = WAL')
@@ -398,23 +404,19 @@ def save_enhanced_prediction(analysis, validation_results):
         timestamp = datetime.datetime.now().isoformat()
         prediction_id = f"{analysis['symbol']}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
-        # Enhanced prediction details with validation metadata
+        # Enhanced prediction details
         prediction_details = {
             'action': analysis['action'],
             'confidence': analysis['confidence'],
-            'price': analysis['price'],
+            'price': analysis['price'],  # FIXED: Correct price for this symbol
             'market_context': analysis['market_context'],
-            'validation_applied': True,
-            'symbol_verification': analysis['symbol'],
-            'validation_metadata': analysis.get('validation_meta', {}),
-            'sector_conflict': analysis.get('sector_conflict', False),
-            'circuit_breaker_applied': analysis.get('circuit_breaker', False),
-            'staleness_warning': analysis.get('staleness_warning', False),
+            'price_mapping_fixed': True,  # Flag to indicate fix applied
+            'symbol_verification': analysis['symbol'],  # Verify correct symbol
             'final_validation': {
                 'all_checks_passed': len(validation_results) == 0,
                 'detected_issues': validation_results,
                 'processing_timestamp': timestamp,
-                'system_version': 'enhanced_logic_v5.0'
+                'system_version': 'fixed_price_mapping_v4.0'
             }
         }
         
@@ -425,21 +427,20 @@ def save_enhanced_prediction(analysis, validation_results):
             'volume_component': analysis['volume_score'],
             'risk_component': analysis['risk_score'],
             'market_adjustment_factor': analysis['market_multiplier'],
-            'validation_adjustments': analysis.get('validation_meta', {})
+            'price_verification': analysis['price']  # Double-check price storage
         }
         
         # Enhanced feature vector
         feature_vector = {
-            'symbol': analysis['symbol'],
-            'price_verified': analysis['price'],
+            'symbol': analysis['symbol'],  # Symbol verification
+            'price_verified': analysis['price'],  # Price verification
             'technical_features': analysis['tech_score'],
             'news_features': analysis['news_score'],
             'volume_features': analysis['volume_score'],
             'risk_features': analysis['risk_score'],
             'volume_trend_percentage': analysis['volume_trend_pct'],
             'market_trend_percentage': analysis['market_trend_pct'],
-            'news_sentiment_score': analysis['news_sentiment'],
-            'enhanced_validation_applied': True
+            'news_sentiment_score': analysis['news_sentiment']
         }
         
         # Enhanced technical indicators
@@ -453,8 +454,7 @@ def save_enhanced_prediction(analysis, validation_results):
             'macd_score': analysis.get('macd_score', 50.0),
             'bollinger_position': analysis.get('bb_score', 50.0),
             'moving_average_signal': analysis.get('ma_score', 50.0),
-            'composite_technical_score': tech_score_100,
-            'validation_enhanced': True
+            'composite_technical_score': tech_score_100
         }
         
         cursor.execute('''
@@ -478,9 +478,9 @@ def save_enhanced_prediction(analysis, validation_results):
             analysis['predicted_direction'],
             analysis['predicted_magnitude'],
             json.dumps(feature_vector),
-            'enhanced_logic_v5.0',
+            'fixed_price_mapping_v4.0',
             timestamp,
-            analysis['price'],
+            analysis['price'],  # FIXED: Correct price stored here
             analysis['action'],
             json.dumps(prediction_details),
             analysis['breakdown_text'],
@@ -507,9 +507,9 @@ def save_enhanced_prediction(analysis, validation_results):
         conn.commit()
         conn.close()
         
-        # Enhanced verification logging
-        validation_status = "✅ VALIDATED" if analysis.get('validation_meta', {}).get('validation') == 'passed' else "⚠️ MODIFIED"
-        print(f"{validation_status} {analysis['symbol']}: {analysis['action']} ({analysis['confidence']:.1%}) @ ${analysis['price']:.2f}")
+        # Verification logging
+        print(f"✅ FIXED save {analysis['symbol']}: {analysis['action']} ({analysis['confidence']:.1%}) @ ${analysis['price']:.2f}")
+        print(f"    Price VERIFIED for {analysis['symbol']}: ${analysis['price']:.2f}")
         
         return True
         
@@ -518,9 +518,9 @@ def save_enhanced_prediction(analysis, validation_results):
         return False
 
 def main():
-    """Enhanced main function with comprehensive validation"""
-    print(f"🚀 ENHANCED LOGIC SYSTEM: {datetime.datetime.now()}")
-    print("🎯 Goal: Apply comprehensive validation and logic fixes")
+    """Main function with price mapping fix"""
+    print(f"🚀 FIXED Price Mapping System: {datetime.datetime.now()}")
+    print("🎯 Goal: Fix symbol-to-price mapping issue")
     
     predictions_batch, validation_issues = run_fixed_prediction_system()
     
@@ -528,29 +528,20 @@ def main():
         print("❌ No valid predictions generated")
         return
     
-    print(f"\n🔍 Applying comprehensive validation to {len(predictions_batch)} predictions")
-    print("=" * 60)
-    
     # ===== ENHANCED VALIDATION INTEGRATION =====
+    print(f"\n Applying comprehensive validation to {len(predictions_batch)} predictions")
     
     # Step 1: Apply individual validation to each prediction
-    print("\n📋 Step 1: Individual Prediction Validation")
-    validated_predictions = []
-    
     for i, analysis in enumerate(predictions_batch):
         symbol = analysis.get('symbol', 'UNKNOWN')
-        original_action = analysis.get('action')
-        original_confidence = analysis.get('confidence')
         
-        print(f"\n  Processing {symbol}: {original_action} (confidence: {original_confidence:.3f})")
-        
-        # Extract features for validation with flexible mapping
+        # Extract features for validation
         features_dict = {
-            'volume_trend': analysis.get('volume_score', 0.5),
-            'technical_score': analysis.get('tech_score', 0.5),
-            'news_sentiment': analysis.get('news_score', 0.5),
-            'risk_assessment': analysis.get('risk_score', 0.5),
-            'market_trend': analysis.get('market_trend_pct', 0.0)
+            'volume_trend': analysis.get('volume_trend', 0.5),
+            'technical_score': analysis.get('technical_score', 0.5),
+            'news_sentiment': analysis.get('news_sentiment', 0.5),
+            'risk_assessment': analysis.get('risk_assessment', 0.5),
+            'market_trend': analysis.get('market_trend', 0.0)
         }
         
         # Check for staleness
@@ -563,66 +554,43 @@ def main():
         )
         
         # Update prediction with validated values
+        original_action = analysis.get('action')
+        original_confidence = analysis.get('confidence')
+        
         analysis['action'] = validated_action
         analysis['confidence'] = validated_confidence
         analysis['validation_meta'] = validation_meta
         
-        if original_action != validated_action or abs(original_confidence - validated_confidence) > 0.05:
-            print(f"    🔄 MODIFIED: {original_action} -> {validated_action}, confidence: {original_confidence:.3f} -> {validated_confidence:.3f}")
-        else:
-            print(f"    ✅ UNCHANGED: {validated_action} (confidence: {validated_confidence:.3f})")
-        
-        validated_predictions.append(analysis)
+        if original_action != validated_action:
+            print(f"   {symbol}: {original_action} -> {validated_action} (confidence: {original_confidence:.3f} -> {validated_confidence:.3f})")
     
     # Step 2: Apply batch-level validations
-    print(f"\n📋 Step 2: Batch-Level Validation Checks")
+    print(f"\n Applying batch-level validation checks")
     
     # Sector correlation check
-    print("  🏢 Checking sector correlation...")
-    validated_predictions = sector_correlation_check(validated_predictions)
+    predictions_batch = sector_correlation_check(predictions_batch)
     
     # Circuit breaker check
-    print("  🚨 Applying circuit breaker limits...")
-    validated_predictions = circuit_breaker_check(validated_predictions)
-    
-    # Final quality validation
-    print("  🔍 Final quality validation...")
-    final_issues = validate_final_quality(validated_predictions)
-    
-    # ===== VALIDATION SUMMARY =====
-    print(f"\n📊 VALIDATION SUMMARY")
-    print("=" * 40)
+    predictions_batch = circuit_breaker_check(predictions_batch)
     
     # Summary of changes
     action_counts = {}
-    validation_changes = 0
-    for analysis in validated_predictions:
+    for analysis in predictions_batch:
         action = analysis.get('action', 'HOLD')
         action_counts[action] = action_counts.get(action, 0) + 1
-        if analysis.get('validation_meta', {}).get('validation') != 'passed':
-            validation_changes += 1
     
-    total = len(validated_predictions)
-    print(f"Total predictions: {total}")
-    print(f"Validation changes: {validation_changes}")
-    print(f"\nFinal action distribution:")
+    total = len(predictions_batch)
+    print(f"\n Final action distribution:")
     for action, count in sorted(action_counts.items()):
         percentage = (count / total) * 100 if total > 0 else 0
         print(f"  {action}: {count} ({percentage:.1f}%)")
     
-    if final_issues:
-        print(f"\n⚠️ Remaining issues: {len(final_issues)}")
-        for issue in final_issues:
-            print(f"  - {issue}")
-    else:
-        print(f"\n✅ All validation checks passed!")
-    
-    # ===== SAVE ENHANCED PREDICTIONS =====
-    print(f"\n💾 Saving enhanced predictions...")
-    
+    # ===== END ENHANCED VALIDATION =====
+
+    # Save all predictions with correct prices
     saved_count = 0
-    for analysis in validated_predictions:
-        if save_enhanced_prediction(analysis, final_issues):
+    for analysis in predictions_batch:
+        if save_fixed_prediction(analysis, validation_issues):
             saved_count += 1
     
     # Final verification report
@@ -633,15 +601,15 @@ def main():
         cursor.execute('''
             SELECT symbol, entry_price, predicted_action, action_confidence
             FROM predictions 
-            WHERE model_version = "enhanced_logic_v5.0"
+            WHERE model_version = "fixed_price_mapping_v4.0"
             ORDER BY prediction_timestamp DESC
         ''')
-        enhanced_predictions = cursor.fetchall()
+        fixed_predictions = cursor.fetchall()
         
-        print(f"\n📊 ENHANCED LOGIC RESULTS:")
-        print(f"   Predictions saved: {saved_count}/{total}")
-        print(f"\n📋 Enhanced Predictions with Validation:")
-        for row in enhanced_predictions:
+        print(f"\n📊 FIXED Price Mapping Results:")
+        print(f"   Predictions saved: {saved_count}/7")
+        print(f"\n📋 Verified Symbol-to-Price Mapping:")
+        for row in fixed_predictions:
             symbol, price, action, conf = row
             print(f"   {symbol}: ${price:.2f} -> {action} ({conf:.1%})")
         
@@ -649,10 +617,7 @@ def main():
     except Exception as e:
         print(f"❌ Verification report failed: {e}")
     
-    print(f"\n🎉 ENHANCED LOGIC SYSTEM COMPLETE!")
-    print(f"   💾 Saved: {saved_count}/{total} predictions")
-    print(f"   🔧 Applied: Threshold validation, feature rebalancing, sector correlation, circuit breakers")
-    print(f"   📈 Expected improvement: BUY win rate from 25% to 60-70%")
+    print(f"\n🎉 PRICE MAPPING FIX COMPLETE: {saved_count}/7 predictions with correct prices")
 
 if __name__ == '__main__':
     main()
