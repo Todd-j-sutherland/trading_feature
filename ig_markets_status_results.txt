@@ -1,0 +1,58 @@
+🔍 IG MARKETS INTEGRATION STATUS CHECK
+============================================================
+
+🔐 ENVIRONMENT VARIABLES:
+  ❌ IG_USERNAME: Not set
+  ❌ IG_PASSWORD: Not set
+  ❌ IG_API_KEY: Not set
+  ❌ IG_DEMO: Not set
+  ❌ IG_DISABLE: Not set
+
+📄 .ENV FILE CHECK:
+  ✅ .env exists
+      Contains IG credentials
+  ❌ ../.env not found
+  ✅ /root/test/.env exists
+      Contains IG credentials
+
+🧩 IG MARKETS COMPONENTS:
+  ❌ real_time_price_fetcher.py not found
+  ❌ ../real_time_price_fetcher.py not found
+  ❌ /root/test/real_time_price_fetcher.py not found
+  ❌ ig_markets_asx_mapper.py not found
+  ❌ ../ig_markets_asx_mapper.py not found
+  ❌ /root/test/ig_markets_asx_mapper.py not found
+
+📦 IMPORT TESTS:
+  ❌ RealTimePriceFetcher import failed: No module named 'real_time_price_fetcher'
+  ✅ EnhancedMarketDataCollector import successful
+  ✅ yfinance import successful
+
+💰 PRICE FETCHING TEST:
+  📊 yfinance test: $221.20
+      1-min data: $221.20 at 2025-09-15 11:45:00+10:00
+      Data delay: 20.4 minutes
+
+⚙️ CONFIGURATION CHECK:
+  ✅ Config imports successful
+      IG_MARKETS_CONFIG enabled: True
+      TRADING_CONFIG use_ig_markets: True
+
+💾 DATABASE SOURCE TRACKING:
+  ❌ data/trading_predictions.db missing data_source column
+  ❌ trading_predictions.db missing data_source column
+
+📋 DIAGNOSIS SUMMARY:
+  🔴 IG Markets integration is NOT working
+     Reason: Missing components or import failures
+     Solution: Install IG Markets components and credentials
+
+  🔵 yfinance fallback is working
+     This explains the ~$1 MQG.AX price discrepancy
+     yfinance has 15-20 minute delays on ASX data
+
+💡 RECOMMENDATIONS:
+1. Fix IG Markets integration for real-time prices
+2. Add data source logging to track price sources
+3. Monitor yfinance delay vs live chart timing
+4. Consider enabling IG Markets demo account

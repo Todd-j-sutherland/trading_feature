@@ -668,9 +668,10 @@ class EnhancedMorningAnalyzer:
         self.logger.info("✅ Predictions are handled by fixed_price_mapping_v4.0 system")
         return
                 
+        try:
             import sqlite3
             from datetime import datetime
-            
+                
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
@@ -688,11 +689,11 @@ class EnhancedMorningAnalyzer:
                 # Debug logging to identify the issue
                 self.logger.info(f"🔍 {symbol} DEBUG: pred keys = {list(pred.keys())}")
                 if 'confidence_scores' in pred:
-                    self.logger.info(f"🔍 {symbol} confidence_scores = {pred['confidence_scores']}")
+                        self.logger.info(f"🔍 {symbol} confidence_scores = {pred['confidence_scores']}")
                 else:
-                    self.logger.warning(f"⚠️ {symbol} missing confidence_scores in prediction!")
-                    self.logger.info(f"🔍 {symbol} full prediction = {pred}")
-                
+                        self.logger.warning(f"⚠️ {symbol} missing confidence_scores in prediction!")
+                        self.logger.info(f"🔍 {symbol} full prediction = {pred}")
+                    
                 # Get current price using enhanced robust method
                 entry_price = self._get_current_price_robust(symbol)
                 
@@ -738,7 +739,7 @@ class EnhancedMorningAnalyzer:
                         self.logger.error(f"🚨 {symbol}: ENTRY PRICE FALLBACK DETECTED (-9999) - All price sources failed!")
                 except Exception as pred_error:
                     self.logger.warning(f"⚠️ Failed to save prediction for {symbol}: {pred_error}")
-            
+                
             conn.commit()
             conn.close()
             
@@ -746,7 +747,7 @@ class EnhancedMorningAnalyzer:
                 self.logger.info(f"✅ Saved {saved_count} predictions to predictions table")
             else:
                 self.logger.info("🔍 No valid predictions found to save")
-                
+            
         except Exception as e:
             self.logger.error(f"❌ Error saving predictions: {e}")
 

@@ -1,0 +1,39 @@
+🕐 YFINANCE TIMESTAMP ANALYSIS FOR MQG.AX
+============================================================
+Current time (Sydney): 2025-09-15 12:05:24 AEST
+Current time (UTC): 2025-09-15 02:05:24 UTC
+ASX Market Status: 🟢 OPEN
+Next market open: 2025-09-16 10:00:00+10:00
+
+📊 TICKER.INFO ANALYSIS:
+  regularMarketTime:
+    Time: 2025-09-15 11:45:21 AEST
+    Delay: 20.1 minutes
+    ⚠️ Significant delay detected
+
+💰 PRICE DATA FROM INFO:
+  Current Price: $221.20
+  Regular Market Price: $221.20
+  Previous Close: $224.09
+
+📈 1-MINUTE DATA ANALYSIS:
+
+  Period: 1d
+    Latest timestamp: 2025-09-15 11:45:00 AEST
+    Latest price: $221.20
+    Volume: 0
+    Data points: 106
+    Delay: 20.4 minutes
+    📅 Data is from TODAY
+    ⚠️ Market is open but data is 20.4 min delayed
+    🟡 Short delay - normal for free data
+
+📊 DAILY DATA COMPARISON:
+  Latest daily close: $221.20
+  Daily timestamp: 2025-09-15 AEST
+  Difference (1m vs daily): $0.00
+
+📋 TIMESTAMP ANALYSIS SUMMARY:
+🟡 yfinance data is 20.4 minutes old
+   Moderate delay - could explain price discrepancy
+⚠️ Market is currently OPEN - any significant delay is problematic

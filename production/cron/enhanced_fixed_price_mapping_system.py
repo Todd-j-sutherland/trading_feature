@@ -356,7 +356,7 @@ def run_fixed_prediction_system():
         
         # Run the enhanced market-aware system
         result = subprocess.run([
-            "python3", "production/cron/fixed_price_mapping_system_core.py"
+            'python3', 'fixed_price_mapping_system.py'
         ], capture_output=True, text=True, timeout=300)
         
         if result.returncode != 0:
