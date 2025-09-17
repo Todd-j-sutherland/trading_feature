@@ -11,8 +11,8 @@ PYTHONPATH=/root/test
 # Hourly evaluation
 0 * * * * cd /root/test && bash evaluate_predictions_comprehensive.sh >> logs/evaluation.log 2>&1
 
-# Daily ML training (08:00 UTC)
-0 8 * * * cd /root/test && /root/trading_venv/bin/python enhanced_evening_analyzer_with_ml.py >> logs/evening_ml_training.log 2>&1
+# Daily ML training (08:00 UTC) - PRODUCTION ML TRAINER
+0 8 * * * cd /root/test && /root/trading_venv/bin/python real_ml_training.py >> logs/evening_ml_training.log 2>&1
 
 # Dashboard updates (every 4 hours)
 0 */4 * * * cd /root/test && /root/trading_venv/bin/python comprehensive_table_dashboard.py >> logs/dashboard_updates.log 2>&1

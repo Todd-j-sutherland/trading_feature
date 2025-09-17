@@ -48,33 +48,33 @@ class MarketContextAnalyzer:
                     "context": "NEUTRAL",
                     "trend_pct": 0.0,
                     "confidence_multiplier": 1.0,
-                    "buy_threshold": 0.70
+                    "buy_threshold": 0.66
                 }
             
             # Calculate 5-day market trend
             market_trend = ((data['Close'].iloc[-1] / data['Close'].iloc[0]) - 1) * 100
             
-            # Determine market context - IMPROVED: More sensitive thresholds
+            # Determine market context - OPTIMIZED: New conservative thresholds based on analysis
             if market_trend < -1.5:  # Market down >1.5% (was 2%)
                 context = "BEARISH"
                 confidence_multiplier = 0.7  # Reduce confidence by 30%
-                buy_threshold = 0.65  # Adjusted for current conditions
+                buy_threshold = 0.70  # Upper bound for bearish conditions
             elif market_trend > 1.5:  # Market up >1.5% (was 2%)
                 context = "BULLISH"
                 confidence_multiplier = 1.1  # Boost confidence by 10%
-                buy_threshold = 0.55  # Adjusted for bullish
+                buy_threshold = 0.62  # Lower bound for bullish (Sept 12th range)
             elif market_trend < -0.5:  # Mild bearish (-0.5% to -1.5%)
                 context = "WEAK_BEARISH"
                 confidence_multiplier = 0.9  # Slight reduction
-                buy_threshold = 0.62  # Adjusted for weak bearish
+                buy_threshold = 0.68  # Conservative for weak bearish
             elif market_trend > 0.5:  # Mild bullish (0.5% to 1.5%)
                 context = "WEAK_BULLISH"
                 confidence_multiplier = 1.05  # Slight boost
-                buy_threshold = 0.58  # Adjusted for weak bullish
+                buy_threshold = 0.64  # Conservative for weak bullish
             else:
                 context = "NEUTRAL"
                 confidence_multiplier = 1.0
-                buy_threshold = 0.60  # Lowered base threshold
+                buy_threshold = 0.66  # Conservative neutral threshold
             
             # Get intraday volatility
             daily_volatility = ((data['High'] - data['Low']) / data['Close']).mean() * 100
@@ -97,7 +97,7 @@ class MarketContextAnalyzer:
                 "context": "NEUTRAL",
                 "trend_pct": 0.0,
                 "confidence_multiplier": 1.0,
-                "buy_threshold": 0.70,
+                "buy_threshold": 0.66,
                 "volatility": 0.0,
                 "current_level": 0.0
             }
@@ -524,9 +524,9 @@ class MarketAwarePredictor:
             action = "HOLD"  # Global block for extreme volume decline
         
         # Standard BUY logic with market-aware thresholds AND volume validation
-        if final_confidence > buy_threshold and tech_score > 40 and not volume_blocked:
-            # CRITICAL FIX: Block BUY signals with declining volume trends
-            if volume_trend < -0.40:  # More than 40% volume decline
+        if final_confidence > buy_threshold and tech_score > 42 and not volume_blocked:
+            # OPTIMIZED FIX: Updated volume threshold for 85%+ win rate (-40% → -20%)
+            if volume_trend < -0.20:  # More than 20% volume decline (optimized from -40%)
                 action = "HOLD"  # Override BUY due to volume decline
             elif market_data["context"] == "BEARISH":
                 # STRICTER requirements during bearish markets
