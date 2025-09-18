@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import time
 import yfinance as yf
+import pytz
+import pytz
 
 # Configure logging
 logging.basicConfig(
@@ -29,6 +31,40 @@ class CorrectedOutcomeEvaluator:
     
     def __init__(self, db_path: str = 'predictions.db'):
         self.db_path = db_path
+        self.utc = pytz.UTC
+    def ensure_timezone_aware(self, dt):
+        """Ensure datetime is timezone-aware (UTC if naive)"""
+        if dt.tzinfo is None:
+            return self.utc.localize(dt)
+        return dt
+        self.utc = pytz.UTC
+    def ensure_timezone_aware(self, dt):
+        """Ensure datetime is timezone-aware (UTC if naive)"""
+        if dt.tzinfo is None:
+            return self.utc.localize(dt)
+        return dt
+        
+    def ensure_timezone_aware(self, dt):
+        """Ensure datetime is timezone-aware (UTC if naive)"""
+        if dt.tzinfo is None:
+            return self.utc.localize(dt)
+        return dt
+        
+    def validate_entry_price(self, symbol: str, stored_price: float, prediction_time: datetime) -> float:
+        """Validate entry price is reasonable for the symbol"""
+        if stored_price is None or stored_price <= 0:
+            return self.get_precise_entry_price(symbol, prediction_time)
+        
+        # Basic validation - entry price should be reasonable for Australian stocks
+        if symbol.endswith('.AX'):
+            if stored_price < 1.0:  # Most ASX stocks are > 
+                logger.warning(f"Suspicious low entry price for {symbol}:  - fetching fresh price")
+                return self.get_precise_entry_price(symbol, prediction_time)
+            if stored_price > 1000.0:  # Most ASX stocks are < 000
+                logger.warning(f"Suspicious high entry price for {symbol}:  - fetching fresh price")
+                return self.get_precise_entry_price(symbol, prediction_time)
+        
+        return stored_price
         
     def get_db_connection(self):
         """Get database connection with proper settings"""
@@ -71,7 +107,9 @@ class CorrectedOutcomeEvaluator:
                 min_diff = float('inf')
                 
                 for idx, row in hist_1m.iterrows():
-                    time_diff = abs((idx.to_pydatetime() - target_time).total_seconds())
+                    idx_dt = self.ensure_timezone_aware(idx.to_pydatetime())
+                    target_dt = self.ensure_timezone_aware(target_time)
+                    time_diff = abs((idx_dt - target_dt).total_seconds())
                     if time_diff < min_diff:
                         min_diff = time_diff
                         closest_price = float(row['Close'])
@@ -128,7 +166,9 @@ class CorrectedOutcomeEvaluator:
                 min_diff = float('inf')
                 
                 for idx, row in hist_1h.iterrows():
-                    time_diff = abs((idx.to_pydatetime() - target_time).total_seconds())
+                    idx_dt = self.ensure_timezone_aware(idx.to_pydatetime())
+                    target_dt = self.ensure_timezone_aware(target_time)
+                    time_diff = abs((idx_dt - target_dt).total_seconds())
                     if time_diff < min_diff:
                         min_diff = time_diff
                         closest_price = float(row['Close'])
@@ -204,11 +244,13 @@ class CorrectedOutcomeEvaluator:
             # Get PRECISE entry price at prediction timestamp (1-minute interval)
             stored_entry_price = prediction.get('entry_price', 0.0) or 0.0
             
-            if stored_entry_price > 0:
-                # Use the stored entry price if available
+            # Validate stored entry price (basic sanity check)
+            if stored_entry_price > 0 and stored_entry_price > 10.0:  # Must be >  for ASX stocks
                 entry_price = stored_entry_price
                 logger.info(f"Using stored entry price for {symbol}: ${entry_price}")
             else:
+                if stored_entry_price > 0 and stored_entry_price <= 1.0:
+                    logger.warning(f"Stored entry price ${stored_entry_price} for {symbol} seems too low, fetching current price")
                 # Get precise entry price at prediction time
                 entry_price = self.get_precise_entry_price(symbol, prediction_time)
                 if entry_price == 0.0:
@@ -239,7 +281,9 @@ class CorrectedOutcomeEvaluator:
             else:  # HOLD
                 success = abs(actual_return) < 2.0  # Consider HOLD successful if <2% movement
             
-            # Create outcome record
+            # Create outcome record with performance_metrics
+            confidence = prediction.get('action_confidence', 0.5)  # Default confidence
+            
             outcome = {
                 'outcome_id': str(uuid.uuid4()),
                 'prediction_id': prediction['prediction_id'],
@@ -256,6 +300,11 @@ class CorrectedOutcomeEvaluator:
                     'evaluation_method': 'corrected_timestamp_pricing',
                     'entry_method': 'stored_price' if stored_entry_price > 0 else 'precise_timestamp',
                     'exit_method': 'evaluation_time_price'
+                }),
+                'performance_metrics': json.dumps({
+                    'confidence': round(confidence, 4),
+                    'success': success,
+                    'return': round(actual_return / 100, 6)  # Convert percentage to decimal
                 })
             }
             
