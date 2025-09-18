@@ -261,7 +261,7 @@ def extract_all_symbol_data(output):
                         analysis['predicted_magnitude'] = analysis['confidence']
                         
                 elif 'Price:' in next_line:
-                    price_match = re.search(r'\$([0-9,.]+)', next_line)
+                    price_match = re.search(r'([0-9,.]+)', next_line)
                     if price_match:
                         analysis['price'] = float(price_match.group(1).replace(',', ''))
                         

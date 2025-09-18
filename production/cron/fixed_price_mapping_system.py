@@ -390,7 +390,7 @@ def run_fixed_prediction_system():
 def save_enhanced_prediction(analysis, validation_results):
     """Save prediction with enhanced validation metadata"""
     try:
-        conn = sqlite3.connect('predictions.db', timeout=30)
+        conn = sqlite3.connect('data/trading_predictions.db', timeout=30)
         conn.execute('PRAGMA journal_mode = WAL')
         conn.execute('PRAGMA busy_timeout = 30000')
         cursor = conn.cursor()
@@ -627,7 +627,7 @@ def main():
     
     # Final verification report
     try:
-        conn = sqlite3.connect('predictions.db')
+        conn = sqlite3.connect('data/trading_predictions.db')
         cursor = conn.cursor()
         
         cursor.execute('''

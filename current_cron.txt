@@ -2,14 +2,17 @@ SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 PYTHONPATH=/root/test
 
-# Market predictions (Mon-Fri, 00:00-05:59 UTC, every 30 min)
-*/30 6-7 * * 1-5 cd /root/test && /root/trading_venv/bin/python production/cron/fixed_price_mapping_system.py >> logs/prediction_fixed.log 2>&1
+# Market predictions (Mon-Fri, 11am-4pm Sydney = 1:00-6:00 UTC, every 30 min)
+*/30 1-6 * * 1-5 cd /root/test && /root/trading_venv/bin/python production/cron/fixed_price_mapping_system.py >> logs/prediction_fixed.log 2>&1
 
 # Morning analysis (Mon-Fri, 07:00 UTC)
 0 7 * * 1-5 cd /root/test && /root/trading_venv/bin/python enhanced_morning_analyzer_with_ml.py >> logs/market_aware_morning.log 2>&1
 
-# Hourly evaluation
-0 * * * * cd /root/test && bash evaluate_predictions_comprehensive.sh >> logs/evaluation.log 2>&1
+# Hourly evaluation during market hours (11am-4pm Sydney = 1:00-6:00 UTC)
+0 1-6 * * 1-5 cd /root/test && bash evaluate_predictions_comprehensive.sh >> logs/evaluation.log 2>&1
+
+# Additional hourly evaluation (off market hours)
+0 0,7-23 * * * cd /root/test && bash evaluate_predictions_comprehensive.sh >> logs/evaluation.log 2>&1
 
 # Daily ML training (08:00 UTC) - PRODUCTION ML TRAINER
 0 8 * * * cd /root/test && /root/trading_venv/bin/python real_ml_training.py >> logs/evening_ml_training.log 2>&1
