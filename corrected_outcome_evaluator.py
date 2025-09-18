@@ -256,6 +256,13 @@ class CorrectedOutcomeEvaluator:
                     'evaluation_method': 'corrected_timestamp_pricing',
                     'entry_method': 'stored_price' if stored_entry_price > 0 else 'precise_timestamp',
                     'exit_method': 'evaluation_time_price'
+                }),
+                'performance_metrics': json.dumps({
+                    'confidence_accuracy': round(float(prediction.get('action_confidence', 0)), 4),
+                    'prediction_success': success,
+                    'return_magnitude': round(abs(exit_price - entry_price), 4),
+                    'market_context': prediction.get('market_context', 'UNKNOWN'),
+                    'evaluation_accuracy_score': round(1.0 if success else 0.0, 2)
                 })
             }
             
