@@ -19,6 +19,12 @@ import gc
 from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings("ignore")
+# ML prediction imports
+import pickle
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
 
 # Try to import settings configuration
 try:
@@ -29,6 +35,118 @@ try:
 except ImportError:
     SETTINGS_AVAILABLE = False
     print("⚠️ Settings configuration not available - using fallback symbols")
+
+
+class MLPredictor:
+    """Machine Learning predictor for stock direction and magnitude"""
+    
+    def __init__(self):
+        """Initialize ML models"""
+        self.models_path = "/root/test/models"
+        self.direction_model = None
+        self.magnitude_model = None
+        self.scaler = None
+        self.load_models()
+    
+    def load_models(self):
+        """Load trained ML models"""
+        try:
+            # Load direction model
+            direction_path = os.path.join(self.models_path, "current_direction_model.pkl")
+            with open(direction_path, "rb") as f:
+                self.direction_model = pickle.load(f)
+            
+            # Load magnitude model
+            magnitude_path = os.path.join(self.models_path, "current_magnitude_model.pkl")
+            with open(magnitude_path, "rb") as f:
+                self.magnitude_model = pickle.load(f)
+            
+            # Load scaler
+            scaler_path = os.path.join(self.models_path, "feature_scaler.pkl")
+            with open(scaler_path, "rb") as f:
+                self.scaler = pickle.load(f)
+            
+            print("✅ ML models loaded successfully")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to load ML models: {e}")
+            raise Exception(f"ML models required but failed to load: {e}")
+    
+    def extract_features(self, data):
+        """Extract features for ML prediction"""
+        try:
+            # Calculate technical indicators
+            close_prices = data["Close"].values
+            volumes = data["Volume"].values
+            
+            # Price-based features
+            returns = np.diff(close_prices) / close_prices[:-1]
+            volatility = np.std(returns[-10:]) if len(returns) >= 10 else 0
+            
+            # Moving averages
+            ma_5 = np.mean(close_prices[-5:]) if len(close_prices) >= 5 else close_prices[-1]
+            ma_20 = np.mean(close_prices[-20:]) if len(close_prices) >= 20 else close_prices[-1]
+            
+            # Volume indicators
+            avg_volume = np.mean(volumes[-20:]) if len(volumes) >= 20 else volumes[-1]
+            volume_ratio = volumes[-1] / avg_volume if avg_volume > 0 else 1
+            
+            # Momentum indicators
+            momentum = (close_prices[-1] - close_prices[-5]) / close_prices[-5] if len(close_prices) >= 5 else 0
+            
+            # RSI approximation
+            gains = np.maximum(returns, 0)
+            losses = -np.minimum(returns, 0)
+            avg_gain = np.mean(gains[-14:]) if len(gains) >= 14 else 0
+            avg_loss = np.mean(losses[-14:]) if len(losses) >= 14 else 0
+            rs = avg_gain / avg_loss if avg_loss > 0 else 0
+            rsi = 100 - (100 / (1 + rs))
+            
+            features = [
+                volatility, ma_5, ma_20, volume_ratio,
+                momentum, rsi, len(close_prices)
+            ]
+            
+            return np.array(features).reshape(1, -1)
+        except Exception as e:
+            print(f"❌ Feature extraction failed: {e}")
+            return None
+    
+    def predict(self, data):
+        """Make ML predictions"""
+        try:
+            if self.direction_model is None or self.magnitude_model is None or self.scaler is None:
+                raise Exception("ML models not loaded")
+            
+            # Extract features
+            features = self.extract_features(data)
+            if features is None:
+                raise Exception("Feature extraction failed")
+            
+            # Scale features
+            features_scaled = self.scaler.transform(features)
+            
+            # Predict direction (0=down, 1=up)
+            direction_prob = self.direction_model.predict_proba(features_scaled)[0]
+            direction_confidence = max(direction_prob)
+            predicted_direction = self.direction_model.predict(features_scaled)[0]
+            
+            # Predict magnitude
+            magnitude = abs(self.magnitude_model.predict(features_scaled)[0])
+            
+            # ML confidence based on direction confidence and magnitude
+            ml_confidence = min(direction_confidence * (1 + magnitude * 0.5), 1.0)
+            
+            return {
+                "direction": "UP" if predicted_direction == 1 else "DOWN",
+                "direction_confidence": direction_confidence,
+                "magnitude": magnitude,
+                "ml_confidence": ml_confidence,
+                "features_used": features.shape[1]
+            }
+        except Exception as e:
+            print(f"❌ ML prediction failed: {e}")
+            raise Exception(f"ML prediction failed: {e}")
 
 class MarketContextAnalyzer:
     """Analyzes broader market conditions for context-aware predictions"""
@@ -135,10 +253,26 @@ class TechnicalAnalyzer:
         # Average volume (last 20 days)
         avg_volume = sum(volumes[-20:]) / min(20, len(volumes))
         
-        # Volume trend (comparing recent vs older)
+        # Volume trend (comparing recent vs older) - FIXED to return 0.0-1.0
         recent_avg = sum(volumes[-5:]) / 5
         older_avg = sum(volumes[-20:-10]) / 10
-        volume_trend = (recent_avg - older_avg) / older_avg if older_avg > 0 else 0
+        
+        # Calculate percentage change first
+        volume_change_pct = (recent_avg - older_avg) / older_avg if older_avg > 0 else 0
+        
+        # Normalize to 0.0-1.0 range for volume_trend
+        # Map -100% to +100% change to 0.0 to 1.0 scale
+        # -50% or worse = 0.0, +50% or better = 1.0, 0% = 0.5
+        if volume_change_pct <= -0.5:
+            volume_trend = 0.0  # Very low volume
+        elif volume_change_pct >= 0.5:
+            volume_trend = 1.0  # Very high volume  
+        else:
+            # Linear mapping: -0.5 to +0.5 becomes 0.0 to 1.0
+            volume_trend = (volume_change_pct + 0.5) / 1.0
+        
+        # Store both the original percentage and normalized value
+
         
         # Price-volume correlation (last 10 days)
         if len(volumes) >= 10 and len(prices) >= 10:
@@ -160,6 +294,7 @@ class TechnicalAnalyzer:
         return {
             "avg_volume": avg_volume,
             "volume_trend": volume_trend,
+        "volume_change_pct": volume_change_pct,  # Store original percentage
             "price_volume_correlation": correlation,
             "volume_quality_score": volume_quality
         }
@@ -290,6 +425,7 @@ class MarketAwarePredictor:
     def __init__(self):
         self.analyzer = TechnicalAnalyzer()
         self.market_analyzer = MarketContextAnalyzer()
+        self.ml_predictor = MLPredictor()
         print("🚀 Market-Aware Prediction System Initialized")
     
     def get_news_sentiment(self, symbol):
@@ -372,7 +508,7 @@ class MarketAwarePredictor:
             "news_quality_score": 0.0
         }
     
-    def calculate_enhanced_confidence(self, symbol, tech_data, news_data, volume_data, market_data):
+    def calculate_enhanced_confidence(self, symbol, tech_data, news_data, volume_data, market_data, ml_data):
         """Calculate market-aware confidence with enhanced logic"""
         
         # Extract technical factors
@@ -472,9 +608,32 @@ class MarketAwarePredictor:
             ma_factor = -0.05
         
         risk_component = volatility_factor + ma_factor
+
+        # 5. MACHINE LEARNING COMPONENT (20% total weight)
+        ml_direction = ml_data["direction"]
+        ml_confidence = ml_data["ml_confidence"]
+        ml_magnitude = ml_data["magnitude"]
+        
+        # Base ML contribution (0-15 points)
+        ml_base = ml_confidence * 0.15
+        
+        # Direction agreement bonus (0-3 points)
+        direction_bonus = 0.0
+        if tech_score > 50:  # Bullish technical
+            if ml_direction == "UP":
+                direction_bonus = 0.03
+        elif tech_score < 50:  # Bearish technical
+            if ml_direction == "DOWN":
+                direction_bonus = 0.03
+        
+        # Magnitude factor (0-2 points)
+        magnitude_factor = min(ml_magnitude * 0.02, 0.02)
+        
+        ml_component = ml_base + direction_bonus + magnitude_factor
+        ml_component = max(0.0, min(ml_component, 0.20))  # Clamp to 0-20%
         
         # PRELIMINARY CONFIDENCE CALCULATION
-        preliminary_confidence = technical_component + news_component + volume_component + risk_component
+        preliminary_confidence = technical_component + news_component + volume_component + risk_component + ml_component
         
         # 5. MARKET CONTEXT ADJUSTMENT (NEW!)
         market_adjusted_confidence = preliminary_confidence * market_data["confidence_multiplier"]
@@ -518,6 +677,7 @@ class MarketAwarePredictor:
                 "news": news_component,
                 "volume": volume_component,
                 "risk": risk_component,
+                "ml": ml_component,
                 "market_adjustment": market_data["confidence_multiplier"],
                 "preliminary": preliminary_confidence
             },
@@ -526,10 +686,14 @@ class MarketAwarePredictor:
                 "news_sentiment": news_sentiment,
                 "news_confidence": news_confidence,
                 "volume_trend": volume_trend,
+                "volume_change_pct": volume_data.get("volume_change_pct", 0.0),  # From volume_data
                 "volume_correlation": volume_correlation,
                 "market_trend": market_data["trend_pct"],
                 "buy_threshold_used": buy_threshold,
-                "final_score_breakdown": f"Tech:{technical_component:.3f} + News:{news_component:.3f} + Vol:{volume_component:.3f} + Risk:{risk_component:.3f} × Market:{market_data['confidence_multiplier']:.2f} = {final_confidence:.3f}"
+                "ml_direction": ml_direction,
+                "ml_confidence": ml_confidence,
+                "ml_magnitude": ml_magnitude,
+                "final_score_breakdown": f"Tech:{technical_component:.3f} + News:{news_component:.3f} + Vol:{volume_component:.3f} + Risk:{risk_component:.3f} + ML:{ml_component:.3f} × Market:{market_data['confidence_multiplier']:.2f} = {final_confidence:.3f}"
             }
         }
     
@@ -547,11 +711,24 @@ class MarketAwarePredictor:
         news_data = self.get_news_sentiment(symbol)
         
         # Volume data is included in tech_data
+
+        # Get ML prediction
+        stock_data = yf.download(symbol, period="6mo", interval="1d")
+        try:
+            # Flatten multi-level columns
+            if len(stock_data.columns.names) > 1:
+                stock_data.columns = [col[0] if isinstance(col, tuple) else col for col in stock_data.columns]
+                stock_data.columns = stock_data.columns.get_level_values(0)
+            ml_data = self.ml_predictor.predict(stock_data)
+            print(f"✅ ML prediction: {ml_data["direction"]} (confidence: {ml_data["ml_confidence"]:.3f})")
+        except Exception as e:
+            print(f"❌ ML prediction failed: {e}")
+            raise Exception(f"ML prediction required but failed: {e}")
         volume_data = tech_data["volume_metrics"]
         
         # Calculate enhanced confidence with market context
         confidence_result = self.calculate_enhanced_confidence(
-            symbol, tech_data, news_data, volume_data, market_data
+            symbol, tech_data, news_data, volume_data, market_data, ml_data
         )
         
         # Compile prediction result

@@ -33,25 +33,37 @@ def fix_action_parsing(action_text):
     return action_mappings.get(action_text, action_text)
 
 def comprehensive_threshold_validation(prediction_data, features_dict):
-    """Comprehensive validation with volume veto power - PRESERVES incoming confidence"""
+    """Comprehensive validation with volume veto power and feature rebalancing"""
     symbol = prediction_data.get('symbol', 'UNKNOWN')
     raw_action = prediction_data.get('action', 'HOLD')
     confidence = prediction_data.get('confidence', 0.0)
-
+    
     # Fix compound actions first
     action = fix_action_parsing(raw_action)
-
+    
     # Extract critical features with better mapping
     volume_trend = features_dict.get('volume_trend', features_dict.get('volume_score', 0.5))
     technical_score = features_dict.get('technical_score', features_dict.get('tech_score', 0.5))
     news_sentiment = features_dict.get('news_sentiment', features_dict.get('news_score', 0.5))
     risk_assessment = features_dict.get('risk_assessment', features_dict.get('risk_score', 0.5))
     market_trend = features_dict.get('market_trend', features_dict.get('market_trend_pct', 0.0))
-
-    # PRESERVE INCOMING CONFIDENCE - no rebalancing calculation needed
-    # The ML-enhanced system already calculated optimal confidence
-    print(f"💎 PRESERVING: {symbol} incoming confidence {confidence:.3f} (from ML-enhanced calculation)")
-
+    
+    # Enhanced feature weights (volume gets veto power)
+    enhanced_weights = {
+        'volume_trend': 0.35,      # Increased from ~0.17
+        'technical_score': 0.25,   # Decreased from ~0.30
+        'news_sentiment': 0.20,    # Decreased from ~0.25
+        'risk_assessment': 0.20    # Decreased from ~0.28
+    }
+    
+    # Calculate rebalanced confidence
+    rebalanced_confidence = (
+        volume_trend * enhanced_weights['volume_trend'] +
+        technical_score * enhanced_weights['technical_score'] +
+        news_sentiment * enhanced_weights['news_sentiment'] +
+        risk_assessment * enhanced_weights['risk_assessment']
+    )
+    
     # VOLUME VETO POWER - Handle both old percentage format and new normalized format
     # Detect format: if abs(volume_trend) > 2.0, it's likely percentage format
     if abs(volume_trend) > 2.0:
@@ -67,16 +79,16 @@ def comprehensive_threshold_validation(prediction_data, features_dict):
     else:
         # Already normalized format (0.0 to 1.0)
         normalized_volume = volume_trend
-
+    
     # Apply veto logic with RELAXED thresholds for bullish markets
     if action == 'BUY' and normalized_volume < 0.2:  # Lowered from 0.3 to 0.2
         print(f"🚫 VOLUME VETO: {symbol} BUY -> HOLD (volume={normalized_volume:.3f} < 0.2, original={volume_trend:.3f})")
-        return 'HOLD', max(0.4, confidence * 0.7), {'veto': 'volume_low', 'original_action': action}
-
+        return 'HOLD', max(0.4, rebalanced_confidence * 0.7), {'veto': 'volume_low', 'original_action': action}
+    
     if action == 'SELL' and normalized_volume > 0.8:  # Raised from 0.7 to 0.8
         print(f"🚫 VOLUME VETO: {symbol} SELL -> HOLD (volume={normalized_volume:.3f} > 0.8, original={volume_trend:.3f})")
-        return 'HOLD', max(0.4, confidence * 0.7), {'veto': 'volume_high', 'original_action': action}
-
+        return 'HOLD', max(0.4, rebalanced_confidence * 0.7), {'veto': 'volume_high', 'original_action': action}
+    
     # Market context assessment
     market_penalty = 0.0
     if market_trend < -2.0 and action == 'BUY':
@@ -85,32 +97,32 @@ def comprehensive_threshold_validation(prediction_data, features_dict):
     elif market_trend > 2.0 and action == 'SELL':
         market_penalty = 0.15
         print(f"📈 MARKET PENALTY: {symbol} market_trend={market_trend:.1f}%, reducing SELL confidence")
-
-    # Apply threshold validation with enhanced logic using PRESERVED confidence
+    
+    # Apply threshold validation with enhanced logic
     if action == 'BUY':
-        # Use original confidence for threshold checks (not rebalanced)
-        min_confidence = 0.55  # Minimum threshold for BUY actions
-        if confidence < min_confidence:
-            print(f"❌ THRESHOLD FAIL: {symbol} BUY -> HOLD (confidence={confidence:.3f} < {min_confidence})")
-            return 'HOLD', confidence, {'threshold_fail': 'buy_confidence_low'}
-
-        # Additional BUY validation using features
-        if technical_score < 0.3 or news_sentiment < 0.0:
+        # Adjusted BUY requirements for bullish markets
+        min_confidence = 0.55  # Lowered from 0.65 to account for volume-heavy weighting
+        if rebalanced_confidence < min_confidence:
+            print(f"❌ THRESHOLD FAIL: {symbol} BUY -> HOLD (confidence={rebalanced_confidence:.3f} < {min_confidence})")
+            return 'HOLD', rebalanced_confidence, {'threshold_fail': 'buy_confidence_low'}
+        
+        # Additional BUY validation
+        if technical_score < 0.6 or news_sentiment < 0.5:
             print(f"❌ QUALITY FAIL: {symbol} BUY -> HOLD (tech={technical_score:.3f}, news={news_sentiment:.3f})")
-            return 'HOLD', confidence * 0.8, {'quality_fail': 'insufficient_support'}
-
+            return 'HOLD', rebalanced_confidence * 0.8, {'quality_fail': 'insufficient_support'}
+    
     elif action == 'SELL':
-        # Use original confidence for threshold checks
-        min_confidence = 0.55  # Minimum threshold for SELL actions
-        if confidence < min_confidence:
-            print(f"❌ THRESHOLD FAIL: {symbol} SELL -> HOLD (confidence={confidence:.3f} < {min_confidence})")
-            return 'HOLD', confidence, {'threshold_fail': 'sell_confidence_low'}
-
-    # Apply market penalty to PRESERVED confidence
-    final_confidence = max(0.3, confidence - market_penalty)
-
+        # Adjusted SELL requirements
+        min_confidence = 0.55  # Lowered from 0.60 for consistency
+        if rebalanced_confidence < min_confidence:
+            print(f"❌ THRESHOLD FAIL: {symbol} SELL -> HOLD (confidence={rebalanced_confidence:.3f} < {min_confidence})")
+            return 'HOLD', rebalanced_confidence, {'threshold_fail': 'sell_confidence_low'}
+    
+    # Apply market penalty
+    final_confidence = max(0.3, rebalanced_confidence - market_penalty)
+    
     print(f"✅ VALIDATION PASSED: {symbol} {action} (confidence: {confidence:.3f} -> {final_confidence:.3f})")
-    return action, final_confidence, {'validation': 'passed', 'confidence_preserved': True}
+    return action, final_confidence, {'validation': 'passed', 'rebalanced': True}
 
 def sector_correlation_check(predictions_batch):
     """Prevent contradictory signals within same sector"""
